@@ -19,7 +19,7 @@ type Consumer struct {
 	reader *kafka.Reader
 }
 
-type ProcessorFn func(ctx context.Context, v []byte, id string) error
+type ProcessorFn func(ctx context.Context, k, v []byte, id string) error
 
 type conf struct {
 	log         bool
@@ -103,14 +103,15 @@ func (c *Consumer) Consume(ctx context.Context, processor ProcessorFn) error {
 
 func (c *Consumer) processAndCommit(ctx context.Context, m kafka.Message, processor ProcessorFn) error {
 	fn := func() error {
-		event := m.Value
+		k := m.Key
+		v := m.Value
 
 		if c.conf.log {
-			fmt.Printf("Receive kafka message at topic/partition/offset %v/%v/%v: [%s] %s\n", m.Topic, m.Partition, m.Offset, string(m.Key), event)
+			fmt.Printf("Receive kafka message at topic/partition/offset %v/%v/%v: [%s] %s\n", m.Topic, m.Partition, m.Offset, string(k), v)
 		}
 
 		id := fmt.Sprintf("%v/%v", m.Partition, m.Offset)
-		if err := processor(ctx, event, id); err != nil {
+		if err := processor(ctx, k, v, id); err != nil {
 			return fmt.Errorf("Can't process kafka event: %w\n", err)
 		}
 

@@ -1,11 +1,6 @@
 package example
 
-import scala.concurrent.{ExecutionContext, Future}
-
 object Producer extends App {
-  println("producer")
-}
-
-class Producer()(implicit ec: ExecutionContext) {
-
+  private val client = sergiusd.redbus.Client("localhost", 50005)
+  client.produce("test-1", "message-1".getBytes)
 }

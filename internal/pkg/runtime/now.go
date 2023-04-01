@@ -1,6 +1,9 @@
 package runtime
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type NowFn func() time.Time
 
@@ -16,6 +19,16 @@ func Now() time.Time {
 
 func SetNowFn(fn NowFn) {
 	nowFn = fn
+}
+
+func SetStatic(str string) {
+	nowFn = func() time.Time {
+		t, err := time.Parse(time.RFC3339, str)
+		if err != nil {
+			panic(fmt.Sprintf("Can't parse date string %v: %v", str, err))
+		}
+		return t
+	}
 }
 
 func ResetNowFn() {

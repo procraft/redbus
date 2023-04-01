@@ -1,30 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"github.com/sergiusd/redbus/api/golang/pb"
+	"context"
 	"log"
-	"net"
 
 	"github.com/sergiusd/redbus/internal/app/config"
-	"github.com/sergiusd/redbus/internal/app/databus"
-
-	"google.golang.org/grpc"
+	"github.com/sergiusd/redbus/internal/pkg/app"
 )
 
 func main() {
+	ctx := context.Background()
 	conf := config.New()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.ServerPort))
+
+	redbus, err := app.New(ctx, conf)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf(err.Error())
 	}
 
-	s := grpc.NewServer()
-	pb.RegisterStreamServiceServer(s, databus.New(conf))
-
-	log.Println("Start")
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+	if err := redbus.Run(); err != nil {
+		log.Fatalf(err.Error())
 	}
-
 }

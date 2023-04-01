@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sergiusd/redbus/api/golang/pb"
 	"io"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/sergiusd/redbus/api/golang/pb"
 
 	"github.com/sergiusd/redbus/internal/pkg/kafka/consumer"
 )
@@ -57,7 +58,7 @@ func (b *DataBus) Consume(srv pb.StreamService_ConsumeServer) error {
 
 func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc, srv pb.StreamService_ConsumeServer, c *consumer.Consumer) error {
 
-	handler := func(ctx context.Context, message []byte, id string) error {
+	handler := func(ctx context.Context, messageKey, message []byte, id string) error {
 		b.consumerLog(c, "[%s] Receive message from kafka and send", id)
 		ok, err := b.consumerSend(c, srv, &pb.ConsumeResponse{Payload: &pb.ConsumeResponse_Payload{Id: id, Data: message}})
 		if !ok {
@@ -77,10 +78,11 @@ func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc,
 		if data.Payload.Ok {
 			b.consumerLog(c, "[%v] Message processing success", id)
 		} else {
-			b.consumerLog(c, "[%v] Message processing error", id)
-			// TODO add to fallback queue
+			b.consumerLog(c, "[%v] Message processing error: %v", id, data.Payload.Message)
+			if err := b.repeater.Add(ctx, c.GetTopic(), c.GetGroup(), c.GetID(), messageKey, message, id, data.Payload.Message); err != nil {
+				return fmt.Errorf("%w: %v", errHandler, err)
+			}
 		}
-		//return fmt.Errorf("%w: %v", errHandler, fmt.Errorf("Syntetic"))
 		return nil
 	}
 
@@ -101,7 +103,7 @@ func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc,
 				time.Sleep(b.conf.KafkaFailTimeout)
 			}
 			b.consumerLog(c, "Consume kafka starting...")
-			consumeErr = c.Consume(ctx, func(ctx context.Context, msg []byte, id string) error { return handler(ctx, msg, id) })
+			consumeErr = c.Consume(ctx, func(ctx context.Context, msgKey, msg []byte, id string) error { return handler(ctx, msgKey, msg, id) })
 			// handler error
 			if errors.Is(consumeErr, errHandler) {
 				cancel()

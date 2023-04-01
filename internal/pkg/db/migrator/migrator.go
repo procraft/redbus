@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
+
+	"github.com/sergiusd/redbus/internal/pkg/logger"
+
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
-
-	logger "gitlab.com/soholms/lms-whatsapp/pkg/gopkg-logger"
 )
 
 func New(host string, port int, user, password, name string) (*Migrator, error) {

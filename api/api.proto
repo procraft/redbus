@@ -1,9 +1,15 @@
 syntax = "proto3";
 
-package sergiusd.redbusApi;
+package sergiusd.redbus;
+
+option java_multiple_files = true;
+option java_package = "sergiusd.redbus";
+option java_outer_classname = "RedbusProto";
+option objc_class_prefix = "Redbus";
+
 option go_package = "api/client/golang/pb";
 
-service StreamService {
+service RedbusService {
   rpc Produce (ProduceRequest) returns (ProduceResponse) {}
   rpc Consume (stream ConsumeRequest) returns (stream ConsumeResponse) {}
 }
@@ -11,7 +17,7 @@ service StreamService {
 message ProduceRequest {
   string topic = 1;
   string key = 2;
-  string message = 3;
+  bytes message = 3;
 }
 
 message ProduceResponse {

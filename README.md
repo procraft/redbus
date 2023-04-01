@@ -1,6 +1,6 @@
 # Reliable Easy Data BUS
 
-<img src="./doc/logo.jpeg" height="100"/> <img src="./doc/logo.jpeg" height="100"/> <img src="./doc/logo.jpeg" height="100"/> <img src="./doc/logo.jpeg" height="100"/>
+<img src="./doc/logo.jpeg" height="347"/>
 
 ## Build
 

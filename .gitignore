@@ -3,13 +3,12 @@
 /bin
 /vendors
 
-/api/scala/api/target
-/api/scala/api/project/target
-/api/scala/api/project/project
-
-/api/scala/client/target
-/api/scala/client/project/target
-/api/scala/client/project/project
+/api/scala/.idea
+/api/scala/target
+/api/scala/project/project
+/api/scala/project/target
 
 /example/scala/target
+/example/scala/project/project
 /example/scala/project/target
+/example/scala/.idea

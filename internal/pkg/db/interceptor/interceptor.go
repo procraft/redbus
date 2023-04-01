@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	db "gitlab.com/soholms/lms-whatsapp/pkg/gopkg-db"
+	"github.com/sergiusd/redbus/internal/pkg/db"
 
 	"google.golang.org/grpc"
 )

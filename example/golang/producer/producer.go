@@ -4,8 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/sergiusd/redbus/api/golang/pb"
 	"log"
+
+	"github.com/sergiusd/redbus/api/golang/pb"
 
 	"google.golang.org/grpc/credentials/insecure"
 

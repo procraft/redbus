@@ -2,23 +2,16 @@ package databus
 
 import (
 	"context"
-	"github.com/sergiusd/redbus/api/golang/pb"
 	"log"
 	"strings"
 
-	"github.com/sergiusd/redbus/internal/pkg/kafka/producer"
-
-	"github.com/segmentio/kafka-go"
+	"github.com/sergiusd/redbus/api/golang/pb"
 )
 
 func (b *DataBus) Produce(ctx context.Context, req *pb.ProduceRequest) (*pb.ProduceResponse, error) {
 	log.Printf("Handle produce to topic %v: %v / %v", req.Topic, req.Key, req.Message)
 	if _, ok := b.producerMap[req.Topic]; !ok {
-		topicProducer, err := producer.New(ctx, b.kafkaHost, req.Topic,
-			producer.WithCreateTopic(b.conf.KafkaTopicNumPartitions, b.conf.KafkaTopicReplicationFactor),
-			producer.WithLog(),
-			producer.WithBalancer(&kafka.RoundRobin{}),
-		)
+		topicProducer, err := b.createProducerFn(ctx, req.Topic)
 		if err != nil {
 			return nil, err
 		}

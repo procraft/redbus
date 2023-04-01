@@ -7,13 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"gitlab.com/soholms/lms-whatsapp/pkg/gopkg-db/migrator"
+	"github.com/sergiusd/redbus/internal/pkg/logger"
+
+	"github.com/sergiusd/redbus/internal/pkg/db/migrator"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-
-	errors "gitlab.com/soholms/lms-whatsapp/pkg/gopkg-errors"
-	logger "gitlab.com/soholms/lms-whatsapp/pkg/gopkg-logger"
 )
 
 func New(ctx context.Context, host string, port int, user, password, name string, options ...Option) (IClient, error) {
@@ -43,7 +42,7 @@ func New(ctx context.Context, host string, port int, user, password, name string
 
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, errors.Internal.ErrWrap(ctx, "Unable to connect to database", err)
+		return nil, fmt.Errorf("Unable to connect to database: %w", err)
 	}
 
 	dbLog := &dbLog{}
@@ -53,7 +52,7 @@ func New(ctx context.Context, host string, port int, user, password, name string
 
 	pool.Pool, err = pgxpool.ConnectConfig(ctx, config)
 	if err != nil {
-		return nil, errors.Internal.ErrWrap(ctx, "Unable to connect to database", err)
+		return nil, fmt.Errorf("Unable to connect to database: %w", err)
 	}
 
 	if pool.log {
@@ -64,13 +63,13 @@ func New(ctx context.Context, host string, port int, user, password, name string
 	// migrations
 	mig, err := migrator.New(host, port, user, password, name)
 	if err != nil {
-		return nil, errors.Internal.ErrWrap(ctx, "Can't connect to database", err)
+		return nil, fmt.Errorf("Can't connect to database: %w", err)
 	}
 	if err := mig.Up(); err != nil {
-		return nil, errors.Internal.ErrWrap(ctx, "Can't roll up migrations", err)
+		return nil, fmt.Errorf("Can't roll up migrations: %w", err)
 	}
 	if err := mig.Close(); err != nil {
-		return nil, errors.Internal.ErrWrap(ctx, "Can't close migrate db connection", err)
+		return nil, fmt.Errorf("Can't close migrate db connection: %w", err)
 	}
 
 	return &pool, nil

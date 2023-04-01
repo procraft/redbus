@@ -1,25 +1,18 @@
-create table account
+create table repeat
 (
-    id          serial constraint account_pk primary key,
-    org_id      integer,
-    api_key     varchar(255),
-    hook_key    varchar(255),
-    channel_id  varchar(255) NOT NULL DEFAULT '',
-    plain_id    varchar(255) NOT NULL DEFAULT '',
-    status      varchar(255) NOT NULL DEFAULT '',
-    is_disabled boolean
+    id          bigserial constraint repeat_pk primary key,
+    topic       varchar(255) NOT NULL,
+    "group"       varchar(255) NOT NULL,
+    consumer_id varchar(255) NOT NULL,
+    message_id  varchar(255) NOT NULL,
+    key         bytea NOT NULL,
+    data        bytea NOT NULL,
+    attempt     int NOT NULL DEFAULT 0,
+    repeat_strategy jsonb,
+    error       text NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at  TIMESTAMPTZ NOT NULL,
+    finished_at  TIMESTAMPTZ
 );
-create index account_org_id_idx on account (org_id);
-create index account_hook_key_idx on account (hook_key);
-create index account_is_disabled_idx on account (is_disabled) where (NOT is_disabled);
-
-create table message
-(
-    id          varchar(255) primary key,
-    org_id      integer      NOT NULL,
-    external_id varchar(255) NOT NULL DEFAULT '',
-    created_at  timestamptz  NOT NULL,
-    error       text         NOT NULL DEFAULT '',
-    events      jsonb
-);
-create index message_external_id_idx on message (external_id);
+create index repeat_started_at_idx on repeat (started_at);
+create index repeat_finished_at_idx on repeat (finished_at) WHERE finished_at IS NOT NULL;

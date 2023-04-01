@@ -4,9 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/sergiusd/redbus/api/golang/consumer"
 	"log"
 	"time"
+
+	"github.com/sergiusd/redbus/api/golang/consumer"
 )
 
 const dataBusServerPort = 50005
