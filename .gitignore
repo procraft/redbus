@@ -1,0 +1,15 @@
+/.dev
+/.idea
+/bin
+/vendors
+
+/api/scala/api/target
+/api/scala/api/project/target
+/api/scala/api/project/project
+
+/api/scala/client/target
+/api/scala/client/project/target
+/api/scala/client/project/project
+
+/example/scala/target
+/example/scala/project/target
