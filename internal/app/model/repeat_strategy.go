@@ -26,6 +26,25 @@ func NewRepeatStrategy(maxAttempts int, calculator IRepeatCalculator) *RepeatStr
 	return &RepeatStrategy{MaxAttempts: maxAttempts, calculator: calculator}
 }
 
+func NewEvenRepeatStrategy(maxAttempts int, interval time.Duration) *RepeatStrategy {
+	return &RepeatStrategy{
+		MaxAttempts: maxAttempts,
+		calculator: RepeatCalculatorEven{
+			Interval: interval,
+		},
+	}
+}
+
+func NewProgressiveRepeatStrategy(maxAttempts int, interval time.Duration, multiplier float32) *RepeatStrategy {
+	return &RepeatStrategy{
+		MaxAttempts: maxAttempts,
+		calculator: RepeatCalculatorProgressive{
+			Interval:   interval,
+			Multiplier: multiplier,
+		},
+	}
+}
+
 func unmarshalRepeatStrategyConfig[T RepeatCalculator](b []byte) (T, error) {
 	var tmp repeatStrategyConfig[T]
 	err := json.Unmarshal(b, &tmp)
@@ -35,7 +54,7 @@ func unmarshalRepeatStrategyConfig[T RepeatCalculator](b []byte) (T, error) {
 type RepeatKind string
 
 const (
-	RepeatKindAnnual      RepeatKind = "annual"
+	RepeatKindEven        RepeatKind = "even"
 	RepeatKindProgressive            = "progressive"
 )
 
@@ -52,8 +71,8 @@ func (m *RepeatStrategy) UnmarshalJSON(b []byte) error {
 
 	var calculator IRepeatCalculator
 	switch tmp.Kind {
-	case RepeatKindAnnual:
-		calculator, err = unmarshalRepeatStrategyConfig[RepeatCalculatorAnnual](b)
+	case RepeatKindEven:
+		calculator, err = unmarshalRepeatStrategyConfig[RepeatCalculatorEven](b)
 	case RepeatKindProgressive:
 		calculator, err = unmarshalRepeatStrategyConfig[RepeatCalculatorProgressive](b)
 	default:
@@ -75,14 +94,14 @@ func (m *RepeatStrategy) GetNextStartedAt(attempt int) time.Time {
 }
 
 type RepeatCalculator interface {
-	RepeatCalculatorAnnual | RepeatCalculatorProgressive
+	RepeatCalculatorEven | RepeatCalculatorProgressive
 }
 
-type RepeatCalculatorAnnual struct {
+type RepeatCalculatorEven struct {
 	Interval time.Duration `json:"interval"`
 }
 
-func (c RepeatCalculatorAnnual) GetNextStartedAt(attempt int) time.Time {
+func (c RepeatCalculatorEven) GetNextStartedAt(_ int) time.Time {
 	return runtime.Now().Add(c.Interval)
 }
 

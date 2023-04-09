@@ -25,8 +25,11 @@ func main() {
 		log.Fatalln("Usage: example -t TOPIC -g GROUP")
 	}
 
-	c := consumer.New("localhost", dataBusServerPort, dataBusUnavailableTimeout)
-	if err := c.Consume(context.Background(), topic, group, func(data []byte, id string) error {
+	c := consumer.New("localhost", dataBusServerPort,
+		consumer.WithUnavailableTimeout(dataBusUnavailableTimeout),
+		consumer.WithRepeatStrategyEven(10, 1),
+	)
+	if err := c.Consume(context.Background(), topic, group, func(_ context.Context, data []byte, id string) error {
 		time.Sleep(time.Second)
 		return nil
 	}); err != nil {

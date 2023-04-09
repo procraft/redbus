@@ -1,8 +1,9 @@
 module github.com/sergiusd/redbus
 
-go 1.18
+go 1.20
 
 require (
+	github.com/go-chi/chi v1.5.4
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
@@ -11,6 +12,7 @@ require (
 	github.com/lib/pq v1.10.2
 	github.com/segmentio/kafka-go v0.4.35
 	github.com/stretchr/testify v1.8.1
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	google.golang.org/grpc v1.49.0
 )
 

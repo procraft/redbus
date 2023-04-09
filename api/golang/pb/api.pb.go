@@ -5,6 +5,7 @@ package pb
 
 import (
 	context "context"
+	encoding_binary "encoding/binary"
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
@@ -29,7 +30,7 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 type ProduceRequest struct {
 	Topic                string   `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
 	Key                  string   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Message              string   `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	Message              []byte   `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -82,15 +83,15 @@ func (m *ProduceRequest) GetKey() string {
 	return ""
 }
 
-func (m *ProduceRequest) GetMessage() string {
+func (m *ProduceRequest) GetMessage() []byte {
 	if m != nil {
 		return m.Message
 	}
-	return ""
+	return nil
 }
 
 type ProduceResponse struct {
-	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
+	Ok                   bool     `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -129,9 +130,9 @@ func (m *ProduceResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ProduceResponse proto.InternalMessageInfo
 
-func (m *ProduceResponse) GetResult() bool {
+func (m *ProduceResponse) GetOk() bool {
 	if m != nil {
-		return m.Result
+		return m.Ok
 	}
 	return false
 }
@@ -192,12 +193,13 @@ func (m *ConsumeRequest) GetPayload() *ConsumeRequest_Payload {
 }
 
 type ConsumeRequest_Connect struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic                string   `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Group                string   `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Id                   string                           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Topic                string                           `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	Group                string                           `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
+	Strategy             *ConsumeRequest_Connect_Strategy `protobuf:"bytes,4,opt,name=strategy,proto3" json:"strategy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
+	XXX_unrecognized     []byte                           `json:"-"`
+	XXX_sizecache        int32                            `json:"-"`
 }
 
 func (m *ConsumeRequest_Connect) Reset()         { *m = ConsumeRequest_Connect{} }
@@ -252,6 +254,186 @@ func (m *ConsumeRequest_Connect) GetGroup() string {
 		return m.Group
 	}
 	return ""
+}
+
+func (m *ConsumeRequest_Connect) GetStrategy() *ConsumeRequest_Connect_Strategy {
+	if m != nil {
+		return m.Strategy
+	}
+	return nil
+}
+
+type ConsumeRequest_Connect_Strategy struct {
+	MaxAttempts          int32                                              `protobuf:"varint,1,opt,name=maxAttempts,proto3" json:"maxAttempts,omitempty"`
+	EvenConfig           *ConsumeRequest_Connect_Strategy_EvenConfig        `protobuf:"bytes,2,opt,name=evenConfig,proto3" json:"evenConfig,omitempty"`
+	ProgressiveConfig    *ConsumeRequest_Connect_Strategy_ProgressiveConfig `protobuf:"bytes,3,opt,name=progressiveConfig,proto3" json:"progressiveConfig,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                                           `json:"-"`
+	XXX_unrecognized     []byte                                             `json:"-"`
+	XXX_sizecache        int32                                              `json:"-"`
+}
+
+func (m *ConsumeRequest_Connect_Strategy) Reset()         { *m = ConsumeRequest_Connect_Strategy{} }
+func (m *ConsumeRequest_Connect_Strategy) String() string { return proto.CompactTextString(m) }
+func (*ConsumeRequest_Connect_Strategy) ProtoMessage()    {}
+func (*ConsumeRequest_Connect_Strategy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0}
+}
+func (m *ConsumeRequest_Connect_Strategy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConsumeRequest_Connect_Strategy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConsumeRequest_Connect_Strategy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConsumeRequest_Connect_Strategy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy.Merge(m, src)
+}
+func (m *ConsumeRequest_Connect_Strategy) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConsumeRequest_Connect_Strategy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConsumeRequest_Connect_Strategy proto.InternalMessageInfo
+
+func (m *ConsumeRequest_Connect_Strategy) GetMaxAttempts() int32 {
+	if m != nil {
+		return m.MaxAttempts
+	}
+	return 0
+}
+
+func (m *ConsumeRequest_Connect_Strategy) GetEvenConfig() *ConsumeRequest_Connect_Strategy_EvenConfig {
+	if m != nil {
+		return m.EvenConfig
+	}
+	return nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy) GetProgressiveConfig() *ConsumeRequest_Connect_Strategy_ProgressiveConfig {
+	if m != nil {
+		return m.ProgressiveConfig
+	}
+	return nil
+}
+
+type ConsumeRequest_Connect_Strategy_EvenConfig struct {
+	IntervalSec          int32    `protobuf:"varint,1,opt,name=intervalSec,proto3" json:"intervalSec,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Reset() {
+	*m = ConsumeRequest_Connect_Strategy_EvenConfig{}
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) String() string {
+	return proto.CompactTextString(m)
+}
+func (*ConsumeRequest_Connect_Strategy_EvenConfig) ProtoMessage() {}
+func (*ConsumeRequest_Connect_Strategy_EvenConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0, 0}
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.Merge(m, src)
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig proto.InternalMessageInfo
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) GetIntervalSec() int32 {
+	if m != nil {
+		return m.IntervalSec
+	}
+	return 0
+}
+
+type ConsumeRequest_Connect_Strategy_ProgressiveConfig struct {
+	IntervalSec          int32    `protobuf:"varint,1,opt,name=intervalSec,proto3" json:"intervalSec,omitempty"`
+	Multiplier           float32  `protobuf:"fixed32,2,opt,name=multiplier,proto3" json:"multiplier,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Reset() {
+	*m = ConsumeRequest_Connect_Strategy_ProgressiveConfig{}
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) String() string {
+	return proto.CompactTextString(m)
+}
+func (*ConsumeRequest_Connect_Strategy_ProgressiveConfig) ProtoMessage() {}
+func (*ConsumeRequest_Connect_Strategy_ProgressiveConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0, 1}
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.Merge(m, src)
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig proto.InternalMessageInfo
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) GetIntervalSec() int32 {
+	if m != nil {
+		return m.IntervalSec
+	}
+	return 0
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) GetMultiplier() float32 {
+	if m != nil {
+		return m.Multiplier
+	}
+	return 0
 }
 
 type ConsumeRequest_Payload struct {
@@ -475,46 +657,59 @@ func (m *ConsumeResponse_Payload) GetData() []byte {
 }
 
 func init() {
-	proto.RegisterType((*ProduceRequest)(nil), "protobuf.ProduceRequest")
-	proto.RegisterType((*ProduceResponse)(nil), "protobuf.ProduceResponse")
-	proto.RegisterType((*ConsumeRequest)(nil), "protobuf.ConsumeRequest")
-	proto.RegisterType((*ConsumeRequest_Connect)(nil), "protobuf.ConsumeRequest.Connect")
-	proto.RegisterType((*ConsumeRequest_Payload)(nil), "protobuf.ConsumeRequest.Payload")
-	proto.RegisterType((*ConsumeResponse)(nil), "protobuf.ConsumeResponse")
-	proto.RegisterType((*ConsumeResponse_Connect)(nil), "protobuf.ConsumeResponse.Connect")
-	proto.RegisterType((*ConsumeResponse_Payload)(nil), "protobuf.ConsumeResponse.Payload")
+	proto.RegisterType((*ProduceRequest)(nil), "sergiusd.redbus.ProduceRequest")
+	proto.RegisterType((*ProduceResponse)(nil), "sergiusd.redbus.ProduceResponse")
+	proto.RegisterType((*ConsumeRequest)(nil), "sergiusd.redbus.ConsumeRequest")
+	proto.RegisterType((*ConsumeRequest_Connect)(nil), "sergiusd.redbus.ConsumeRequest.Connect")
+	proto.RegisterType((*ConsumeRequest_Connect_Strategy)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy")
+	proto.RegisterType((*ConsumeRequest_Connect_Strategy_EvenConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy.EvenConfig")
+	proto.RegisterType((*ConsumeRequest_Connect_Strategy_ProgressiveConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy.ProgressiveConfig")
+	proto.RegisterType((*ConsumeRequest_Payload)(nil), "sergiusd.redbus.ConsumeRequest.Payload")
+	proto.RegisterType((*ConsumeResponse)(nil), "sergiusd.redbus.ConsumeResponse")
+	proto.RegisterType((*ConsumeResponse_Connect)(nil), "sergiusd.redbus.ConsumeResponse.Connect")
+	proto.RegisterType((*ConsumeResponse_Payload)(nil), "sergiusd.redbus.ConsumeResponse.Payload")
 }
 
 func init() { proto.RegisterFile("api/api.proto", fileDescriptor_1b40cafcd4234784) }
 
 var fileDescriptor_1b40cafcd4234784 = []byte{
-	// 404 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0xcf, 0x4e, 0xea, 0x40,
-	0x14, 0xc6, 0x99, 0x72, 0xa1, 0xdc, 0x73, 0x2f, 0x60, 0x26, 0xc4, 0xd4, 0x2e, 0x1a, 0xec, 0xc2,
-	0xe0, 0x42, 0x30, 0xb0, 0x93, 0x8d, 0xf1, 0xcf, 0x9e, 0x94, 0x9d, 0xbb, 0xa1, 0x1d, 0x9b, 0x86,
-	0xd2, 0x19, 0xfb, 0xc7, 0x84, 0xbd, 0xef, 0xa0, 0x8f, 0xe4, 0xd2, 0x47, 0x30, 0xf8, 0x00, 0xbe,
-	0x82, 0xe9, 0x74, 0x0a, 0x2d, 0x10, 0xe2, 0xaa, 0x73, 0xa6, 0xe7, 0xfb, 0x7a, 0xbe, 0x5f, 0x67,
-	0xa0, 0x49, 0xb8, 0x37, 0x20, 0xdc, 0xeb, 0xf3, 0x90, 0xc5, 0x0c, 0x37, 0xc4, 0x63, 0x96, 0x3c,
-	0x9a, 0x16, 0xb4, 0x26, 0x21, 0x73, 0x12, 0x9b, 0x5a, 0xf4, 0x29, 0xa1, 0x51, 0x8c, 0x3b, 0x50,
-	0x8b, 0x19, 0xf7, 0x6c, 0x0d, 0x75, 0x51, 0xef, 0xaf, 0x95, 0x15, 0xf8, 0x08, 0xaa, 0x73, 0xba,
-	0xd4, 0x14, 0xb1, 0x97, 0x2e, 0xb1, 0x06, 0xea, 0x82, 0x46, 0x11, 0x71, 0xa9, 0x56, 0x15, 0xbb,
-	0x79, 0x69, 0x9e, 0x43, 0x7b, 0xed, 0x19, 0x71, 0x16, 0x44, 0x14, 0x1f, 0x43, 0x3d, 0xa4, 0x51,
-	0xe2, 0xc7, 0xc2, 0xb5, 0x61, 0xc9, 0xca, 0x7c, 0x51, 0xa0, 0x75, 0xcb, 0x82, 0x28, 0x59, 0xac,
-	0xbf, 0x7f, 0x05, 0xaa, 0xcd, 0x82, 0x80, 0xda, 0x59, 0xef, 0xbf, 0x61, 0xb7, 0x9f, 0x4f, 0xdb,
-	0x2f, 0xb7, 0xa6, 0x65, 0xda, 0x67, 0xe5, 0x82, 0x54, 0xcb, 0xc9, 0xd2, 0x67, 0xc4, 0x11, 0x93,
-	0x1e, 0xd2, 0x4e, 0xb2, 0x3e, 0x2b, 0x17, 0xe8, 0xf7, 0xa0, 0x4a, 0x3f, 0xdc, 0x02, 0xc5, 0x73,
-	0x64, 0x7e, 0xc5, 0x73, 0x36, 0x48, 0x94, 0x22, 0x92, 0x0e, 0xd4, 0xdc, 0x90, 0x25, 0x5c, 0xc6,
-	0xcf, 0x0a, 0x7d, 0x04, 0xaa, 0xb4, 0x4e, 0x6d, 0xd8, 0x5c, 0x06, 0x56, 0xd8, 0xbc, 0x48, 0x4c,
-	0x29, 0x13, 0xfb, 0x46, 0xd0, 0x5e, 0xcf, 0x27, 0x91, 0x8d, 0xb7, 0x39, 0x9c, 0xee, 0xc9, 0x92,
-	0xf5, 0xee, 0x82, 0x18, 0x6f, 0x83, 0x38, 0x20, 0xde, 0x21, 0x31, 0x2a, 0x91, 0xf8, 0x5d, 0x04,
-	0xfd, 0xa2, 0x94, 0xbb, 0x84, 0x0f, 0xc3, 0x1f, 0x87, 0xc4, 0x44, 0x28, 0xfe, 0x5b, 0x62, 0x3d,
-	0x7c, 0x45, 0xd0, 0x9c, 0xc6, 0x21, 0x25, 0x8b, 0x29, 0x0d, 0x9f, 0x3d, 0x9b, 0xe2, 0x6b, 0x50,
-	0xe5, 0xa9, 0xc1, 0xda, 0x66, 0xd8, 0xf2, 0xe1, 0xd4, 0x4f, 0xf6, 0xbc, 0xc9, 0x62, 0x98, 0x15,
-	0x7c, 0x27, 0xe6, 0x4e, 0xb3, 0x15, 0x1d, 0xca, 0xff, 0xbd, 0xe8, 0xb0, 0x05, 0xc2, 0xac, 0xf4,
-	0xd0, 0x25, 0xba, 0x39, 0x7b, 0x5f, 0x19, 0xe8, 0x63, 0x65, 0xa0, 0xcf, 0x95, 0x81, 0xde, 0xbe,
-	0x8c, 0xca, 0x43, 0x27, 0xbd, 0x3c, 0xb6, 0xef, 0xd1, 0x20, 0x1e, 0xb8, 0xcc, 0x27, 0x81, 0x3b,
-	0xe0, 0xb3, 0x59, 0x5d, 0xf8, 0x8c, 0x7e, 0x02, 0x00, 0x00, 0xff, 0xff, 0x26, 0xfe, 0xfe, 0x3f,
-	0x5b, 0x03, 0x00, 0x00,
+	// 561 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x31, 0x6e, 0xdb, 0x30,
+	0x14, 0x0d, 0xe5, 0x38, 0x76, 0xbe, 0x13, 0xbb, 0x21, 0x32, 0x18, 0x1a, 0x5c, 0xd7, 0x4b, 0xbd,
+	0x54, 0x09, 0xe2, 0xb1, 0x53, 0x1c, 0x14, 0xe8, 0x50, 0x14, 0x06, 0x8d, 0x2e, 0xed, 0x44, 0x4b,
+	0xac, 0x40, 0xd8, 0x16, 0x59, 0x92, 0x32, 0xea, 0xb5, 0xa7, 0xc8, 0xdc, 0x2b, 0xf4, 0x12, 0x1d,
+	0x7b, 0x84, 0xc2, 0x05, 0x7a, 0x8b, 0x02, 0x85, 0x28, 0x59, 0x91, 0xe4, 0x04, 0x71, 0x36, 0xf1,
+	0x8b, 0xff, 0xfd, 0xf7, 0x1e, 0x1e, 0x3f, 0x9c, 0x52, 0xc9, 0x2f, 0xa8, 0xe4, 0x9e, 0x54, 0xc2,
+	0x08, 0xdc, 0xd1, 0x4c, 0x85, 0x3c, 0xd6, 0x81, 0xa7, 0x58, 0x30, 0x8b, 0xf5, 0x80, 0x40, 0x7b,
+	0xa2, 0x44, 0x10, 0xfb, 0x8c, 0xb0, 0x2f, 0x31, 0xd3, 0x06, 0x9f, 0x43, 0xdd, 0x08, 0xc9, 0xfd,
+	0x2e, 0xea, 0xa3, 0xe1, 0x31, 0x49, 0x0f, 0xf8, 0x19, 0xd4, 0xe6, 0x6c, 0xdd, 0x75, 0x6c, 0x2d,
+	0xf9, 0xc4, 0x5d, 0x68, 0x2c, 0x99, 0xd6, 0x34, 0x64, 0xdd, 0x5a, 0x1f, 0x0d, 0x4f, 0xc8, 0xf6,
+	0x38, 0x78, 0x01, 0x9d, 0x1c, 0x53, 0x4b, 0x11, 0x69, 0x86, 0xdb, 0xe0, 0x88, 0xb9, 0x45, 0x6c,
+	0x12, 0x47, 0xcc, 0x07, 0x7f, 0xeb, 0xd0, 0xbe, 0x11, 0x91, 0x8e, 0x97, 0xf9, 0xdc, 0x6b, 0x68,
+	0xf8, 0x22, 0x8a, 0x98, 0x6f, 0xec, 0xbd, 0xd6, 0xd5, 0x4b, 0xaf, 0x42, 0xd6, 0x2b, 0x77, 0x24,
+	0xc7, 0xe4, 0x3a, 0xd9, 0xf6, 0x25, 0x10, 0x92, 0xae, 0x17, 0x82, 0x06, 0x96, 0xe8, 0x1e, 0x10,
+	0x93, 0xf4, 0x3a, 0xd9, 0xf6, 0xb9, 0xb7, 0x87, 0xd0, 0xc8, 0x70, 0x13, 0xd2, 0x3c, 0xc8, 0x6c,
+	0x70, 0x78, 0x70, 0xe7, 0x8c, 0x53, 0x74, 0xe6, 0x1c, 0xea, 0xa1, 0x12, 0xb1, 0xb4, 0x2e, 0x1c,
+	0x93, 0xf4, 0x80, 0xdf, 0x41, 0x53, 0x1b, 0x45, 0x0d, 0x0b, 0xd7, 0xdd, 0x43, 0xcb, 0xe5, 0x72,
+	0x4f, 0x39, 0xde, 0x34, 0xeb, 0x23, 0x39, 0x82, 0xfb, 0xad, 0x06, 0xcd, 0x6d, 0x19, 0xf7, 0xa1,
+	0xb5, 0xa4, 0x5f, 0xaf, 0x8d, 0x61, 0x4b, 0x69, 0xb4, 0xe5, 0x57, 0x27, 0xc5, 0x12, 0xfe, 0x04,
+	0xc0, 0x56, 0x2c, 0xba, 0x11, 0xd1, 0x67, 0x1e, 0x66, 0x56, 0xbc, 0x7e, 0xea, 0x78, 0xef, 0x4d,
+	0x0e, 0x41, 0x0a, 0x70, 0x58, 0xc2, 0x99, 0x54, 0x22, 0x54, 0x4c, 0x6b, 0xbe, 0x62, 0xd9, 0x8c,
+	0x9a, 0x9d, 0x31, 0x7e, 0xf2, 0x8c, 0x49, 0x15, 0x89, 0xec, 0x82, 0xbb, 0x1e, 0xc0, 0x1d, 0x97,
+	0x44, 0x3e, 0x8f, 0x0c, 0x53, 0x2b, 0xba, 0x98, 0x32, 0x7f, 0x2b, 0xbf, 0x50, 0x72, 0x3f, 0xc0,
+	0xd9, 0x0e, 0xee, 0xe3, 0x6d, 0xb8, 0x07, 0xb0, 0x8c, 0x17, 0x86, 0xcb, 0x05, 0x67, 0xca, 0xba,
+	0xe6, 0x90, 0x42, 0xc5, 0x1d, 0x41, 0x23, 0x8b, 0x4b, 0x35, 0xce, 0xc5, 0xb7, 0x90, 0x66, 0x23,
+	0x7f, 0x0b, 0xff, 0x10, 0x74, 0x72, 0x13, 0xb2, 0xc7, 0x30, 0xae, 0x26, 0x7d, 0xf8, 0xb0, 0x6f,
+	0x69, 0xcb, 0x6e, 0xd4, 0xc7, 0xd5, 0xa8, 0x3f, 0x8e, 0xb1, 0x93, 0xf5, 0x51, 0x29, 0xea, 0xfb,
+	0x09, 0x72, 0x5f, 0x95, 0x5c, 0x28, 0xbd, 0x0f, 0x0c, 0x87, 0x01, 0x35, 0xd4, 0x76, 0x9c, 0x10,
+	0xfb, 0x7d, 0xf5, 0x03, 0xc1, 0x29, 0xb1, 0x7c, 0xa6, 0x4c, 0xad, 0xb8, 0xcf, 0xf0, 0x7b, 0x68,
+	0x64, 0xdb, 0x01, 0x3f, 0xdf, 0xe1, 0x5c, 0xde, 0x45, 0x6e, 0xff, 0xe1, 0x0b, 0xa9, 0xa8, 0xc1,
+	0x01, 0x26, 0x56, 0x45, 0xa2, 0xf4, 0x1e, 0xbc, 0x72, 0xfe, 0xee, 0xc1, 0xab, 0x98, 0x34, 0x38,
+	0x18, 0xa2, 0x4b, 0x34, 0x7e, 0xfb, 0x73, 0xd3, 0x43, 0xbf, 0x36, 0x3d, 0xf4, 0x7b, 0xd3, 0x43,
+	0xb7, 0x7f, 0x7a, 0x07, 0x50, 0x5d, 0x9c, 0xe3, 0x56, 0xaa, 0x6a, 0x92, 0xac, 0xd5, 0x09, 0xfa,
+	0x68, 0xf7, 0x6c, 0x28, 0x16, 0x34, 0x0a, 0x2f, 0xe4, 0xec, 0xbb, 0x73, 0x94, 0xfe, 0x9e, 0x1d,
+	0xd9, 0xbd, 0x3b, 0xfa, 0x1f, 0x00, 0x00, 0xff, 0xff, 0x59, 0xa0, 0xf4, 0xa8, 0x88, 0x05, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -525,55 +720,55 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// StreamServiceClient is the client API for StreamService service.
+// RedbusServiceClient is the client API for RedbusService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type StreamServiceClient interface {
+type RedbusServiceClient interface {
 	Produce(ctx context.Context, in *ProduceRequest, opts ...grpc.CallOption) (*ProduceResponse, error)
-	Consume(ctx context.Context, opts ...grpc.CallOption) (StreamService_ConsumeClient, error)
+	Consume(ctx context.Context, opts ...grpc.CallOption) (RedbusService_ConsumeClient, error)
 }
 
-type streamServiceClient struct {
+type redbusServiceClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewStreamServiceClient(cc *grpc.ClientConn) StreamServiceClient {
-	return &streamServiceClient{cc}
+func NewRedbusServiceClient(cc *grpc.ClientConn) RedbusServiceClient {
+	return &redbusServiceClient{cc}
 }
 
-func (c *streamServiceClient) Produce(ctx context.Context, in *ProduceRequest, opts ...grpc.CallOption) (*ProduceResponse, error) {
+func (c *redbusServiceClient) Produce(ctx context.Context, in *ProduceRequest, opts ...grpc.CallOption) (*ProduceResponse, error) {
 	out := new(ProduceResponse)
-	err := c.cc.Invoke(ctx, "/protobuf.StreamService/Produce", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/sergiusd.redbus.RedbusService/Produce", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *streamServiceClient) Consume(ctx context.Context, opts ...grpc.CallOption) (StreamService_ConsumeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_StreamService_serviceDesc.Streams[0], "/protobuf.StreamService/Consume", opts...)
+func (c *redbusServiceClient) Consume(ctx context.Context, opts ...grpc.CallOption) (RedbusService_ConsumeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RedbusService_serviceDesc.Streams[0], "/sergiusd.redbus.RedbusService/Consume", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &streamServiceConsumeClient{stream}
+	x := &redbusServiceConsumeClient{stream}
 	return x, nil
 }
 
-type StreamService_ConsumeClient interface {
+type RedbusService_ConsumeClient interface {
 	Send(*ConsumeRequest) error
 	Recv() (*ConsumeResponse, error)
 	grpc.ClientStream
 }
 
-type streamServiceConsumeClient struct {
+type redbusServiceConsumeClient struct {
 	grpc.ClientStream
 }
 
-func (x *streamServiceConsumeClient) Send(m *ConsumeRequest) error {
+func (x *redbusServiceConsumeClient) Send(m *ConsumeRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *streamServiceConsumeClient) Recv() (*ConsumeResponse, error) {
+func (x *redbusServiceConsumeClient) Recv() (*ConsumeResponse, error) {
 	m := new(ConsumeResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -581,64 +776,64 @@ func (x *streamServiceConsumeClient) Recv() (*ConsumeResponse, error) {
 	return m, nil
 }
 
-// StreamServiceServer is the server API for StreamService service.
-type StreamServiceServer interface {
+// RedbusServiceServer is the server API for RedbusService service.
+type RedbusServiceServer interface {
 	Produce(context.Context, *ProduceRequest) (*ProduceResponse, error)
-	Consume(StreamService_ConsumeServer) error
+	Consume(RedbusService_ConsumeServer) error
 }
 
-// UnimplementedStreamServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedStreamServiceServer struct {
+// UnimplementedRedbusServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedRedbusServiceServer struct {
 }
 
-func (*UnimplementedStreamServiceServer) Produce(ctx context.Context, req *ProduceRequest) (*ProduceResponse, error) {
+func (*UnimplementedRedbusServiceServer) Produce(ctx context.Context, req *ProduceRequest) (*ProduceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Produce not implemented")
 }
-func (*UnimplementedStreamServiceServer) Consume(srv StreamService_ConsumeServer) error {
+func (*UnimplementedRedbusServiceServer) Consume(srv RedbusService_ConsumeServer) error {
 	return status.Errorf(codes.Unimplemented, "method Consume not implemented")
 }
 
-func RegisterStreamServiceServer(s *grpc.Server, srv StreamServiceServer) {
-	s.RegisterService(&_StreamService_serviceDesc, srv)
+func RegisterRedbusServiceServer(s *grpc.Server, srv RedbusServiceServer) {
+	s.RegisterService(&_RedbusService_serviceDesc, srv)
 }
 
-func _StreamService_Produce_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RedbusService_Produce_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ProduceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StreamServiceServer).Produce(ctx, in)
+		return srv.(RedbusServiceServer).Produce(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/protobuf.StreamService/Produce",
+		FullMethod: "/sergiusd.redbus.RedbusService/Produce",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamServiceServer).Produce(ctx, req.(*ProduceRequest))
+		return srv.(RedbusServiceServer).Produce(ctx, req.(*ProduceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StreamService_Consume_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(StreamServiceServer).Consume(&streamServiceConsumeServer{stream})
+func _RedbusService_Consume_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RedbusServiceServer).Consume(&redbusServiceConsumeServer{stream})
 }
 
-type StreamService_ConsumeServer interface {
+type RedbusService_ConsumeServer interface {
 	Send(*ConsumeResponse) error
 	Recv() (*ConsumeRequest, error)
 	grpc.ServerStream
 }
 
-type streamServiceConsumeServer struct {
+type redbusServiceConsumeServer struct {
 	grpc.ServerStream
 }
 
-func (x *streamServiceConsumeServer) Send(m *ConsumeResponse) error {
+func (x *redbusServiceConsumeServer) Send(m *ConsumeResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *streamServiceConsumeServer) Recv() (*ConsumeRequest, error) {
+func (x *redbusServiceConsumeServer) Recv() (*ConsumeRequest, error) {
 	m := new(ConsumeRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -646,19 +841,19 @@ func (x *streamServiceConsumeServer) Recv() (*ConsumeRequest, error) {
 	return m, nil
 }
 
-var _StreamService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "protobuf.StreamService",
-	HandlerType: (*StreamServiceServer)(nil),
+var _RedbusService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "sergiusd.redbus.RedbusService",
+	HandlerType: (*RedbusServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Produce",
-			Handler:    _StreamService_Produce_Handler,
+			Handler:    _RedbusService_Produce_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Consume",
-			Handler:       _StreamService_Consume_Handler,
+			Handler:       _RedbusService_Consume_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -738,9 +933,9 @@ func (m *ProduceResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Result {
+	if m.Ok {
 		i--
-		if m.Result {
+		if m.Ok {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
@@ -826,6 +1021,18 @@ func (m *ConsumeRequest_Connect) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.Strategy != nil {
+		{
+			size, err := m.Strategy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApi(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
 	if len(m.Group) > 0 {
 		i -= len(m.Group)
 		copy(dAtA[i:], m.Group)
@@ -846,6 +1053,132 @@ func (m *ConsumeRequest_Connect) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		i = encodeVarintApi(dAtA, i, uint64(len(m.Id)))
 		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConsumeRequest_Connect_Strategy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.ProgressiveConfig != nil {
+		{
+			size, err := m.ProgressiveConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApi(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.EvenConfig != nil {
+		{
+			size, err := m.EvenConfig.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintApi(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.MaxAttempts != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.MaxAttempts))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.IntervalSec != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.IntervalSec))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Multiplier != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Multiplier))))
+		i--
+		dAtA[i] = 0x15
+	}
+	if m.IntervalSec != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.IntervalSec))
+		i--
+		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
@@ -1071,7 +1404,7 @@ func (m *ProduceResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Result {
+	if m.Ok {
 		n += 2
 	}
 	if m.XXX_unrecognized != nil {
@@ -1117,6 +1450,66 @@ func (m *ConsumeRequest_Connect) Size() (n int) {
 	l = len(m.Group)
 	if l > 0 {
 		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.Strategy != nil {
+		l = m.Strategy.Size()
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConsumeRequest_Connect_Strategy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.MaxAttempts != 0 {
+		n += 1 + sovApi(uint64(m.MaxAttempts))
+	}
+	if m.EvenConfig != nil {
+		l = m.EvenConfig.Size()
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.ProgressiveConfig != nil {
+		l = m.ProgressiveConfig.Size()
+		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.IntervalSec != 0 {
+		n += 1 + sovApi(uint64(m.IntervalSec))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.IntervalSec != 0 {
+		n += 1 + sovApi(uint64(m.IntervalSec))
+	}
+	if m.Multiplier != 0 {
+		n += 5
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1305,7 +1698,7 @@ func (m *ProduceRequest) Unmarshal(dAtA []byte) error {
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
 			}
-			var stringLen uint64
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowApi
@@ -1315,23 +1708,25 @@ func (m *ProduceRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if byteLen < 0 {
 				return ErrInvalidLengthApi
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + byteLen
 			if postIndex < 0 {
 				return ErrInvalidLengthApi
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Message = string(dAtA[iNdEx:postIndex])
+			m.Message = append(m.Message[:0], dAtA[iNdEx:postIndex]...)
+			if m.Message == nil {
+				m.Message = []byte{}
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1386,7 +1781,7 @@ func (m *ProduceResponse) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Result", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Ok", wireType)
 			}
 			var v int
 			for shift := uint(0); ; shift += 7 {
@@ -1403,7 +1798,7 @@ func (m *ProduceResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-			m.Result = bool(v != 0)
+			m.Ok = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipApi(dAtA[iNdEx:])
@@ -1674,6 +2069,335 @@ func (m *ConsumeRequest_Connect) Unmarshal(dAtA []byte) error {
 			}
 			m.Group = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Strategy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Strategy == nil {
+				m.Strategy = &ConsumeRequest_Connect_Strategy{}
+			}
+			if err := m.Strategy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Strategy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Strategy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxAttempts", wireType)
+			}
+			m.MaxAttempts = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxAttempts |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EvenConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.EvenConfig == nil {
+				m.EvenConfig = &ConsumeRequest_Connect_Strategy_EvenConfig{}
+			}
+			if err := m.EvenConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProgressiveConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ProgressiveConfig == nil {
+				m.ProgressiveConfig = &ConsumeRequest_Connect_Strategy_ProgressiveConfig{}
+			}
+			if err := m.ProgressiveConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: EvenConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: EvenConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IntervalSec", wireType)
+			}
+			m.IntervalSec = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.IntervalSec |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ProgressiveConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ProgressiveConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field IntervalSec", wireType)
+			}
+			m.IntervalSec = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.IntervalSec |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Multiplier", wireType)
+			}
+			var v uint32
+			if (iNdEx + 4) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			iNdEx += 4
+			m.Multiplier = float32(math.Float32frombits(v))
 		default:
 			iNdEx = preIndex
 			skippy, err := skipApi(dAtA[iNdEx:])

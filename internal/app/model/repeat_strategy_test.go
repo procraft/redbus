@@ -18,7 +18,7 @@ func TestRepeatStrategy(t *testing.T) {
 		expected []string
 	}{
 		{
-			conf: fmt.Sprintf(`{"kind": "%s", "max": 5, "config": {"interval": %d}}`, RepeatKindAnnual, 5*time.Second),
+			conf: fmt.Sprintf(`{"kind": "%s", "max": 5, "config": {"interval": %d}}`, RepeatKindEven, 5*time.Second),
 			expected: []string{
 				"2020-01-01T10:00:05Z",
 				"2020-01-01T10:00:05Z",

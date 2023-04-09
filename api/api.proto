@@ -7,7 +7,7 @@ option java_package = "sergiusd.redbus";
 option java_outer_classname = "RedbusProto";
 option objc_class_prefix = "Redbus";
 
-option go_package = "api/client/golang/pb";
+option go_package = "api/golang/pb";
 
 service RedbusService {
   rpc Produce (ProduceRequest) returns (ProduceResponse) {}
@@ -21,14 +21,29 @@ message ProduceRequest {
 }
 
 message ProduceResponse {
-  bool result = 1;
+  bool ok = 1;
 }
 
 message ConsumeRequest {
   message Connect {
+    message Strategy {
+      message EvenConfig {
+        int32 intervalSec = 1;
+      }
+      message ProgressiveConfig {
+        int32 intervalSec = 1;
+        float multiplier = 2;
+      }
+
+      int32 maxAttempts = 1;
+      EvenConfig evenConfig = 2;
+      ProgressiveConfig progressiveConfig = 3;
+    }
+
     string id = 1;
     string topic = 2;
     string group = 3;
+    Strategy strategy = 4;
   }
   message Payload {
     bool ok = 1;

@@ -18,17 +18,41 @@ type Consumer struct {
 	host               string
 	port               int
 	unavailableTimeout time.Duration
+	consumeTimeout     time.Duration
+	repeatStrategy     *RepeatStrategy
 }
 
-func New(host string, port int, unavailableTimeout time.Duration) *Consumer {
-	return &Consumer{
+type RepeatStrategy struct {
+	maxAttempts         int
+	evenStrategy        *RepeatStrategyEven
+	progressiveStrategy *RepeatStrategyProgressive
+}
+
+type RepeatStrategyEven struct {
+	intervalSec int
+}
+
+type RepeatStrategyProgressive struct {
+	intervalSec int
+	multiplier  float32
+}
+
+func New(host string, port int, options ...OptionFn) *Consumer {
+	c := Consumer{
 		host:               host,
 		port:               port,
-		unavailableTimeout: unavailableTimeout,
+		unavailableTimeout: 60 * time.Second,
+		consumeTimeout:     60 * time.Second,
 	}
+	for _, o := range options {
+		o(&c)
+	}
+	return &c
 }
 
-func (c *Consumer) Consume(ctx context.Context, topic, group string, processor func(data []byte, id string) error) error {
+type ConsumeProcessor = func(ctx context.Context, data []byte, id string) error
+
+func (c *Consumer) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -40,7 +64,7 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor f
 	if err != nil {
 		return err
 	}
-	busClient := pb.NewStreamServiceClient(busConn)
+	busClient := pb.NewRedbusServiceClient(busConn)
 
 	connect := &pb.ConsumeRequest_Connect{
 		Id:    fmt.Sprintf("%d-%d", os.Getpid(), time.Now().Unix()),
@@ -49,9 +73,9 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor f
 	}
 
 	// connect to topic
-	waitBusClientConnectedStream := func() pb.StreamService_ConsumeClient {
+	waitBusClientConnectedStream := func() pb.RedbusService_ConsumeClient {
 		connectPayload := pb.ConsumeRequest{Connect: connect}
-		var stream pb.StreamService_ConsumeClient
+		var stream pb.RedbusService_ConsumeClient
 		var connectResponse *pb.ConsumeResponse
 		var streamErr error
 		var attempt int
@@ -104,7 +128,21 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor f
 				return
 			}
 			log.Printf("[%v] Receive payload\n", payloadResponse.Payload.Id)
-			processErr := processor(payloadResponse.Payload.Data, payloadResponse.Payload.Id)
+
+			// process
+			processCtx, processCancel := context.WithTimeout(ctx, c.consumeTimeout)
+			processErrCh := make(chan error)
+			var processErr error
+			go func() {
+				processErrCh <- processor(processCtx, payloadResponse.Payload.Data, payloadResponse.Payload.Id)
+			}()
+			select {
+			case <-processCtx.Done():
+				processErr = fmt.Errorf("Execution timeout %v limit for %v", c.consumeTimeout, payloadResponse.Payload.Id)
+			case err := <-processErrCh:
+				processErr = err
+			}
+			processCancel()
 
 			// send result of process payload
 			var payloadResult *pb.ConsumeRequest_Payload

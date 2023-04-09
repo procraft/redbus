@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/sergiusd/redbus/internal/app/config"
@@ -17,7 +18,9 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	if err := redbus.Run(); err != nil {
-		log.Fatalf(err.Error())
+	if err := redbus.Run(ctx); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			log.Fatalf(err.Error())
+		}
 	}
 }

@@ -34,8 +34,10 @@ var levelNameMap = map[Level]string{
 }
 
 type GetRequestIdFromContextGetterFn func(ctx context.Context) string
+type GetRequestIdFromStringGetterFn func(ctx string) string
 
 var GetRequestIdFromContextFn *GetRequestIdFromContextGetterFn
+var GetRequestIdFromStringFn *GetRequestIdFromStringGetterFn
 
 type jsonLog struct {
 	Time     int64  `json:"time"`
@@ -44,9 +46,12 @@ type jsonLog struct {
 	Message  string `json:"message"`
 }
 
-func requestId(id interface{}) string {
+func getRequestId(id any) string {
 	switch v := id.(type) {
 	case string:
+		if GetRequestIdFromStringFn != nil {
+			return (*GetRequestIdFromStringFn)(v)
+		}
 		return v
 	case context.Context:
 		if GetRequestIdFromContextFn != nil {
@@ -56,8 +61,8 @@ func requestId(id interface{}) string {
 	return "<none>"
 }
 
-func jsonPrintf(severity string, ctx interface{}, format string, v ...interface{}) {
-	bytes, err := json.Marshal(&jsonLog{time.Now().Unix(), requestId(ctx), severity, fmt.Sprintf(format, v...)})
+func jsonPrintf(severity, requestId string, format string, v ...any) {
+	bytes, err := json.Marshal(&jsonLog{time.Now().Unix(), requestId, severity, fmt.Sprintf(format, v...)})
 
 	if err != nil {
 		log.Printf("Logger failed to print message in JSON format")
@@ -69,36 +74,37 @@ func jsonPrintf(severity string, ctx interface{}, format string, v ...interface{
 	fmt.Printf("%s\n", string(bytes))
 }
 
-func Log(ctx interface{}, level Level, format string, v ...interface{}) {
+func Log(ctx any, level Level, format string, v ...any) {
 	if Verbose != true && level == LevelDebug {
 		return
 	}
+	requestId := getRequestId(ctx)
 	if Jsonlog {
-		jsonPrintf(levelNameMap[level], ctx, format, v...)
+		jsonPrintf(levelNameMap[level], requestId, format, v...)
 	} else {
-		log.Printf("[%s] [%s] %s", level, requestId(ctx), fmt.Sprintf(format, v...))
+		log.Printf("[%s] [%s] %s", level, requestId, fmt.Sprintf(format, v...))
 	}
 	if level == LevelFatal {
 		os.Exit(1)
 	}
 }
 
-func Debug(ctx interface{}, format string, v ...interface{}) {
+func Debug(ctx any, format string, v ...any) {
 	Log(ctx, LevelDebug, format, v...)
 }
 
-func Info(ctx interface{}, format string, v ...interface{}) {
+func Info(ctx any, format string, v ...any) {
 	Log(ctx, LevelInfo, format, v...)
 }
 
-func Warning(ctx interface{}, format string, v ...interface{}) {
+func Warning(ctx any, format string, v ...any) {
 	Log(ctx, LevelWarning, format, v...)
 }
 
-func Error(ctx interface{}, format string, v ...interface{}) {
+func Error(ctx any, format string, v ...any) {
 	Log(ctx, LevelError, format, v...)
 }
 
-func Fatal(ctx interface{}, format string, v ...interface{}) {
+func Fatal(ctx any, format string, v ...any) {
 	Log(ctx, LevelFatal, format, v...)
 }

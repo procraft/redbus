@@ -76,7 +76,7 @@ func New(ctx context.Context, hosts []string, topic string, options ...Option) (
 	return &p, nil
 }
 
-func (p *Producer) Produce(ctx context.Context, keyAndMessage ...string) error {
+func (p *Producer) Produce(ctx context.Context, keyAndMessage ...[]byte) error {
 	if len(keyAndMessage) == 0 {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (p *Producer) Produce(ctx context.Context, keyAndMessage ...string) error {
 	}
 	kafkaMessages := make([]kafka.Message, 0, len(keyAndMessage)/2)
 	for i := 0; i < len(keyAndMessage); i += 2 {
-		kafkaMessages = append(kafkaMessages, kafka.Message{Key: []byte(keyAndMessage[i]), Value: []byte(keyAndMessage[i+1])})
+		kafkaMessages = append(kafkaMessages, kafka.Message{Key: keyAndMessage[i], Value: keyAndMessage[i+1]})
 	}
 	if err := p.writer.WriteMessages(ctx, kafkaMessages...); err != nil {
 		return fmt.Errorf("Failed to produce messages, messages: %v, topic: %v, err: %w\n", keyAndMessage, p.topic, err)

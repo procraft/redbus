@@ -22,3 +22,7 @@ func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
 		repeat.Topic, repeat.Group, repeat.ConsumerId, repeat.MessageId, repeat.Key, repeat.Data, repeat.Error).
 		Scan(&repeat.Id)
 }
+
+func (r *Repository) FindForRepeat(ctx context.Context, topicGroupList model.TopicGroupList) (model.RepeatList, error) {
+	return nil, nil
+}

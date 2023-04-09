@@ -3,38 +3,34 @@ package databus
 import (
 	"context"
 
+	"github.com/sergiusd/redbus/internal/app/model"
+
 	"github.com/sergiusd/redbus/internal/app/config"
 )
 
 type DataBus struct {
-	conf             *config.Config
-	kafkaHost        []string
-	createProducerFn CreateProducerFn
-	producerMap      map[string]IProducer
-	repeater         IRepeater
+	conf          *config.Config
+	kafkaHost     []string
+	producerStore *model.ProducerStore
+	consumerStore *model.ConsumerStore
+	repeater      IRepeater
 }
 
 func New(
 	conf *config.Config,
-	createProducerFn CreateProducerFn,
+	createProducerFn model.CreateProducerFn,
 	repeater IRepeater,
 ) *DataBus {
 	return &DataBus{
-		conf:             conf,
-		kafkaHost:        []string{conf.KafkaHostPort},
-		createProducerFn: createProducerFn,
-		producerMap:      make(map[string]IProducer),
-		repeater:         repeater,
+		conf:          conf,
+		kafkaHost:     []string{conf.KafkaHostPort},
+		producerStore: model.NewProducerStore(createProducerFn),
+		consumerStore: model.NewConsumerStore(),
+		repeater:      repeater,
 	}
 }
 
-type CreateProducerFn = func(ctx context.Context, topic string) (IProducer, error)
-
-type IProducer interface {
-	Produce(ctx context.Context, keyAndMessage ...string) error
-	Close() error
-}
-
 type IRepeater interface {
-	Add(ctx context.Context, topic, group, consumerId string, messageKey, message []byte, messageId, errorMessage string) error
+	Add(ctx context.Context, data model.RepeatData, errorMsg string) error
+	Repeat(ctx context.Context) error
 }

@@ -3,8 +3,15 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/sergiusd/redbus/internal/pkg/logger"
 
 	"github.com/sergiusd/redbus/internal/app/repeater"
 	"github.com/sergiusd/redbus/internal/app/repeater/repository"
@@ -16,6 +23,8 @@ import (
 
 	dbmw "github.com/sergiusd/redbus/internal/pkg/db/interceptor"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/sergiusd/redbus/api/golang/pb"
 	"github.com/sergiusd/redbus/internal/app/config"
 	"github.com/sergiusd/redbus/internal/app/databus"
@@ -24,30 +33,44 @@ import (
 
 type App struct {
 	conf                 *config.Config
+	dataBusService       *databus.DataBus
 	grpcServer           *grpc.Server
 	dbClient             db.IClient
 	grpcUnaryInterceptor []grpc.UnaryServerInterceptor
+	background           map[string]backgroundFn
 }
 
+type backgroundFn = func(ctx context.Context) error
+
 func New(ctx context.Context, conf *config.Config) (*App, error) {
-	a := &App{conf: conf}
+	a := &App{
+		conf:       conf,
+		background: make(map[string]backgroundFn),
+	}
 	if err := a.initDeps(ctx); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func (a *App) Run() error {
-	return a.runGrpcApi()
+func (a *App) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	eg.Go(a.runTerminateWatcher(egCtx, cancel))
+	eg.Go(a.runGrpcApi(egCtx))
+	eg.Go(a.runBackground(egCtx, time.Minute))
+
+	return eg.Wait()
 }
 
 func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initDb,
-		//a.initService,
+		a.initService,
 		//a.initApi,
 		//a.initKafkaConsumer,
-		//a.initBackground,
+		a.initBackground,
 		a.initGrpcApi,
 		//a.initHttpApi,
 	}
@@ -89,33 +112,94 @@ func (a *App) initDb(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) initGrpcApi(ctx context.Context) error {
-	a.grpcServer = grpc.NewServer(grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)))
-	createProducerFn := func(ctx context.Context, topic string) (databus.IProducer, error) {
+func (a *App) initService(_ context.Context) error {
+	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
 		return producer.New(ctx, []string{a.conf.KafkaHostPort}, topic,
 			producer.WithCreateTopic(a.conf.KafkaTopicNumPartitions, a.conf.KafkaTopicReplicationFactor),
 			producer.WithLog(),
 			producer.WithBalancer(&kafka.RoundRobin{}),
 		)
 	}
-	pb.RegisterStreamServiceServer(a.grpcServer, databus.New(
+	a.dataBusService = databus.New(
 		a.conf,
 		createProducerFn,
 		repeater.New(repository.New()),
-	))
+	)
+	return nil
+}
+
+func (a *App) initBackground(_ context.Context) error {
+	a.background["repeater"] = func(ctx context.Context) error {
+		return a.dataBusService.Repeat(ctx)
+	}
+	return nil
+}
+
+func (a *App) initGrpcApi(_ context.Context) error {
+	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, NewRequestIdInterceptor())
+	a.grpcServer = grpc.NewServer(grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)))
+	pb.RegisterRedbusServiceServer(a.grpcServer, a.dataBusService)
 
 	return nil
 }
 
-func (a *App) runGrpcApi() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", a.conf.GrpcServerPort))
-	if err != nil {
-		return fmt.Errorf("Failed to listen: %w", err)
+func (a *App) runTerminateWatcher(ctx context.Context, cancel context.CancelFunc) func() error {
+	return func() error {
+		signalCh := make(chan os.Signal, 1)
+		signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
+		select {
+		case <-signalCh:
+			logger.Info(logger.App, "Catch terminate signal...")
+			cancel()
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
 	}
+}
 
-	log.Printf("Start GRPC server on port %d\n", a.conf.GrpcServerPort)
-	if err := a.grpcServer.Serve(listener); err != nil {
-		return fmt.Errorf("Failed to serve: %w", err)
+func (a *App) runGrpcApi(ctx context.Context) func() error {
+	return func() error {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", a.conf.GrpcServerPort))
+		if err != nil {
+			return fmt.Errorf("Failed to listen: %w", err)
+		}
+
+		logger.Info(logger.App, "Start GRPC server on port %d", a.conf.GrpcServerPort)
+		errCh := make(chan error)
+		go func() {
+			err := a.grpcServer.Serve(listener)
+			errCh <- fmt.Errorf("Failed to serve: %w", err)
+		}()
+		select {
+		case err := <-errCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
-	return nil
+}
+
+func (a *App) runBackground(ctx context.Context, tickInterval time.Duration) func() error {
+	return func() error {
+		ticker := time.Tick(tickInterval)
+		nameList := make([]string, 0, len(a.background))
+		for name := range a.background {
+			nameList = append(nameList, "'"+name+"'")
+		}
+		logger.Info(logger.App, "Start background tasks: %v, interval %v", strings.Join(nameList, ", "), tickInterval)
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker:
+				for name, fn := range a.background {
+					ctx := SetRequestId(ctx, "bg")
+					if err := fn(ctx); err != nil {
+						logger.Error(logger.App, "Background '%s' error: %v", name, err)
+					}
+				}
+			}
+		}
+	}
 }

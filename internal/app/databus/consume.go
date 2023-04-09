@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sergiusd/redbus/internal/app/model"
+
 	"github.com/sergiusd/redbus/api/golang/pb"
 
 	"github.com/sergiusd/redbus/internal/pkg/kafka/consumer"
@@ -16,7 +18,7 @@ import (
 
 var errHandler = errors.New("error in handler")
 
-func (b *DataBus) Consume(srv pb.StreamService_ConsumeServer) error {
+func (b *DataBus) Consume(srv pb.RedbusService_ConsumeServer) error {
 
 	log.Printf("Handle new consume\n")
 
@@ -29,7 +31,7 @@ func (b *DataBus) Consume(srv pb.StreamService_ConsumeServer) error {
 		return err
 	}
 
-	// Get kafka example
+	// Get kafka connection
 	c, connectErr := consumer.New(ctx, b.kafkaHost, data.Connect.Topic, data.Connect.Group, data.Connect.Id, 0)
 	var connectResult *pb.ConsumeResponse_Connect
 	if connectErr != nil {
@@ -48,15 +50,17 @@ func (b *DataBus) Consume(srv pb.StreamService_ConsumeServer) error {
 	if connectErr != nil {
 		return connectErr
 	}
+	b.consumerStore.Add(data.Connect.Topic, data.Connect.Group, data.Connect.Id, fromPBStrategy(data.Connect.Strategy), c)
 
 	// Consume
 	b.consumerLog(c, "Start consuming")
 	err = b.consumeProcess(ctx, cancel, srv, c)
+	b.consumerStore.Remove(data.Connect.Topic, data.Connect.Group, data.Connect.Id)
 	b.consumerLog(c, "Finish consuming: %v", err)
 	return nil
 }
 
-func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc, srv pb.StreamService_ConsumeServer, c *consumer.Consumer) error {
+func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc, srv pb.RedbusService_ConsumeServer, c *consumer.Consumer) error {
 
 	handler := func(ctx context.Context, messageKey, message []byte, id string) error {
 		b.consumerLog(c, "[%s] Receive message from kafka and send", id)
@@ -79,7 +83,15 @@ func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc,
 			b.consumerLog(c, "[%v] Message processing success", id)
 		} else {
 			b.consumerLog(c, "[%v] Message processing error: %v", id, data.Payload.Message)
-			if err := b.repeater.Add(ctx, c.GetTopic(), c.GetGroup(), c.GetID(), messageKey, message, id, data.Payload.Message); err != nil {
+			if err := b.repeater.Add(ctx, model.RepeatData{
+				Topic:      c.GetTopic(),
+				Group:      c.GetGroup(),
+				ConsumerId: c.GetID(),
+				Key:        messageKey,
+				Message:    message,
+				MessageId:  id,
+				Strategy:   b.consumerStore.FindStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
+			}, data.Payload.Message); err != nil {
 				return fmt.Errorf("%w: %v", errHandler, err)
 			}
 		}
@@ -131,7 +143,7 @@ func (b *DataBus) consumerLog(c *consumer.Consumer, message string, args ...any)
 	log.Printf("[%v/%v/%v/%v] "+message+"\n", args...)
 }
 
-func (b *DataBus) consumerSend(c *consumer.Consumer, srv pb.StreamService_ConsumeServer, data *pb.ConsumeResponse) (bool, error) {
+func (b *DataBus) consumerSend(c *consumer.Consumer, srv pb.RedbusService_ConsumeServer, data *pb.ConsumeResponse) (bool, error) {
 	err := srv.Send(data)
 	if err == io.EOF {
 		return false, err
@@ -143,7 +155,7 @@ func (b *DataBus) consumerSend(c *consumer.Consumer, srv pb.StreamService_Consum
 	return true, nil
 }
 
-func (b *DataBus) consumerRecv(c *consumer.Consumer, srv pb.StreamService_ConsumeServer) (bool, *pb.ConsumeRequest, error) {
+func (b *DataBus) consumerRecv(c *consumer.Consumer, srv pb.RedbusService_ConsumeServer) (bool, *pb.ConsumeRequest, error) {
 	rest, err := srv.Recv()
 	if err == io.EOF {
 		return false, nil, nil
