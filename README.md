@@ -1,6 +1,12 @@
 # Reliable Easy Data BUS
 
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/sergiusd/redbus/blob/master/LICENSE)
+
 <img src="./doc/logo.jpeg" height="347"/>
+
+## Issue
+
+## Resolve
 
 ## Build
 
@@ -19,4 +25,4 @@
 3. Try consumer and producer
 
    - [GoLang client](./example/golang/README.md)
-   - [Scala client](./example/scala/README.md)
+   - [Scala client](./example/scala/README.md) (isn't working yet)

@@ -35,29 +35,29 @@ services:
       #KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
       KAFKA_JMX_PORT: 9991
 
-  schemaregistry:
-    image: confluentinc/cp-schema-registry:5.1.2
-    restart: always
-    depends_on:
-      - zookeeper
-    environment:
-      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: "zookeeper:2181"
-      SCHEMA_REGISTRY_HOST_NAME: schemaregistry
-      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8085"
-      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
-      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
-    ports:
-      - 8085:8085
-
-  schema-registry-ui:
-    image: 'landoop/schema-registry-ui'
-    depends_on:
-      - zookeeper
-      - kafka
-      - schemaregistry
-    ports:
-      - '8002:8000'
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      SCHEMAREGISTRY_URL: "http://host.docker.internal:8085"
+#  schemaregistry:
+#    image: confluentinc/cp-schema-registry:5.1.2
+#    restart: always
+#    depends_on:
+#      - zookeeper
+#    environment:
+#      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: "zookeeper:2181"
+#      SCHEMA_REGISTRY_HOST_NAME: schemaregistry
+#      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8085"
+#      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+#      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,OPTIONS'
+#    ports:
+#      - 8085:8085
+#
+#  schema-registry-ui:
+#    image: 'landoop/schema-registry-ui'
+#    depends_on:
+#      - zookeeper
+#      - kafka
+#      - schemaregistry
+#    ports:
+#      - '8002:8000'
+#    extra_hosts:
+#      - "host.docker.internal:host-gateway"
+#    environment:
+#      SCHEMAREGISTRY_URL: "http://host.docker.internal:8085"

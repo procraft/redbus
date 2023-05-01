@@ -1,13 +1,17 @@
-package model
+package connstore
 
 import (
 	"math/rand"
 	"time"
+
+	"github.com/sergiusd/redbus/api/golang/pb"
+	"github.com/sergiusd/redbus/internal/app/model"
 )
 
 type ConsumerBag struct {
-	consumer       IConsumer
-	repeatStrategy *RepeatStrategy
+	Consumer       model.IConsumer
+	Srv            pb.RedbusService_ConsumeServer
+	RepeatStrategy *model.RepeatStrategy
 }
 
 type ConsumerStore struct {
@@ -21,9 +25,6 @@ type ConsumerKey struct {
 	Id    string
 }
 
-type IConsumer interface {
-}
-
 func NewConsumerStore() *ConsumerStore {
 	randomSource := rand.NewSource(time.Now().Unix())
 	random := rand.New(randomSource)
@@ -33,33 +34,25 @@ func NewConsumerStore() *ConsumerStore {
 	}
 }
 
-func (s *ConsumerStore) Add(topic, group, id string, repeatStrategy *RepeatStrategy, c IConsumer) {
-	s.store[s.getKey(topic, group, id)] = ConsumerBag{consumer: c, repeatStrategy: repeatStrategy}
+func (s *ConsumerStore) add(topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer, srv pb.RedbusService_ConsumeServer) {
+	s.store[s.getKey(topic, group, id)] = ConsumerBag{Consumer: c, Srv: srv, RepeatStrategy: repeatStrategy}
 }
 
-func (s *ConsumerStore) Remove(topic, group, id string) {
+func (s *ConsumerStore) remove(topic, group, id string) {
 	delete(s.store, s.getKey(topic, group, id))
 }
 
-func (s *ConsumerStore) GetTopicGroupList() TopicGroupList {
-	ret := make(TopicGroupList, 0, len(s.store))
+func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
+	ret := make(model.TopicGroupList, 0, len(s.store))
 	exists := make(map[string]struct{}, len(s.store))
 	for k := range s.store {
 		key := k.Topic + "!" + k.Group
 		if _, ok := exists[key]; !ok {
 			exists[key] = struct{}{}
-			ret = append(ret, TopicGroup{Topic: k.Topic, Group: k.Group})
+			ret = append(ret, model.TopicGroup{Topic: k.Topic, Group: k.Group})
 		}
 	}
 	return ret
-}
-
-func (s *ConsumerStore) FindStrategy(topic, group, id string) *RepeatStrategy {
-	c := s.findBest(topic, group, id)
-	if c == nil {
-		return nil
-	}
-	return c.repeatStrategy
 }
 
 func (s *ConsumerStore) getKey(topic, group, id string) ConsumerKey {
@@ -68,11 +61,13 @@ func (s *ConsumerStore) getKey(topic, group, id string) ConsumerKey {
 
 func (s *ConsumerStore) findBest(topic, group, id string) *ConsumerBag {
 	list := make([]ConsumerBag, 0, len(s.store))
+	if bag, ok := s.store[ConsumerKey{Topic: topic, Group: group, Id: id}]; ok {
+		return &bag
+	}
 	for k, v := range s.store {
-		if k.Topic == topic && k.Group == group && k.Id == id {
-			return &v
+		if k.Topic == topic && k.Group == group {
+			list = append(list, v)
 		}
-		list = append(list)
 	}
 	if len(list) != 0 {
 		bag := list[s.random.Intn(len(list))]

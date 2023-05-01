@@ -13,13 +13,12 @@ import (
 
 type Consumer struct {
 	conf   conf
+	hosts  []string
 	id     string
 	topic  string
 	group  string
 	reader *kafka.Reader
 }
-
-type ProcessorFn func(ctx context.Context, k, v []byte, id string) error
 
 type conf struct {
 	log         bool
@@ -29,6 +28,7 @@ type conf struct {
 func New(ctx context.Context, hosts []string, topic, group, id string, partition int, options ...Option) (*Consumer, error) {
 	var c Consumer
 
+	c.hosts = hosts
 	c.id = id
 	c.topic = topic
 	c.group = group
@@ -68,6 +68,10 @@ func New(ctx context.Context, hosts []string, topic, group, id string, partition
 	return &c, nil
 }
 
+func (c *Consumer) GetHosts() []string {
+	return c.hosts
+}
+
 func (c *Consumer) GetTopic() string {
 	return c.topic
 }
@@ -80,7 +84,7 @@ func (c *Consumer) GetID() string {
 	return c.id
 }
 
-func (c *Consumer) Consume(ctx context.Context, processor ProcessorFn) error {
+func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Context, k, v []byte, id string) error) error {
 	for {
 		m, err := c.reader.FetchMessage(ctx)
 		if err != nil {
@@ -101,7 +105,7 @@ func (c *Consumer) Consume(ctx context.Context, processor ProcessorFn) error {
 	}
 }
 
-func (c *Consumer) processAndCommit(ctx context.Context, m kafka.Message, processor ProcessorFn) error {
+func (c *Consumer) processAndCommit(ctx context.Context, m kafka.Message, processor func(ctx context.Context, k, v []byte, id string) error) error {
 	fn := func() error {
 		k := m.Key
 		v := m.Value

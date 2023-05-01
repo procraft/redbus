@@ -6,46 +6,46 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
-
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
-
-	"github.com/sergiusd/redbus/internal/app/repeater"
-	"github.com/sergiusd/redbus/internal/app/repeater/repository"
-	"github.com/sergiusd/redbus/internal/pkg/db"
-
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/segmentio/kafka-go"
-	"google.golang.org/grpc"
-
-	dbmw "github.com/sergiusd/redbus/internal/pkg/db/interceptor"
-
-	"golang.org/x/sync/errgroup"
 
 	"github.com/sergiusd/redbus/api/golang/pb"
 	"github.com/sergiusd/redbus/internal/app/config"
-	"github.com/sergiusd/redbus/internal/app/databus"
+	"github.com/sergiusd/redbus/internal/app/grpcapi"
+	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/sergiusd/redbus/internal/app/service/connstore"
+	"github.com/sergiusd/redbus/internal/app/service/databus"
+	"github.com/sergiusd/redbus/internal/app/service/repeater"
+	"github.com/sergiusd/redbus/internal/app/service/repeater/repository"
+	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/reqid"
+	bgpkg "github.com/sergiusd/redbus/internal/pkg/background"
+	"github.com/sergiusd/redbus/internal/pkg/db"
+	dbmw "github.com/sergiusd/redbus/internal/pkg/db/interceptor"
 	"github.com/sergiusd/redbus/internal/pkg/kafka/producer"
+	"github.com/sergiusd/redbus/internal/pkg/logger"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/segmentio/kafka-go"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 )
 
 type App struct {
-	conf                 *config.Config
-	dataBusService       *databus.DataBus
-	grpcServer           *grpc.Server
-	dbClient             db.IClient
-	grpcUnaryInterceptor []grpc.UnaryServerInterceptor
-	background           map[string]backgroundFn
+	conf                  *config.Config
+	dataBusService        *databus.DataBus
+	repeaterService       *repeater.Repeater
+	grpcServer            *grpc.Server
+	dbClient              db.IClient
+	grpcUnaryInterceptor  []grpc.UnaryServerInterceptor
+	grpcStreamInterceptor []grpc.StreamServerInterceptor
+	background            *bgpkg.Background
 }
-
-type backgroundFn = func(ctx context.Context) error
 
 func New(ctx context.Context, conf *config.Config) (*App, error) {
 	a := &App{
 		conf:       conf,
-		background: make(map[string]backgroundFn),
+		background: bgpkg.New(),
 	}
 	if err := a.initDeps(ctx); err != nil {
 		return nil, err
@@ -55,11 +55,15 @@ func New(ctx context.Context, conf *config.Config) (*App, error) {
 
 func (a *App) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	eg.Go(a.runTerminateWatcher(egCtx, cancel))
-	eg.Go(a.runGrpcApi(egCtx))
-	eg.Go(a.runBackground(egCtx, time.Minute))
+	eg.Go(a.getTerminateWatcher(egCtx, cancel))
+	eg.Go(a.getGrpcApiListener(egCtx))
+	for _, fn := range a.getBackgroundExecutorList(egCtx) {
+		eg.Go(fn)
+	}
 
 	return eg.Wait()
 }
@@ -68,11 +72,8 @@ func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initDb,
 		a.initService,
-		//a.initApi,
-		//a.initKafkaConsumer,
 		a.initBackground,
 		a.initGrpcApi,
-		//a.initHttpApi,
 	}
 
 	for _, fn := range inits {
@@ -99,51 +100,70 @@ func (a *App) initDb(ctx context.Context) error {
 		return err
 	}
 
-	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor,
-		dbmw.NewDBInterceptor(func(ctx context.Context) db.IClient {
-			return a.dbClient
-		}),
-	)
-	//a.httpMiddleware = append(a.httpMiddleware,
-	//	dbmw.NewDBServerMiddleware(func(ctx context.Context) db.IClient {
-	//		return a.dbClient
-	//	}),
-	//)
+	dbFn := func(ctx context.Context) db.IClient {
+		return a.dbClient
+	}
+	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, dbmw.UnaryServerInterceptor(dbFn))
+	a.grpcStreamInterceptor = append(a.grpcStreamInterceptor, dbmw.StreamServerInterceptor(dbFn))
+	//a.httpMiddleware = append(a.httpMiddleware, dbmw.ServerMiddleware(dbFn))
 	return nil
 }
 
 func (a *App) initService(_ context.Context) error {
 	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
-		return producer.New(ctx, []string{a.conf.KafkaHostPort}, topic,
-			producer.WithCreateTopic(a.conf.KafkaTopicNumPartitions, a.conf.KafkaTopicReplicationFactor),
+		return producer.New(ctx, []string{a.conf.Kafka.HostPort}, topic,
+			producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor),
 			producer.WithLog(),
 			producer.WithBalancer(&kafka.RoundRobin{}),
 		)
 	}
+	connStoreService := connstore.New(createProducerFn)
+	repeaterService := repeater.New(
+		a.conf.Repeat.DefaultStrategy,
+		connStoreService,
+		repository.New(),
+	)
 	a.dataBusService = databus.New(
 		a.conf,
-		createProducerFn,
-		repeater.New(repository.New()),
+		connStoreService,
+		repeaterService,
 	)
+	a.repeaterService = repeaterService
 	return nil
 }
 
 func (a *App) initBackground(_ context.Context) error {
-	a.background["repeater"] = func(ctx context.Context) error {
-		return a.dataBusService.Repeat(ctx)
-	}
+	a.background.Add("repeat", func(ctx context.Context) error {
+		return a.repeaterService.Repeat(ctx)
+	}, a.conf.Repeat.Interval)
 	return nil
 }
 
 func (a *App) initGrpcApi(_ context.Context) error {
-	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, NewRequestIdInterceptor())
-	a.grpcServer = grpc.NewServer(grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)))
-	pb.RegisterRedbusServiceServer(a.grpcServer, a.dataBusService)
+	recoveryFn := grpc_recovery.WithRecoveryHandler(func(data interface{}) (err error) {
+		logger.Error(logger.App, "Recovery: %+v", data)
+		return nil
+	})
+	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor,
+		reqid.UnaryServerInterceptor(),
+		grpc_ctxtags.UnaryServerInterceptor(),
+		grpc_recovery.UnaryServerInterceptor(recoveryFn),
+	)
+	a.grpcStreamInterceptor = append(a.grpcStreamInterceptor,
+		reqid.StreamServerInterceptor(),
+		grpc_ctxtags.StreamServerInterceptor(),
+		grpc_recovery.StreamServerInterceptor(recoveryFn),
+	)
+	a.grpcServer = grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(a.grpcStreamInterceptor...)),
+	)
+	pb.RegisterRedbusServiceServer(a.grpcServer, grpcapi.New(a.conf, a.dataBusService, a.repeaterService))
 
 	return nil
 }
 
-func (a *App) runTerminateWatcher(ctx context.Context, cancel context.CancelFunc) func() error {
+func (a *App) getTerminateWatcher(ctx context.Context, cancel context.CancelFunc) func() error {
 	return func() error {
 		signalCh := make(chan os.Signal, 1)
 		signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
@@ -158,17 +178,17 @@ func (a *App) runTerminateWatcher(ctx context.Context, cancel context.CancelFunc
 	}
 }
 
-func (a *App) runGrpcApi(ctx context.Context) func() error {
+func (a *App) getGrpcApiListener(ctx context.Context) func() error {
 	return func() error {
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", a.conf.GrpcServerPort))
-		if err != nil {
-			return fmt.Errorf("Failed to listen: %w", err)
-		}
-
-		logger.Info(logger.App, "Start GRPC server on port %d", a.conf.GrpcServerPort)
+		logger.Info(logger.App, "Start GRPC server on port %d", a.conf.Grpc.ServerPort)
 		errCh := make(chan error)
 		go func() {
-			err := a.grpcServer.Serve(listener)
+			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", a.conf.Grpc.ServerPort))
+			if err != nil {
+				errCh <- fmt.Errorf("Failed to listen: %w", err)
+				return
+			}
+			err = a.grpcServer.Serve(listener)
 			errCh <- fmt.Errorf("Failed to serve: %w", err)
 		}()
 		select {
@@ -180,26 +200,7 @@ func (a *App) runGrpcApi(ctx context.Context) func() error {
 	}
 }
 
-func (a *App) runBackground(ctx context.Context, tickInterval time.Duration) func() error {
-	return func() error {
-		ticker := time.Tick(tickInterval)
-		nameList := make([]string, 0, len(a.background))
-		for name := range a.background {
-			nameList = append(nameList, "'"+name+"'")
-		}
-		logger.Info(logger.App, "Start background tasks: %v, interval %v", strings.Join(nameList, ", "), tickInterval)
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker:
-				for name, fn := range a.background {
-					ctx := SetRequestId(ctx, "bg")
-					if err := fn(ctx); err != nil {
-						logger.Error(logger.App, "Background '%s' error: %v", name, err)
-					}
-				}
-			}
-		}
-	}
+func (a *App) getBackgroundExecutorList(ctx context.Context) []func() error {
+	dbCtx := db.AddToContext(ctx, a.dbClient)
+	return a.background.GetRunFnList(dbCtx)
 }

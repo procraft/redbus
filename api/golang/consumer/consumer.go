@@ -3,39 +3,16 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"github.com/sergiusd/redbus/api/golang/pb"
 	"io"
 	"log"
 	"os"
 	"time"
 
-	"google.golang.org/grpc/credentials/insecure"
+	"github.com/sergiusd/redbus/api/golang/pb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
-
-type Consumer struct {
-	host               string
-	port               int
-	unavailableTimeout time.Duration
-	consumeTimeout     time.Duration
-	repeatStrategy     *RepeatStrategy
-}
-
-type RepeatStrategy struct {
-	maxAttempts         int
-	evenStrategy        *RepeatStrategyEven
-	progressiveStrategy *RepeatStrategyProgressive
-}
-
-type RepeatStrategyEven struct {
-	intervalSec int
-}
-
-type RepeatStrategyProgressive struct {
-	intervalSec int
-	multiplier  float32
-}
 
 func New(host string, port int, options ...OptionFn) *Consumer {
 	c := Consumer{
@@ -49,8 +26,6 @@ func New(host string, port int, options ...OptionFn) *Consumer {
 	}
 	return &c
 }
-
-type ConsumeProcessor = func(ctx context.Context, data []byte, id string) error
 
 func (c *Consumer) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor) error {
 	ctx, cancel := context.WithCancel(ctx)
@@ -67,9 +42,10 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 	busClient := pb.NewRedbusServiceClient(busConn)
 
 	connect := &pb.ConsumeRequest_Connect{
-		Id:    fmt.Sprintf("%d-%d", os.Getpid(), time.Now().Unix()),
-		Topic: topic,
-		Group: group,
+		Id:             fmt.Sprintf("%d-%d", os.Getpid(), time.Now().Unix()),
+		Topic:          topic,
+		Group:          group,
+		RepeatStrategy: toPBRepeatStrategy(c.repeatStrategy),
 	}
 
 	// connect to topic
@@ -130,19 +106,7 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 			log.Printf("[%v] Receive payload\n", payloadResponse.Payload.Id)
 
 			// process
-			processCtx, processCancel := context.WithTimeout(ctx, c.consumeTimeout)
-			processErrCh := make(chan error)
-			var processErr error
-			go func() {
-				processErrCh <- processor(processCtx, payloadResponse.Payload.Data, payloadResponse.Payload.Id)
-			}()
-			select {
-			case <-processCtx.Done():
-				processErr = fmt.Errorf("Execution timeout %v limit for %v", c.consumeTimeout, payloadResponse.Payload.Id)
-			case err := <-processErrCh:
-				processErr = err
-			}
-			processCancel()
+			processErr := c.processMessage(ctx, processor, payloadResponse.Payload)
 
 			// send result of process payload
 			var payloadResult *pb.ConsumeRequest_Payload
@@ -181,4 +145,29 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 	<-ctx.Done()
 	log.Printf("Disconnected\n")
 	return nil
+}
+
+func (c *Consumer) processMessage(ctx context.Context, processor ConsumeProcessor, payload *pb.ConsumeResponse_Payload) error {
+	processCtx, processCancel := context.WithTimeout(ctx, c.consumeTimeout)
+	defer processCancel()
+	processErrCh := make(chan error)
+	defer close(processErrCh)
+
+	var processErr error
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				processErrCh <- fmt.Errorf("Recovered: %v", r)
+			}
+		}()
+		processErrCh <- processor(processCtx, payload.Data, payload.Id)
+	}()
+	select {
+	case <-processCtx.Done():
+		processErr = fmt.Errorf("Execution timeout %v limit for %v", c.consumeTimeout, payload.Id)
+	case err := <-processErrCh:
+		processErr = err
+	}
+
+	return processErr
 }

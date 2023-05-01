@@ -1,4 +1,4 @@
-package databus
+package grpcapi
 
 import (
 	"time"
@@ -7,20 +7,20 @@ import (
 	"github.com/sergiusd/redbus/internal/app/model"
 )
 
-func fromPBStrategy(strategy *pb.ConsumeRequest_Connect_Strategy) *model.RepeatStrategy {
+func fromPBRepeatStrategy(strategy *pb.ConsumeRequest_Connect_RepeatStrategy) *model.RepeatStrategy {
 	if strategy == nil {
 		return nil
 	}
 
 	if strategy.EvenConfig != nil {
-		return model.NewEvenRepeatStrategy(
+		return model.NewRepeatStrategyEven(
 			int(strategy.MaxAttempts),
 			time.Second*time.Duration(strategy.EvenConfig.IntervalSec),
 		)
 	}
 
 	if strategy.ProgressiveConfig != nil {
-		return model.NewProgressiveRepeatStrategy(
+		return model.NewRepeatStrategyStrategy(
 			int(strategy.MaxAttempts),
 			time.Second*time.Duration(strategy.ProgressiveConfig.IntervalSec),
 			strategy.ProgressiveConfig.Multiplier,

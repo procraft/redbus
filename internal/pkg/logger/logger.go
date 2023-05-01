@@ -11,8 +11,8 @@ import (
 
 var (
 	Verbose bool
-	Jsonlog bool
-	App     = "app"
+	JsonLog bool
+	App     = context.Background()
 )
 
 type Level string
@@ -34,10 +34,8 @@ var levelNameMap = map[Level]string{
 }
 
 type GetRequestIdFromContextGetterFn func(ctx context.Context) string
-type GetRequestIdFromStringGetterFn func(ctx string) string
 
 var GetRequestIdFromContextFn *GetRequestIdFromContextGetterFn
-var GetRequestIdFromStringFn *GetRequestIdFromStringGetterFn
 
 type jsonLog struct {
 	Time     int64  `json:"time"`
@@ -46,19 +44,15 @@ type jsonLog struct {
 	Message  string `json:"message"`
 }
 
-func getRequestId(id any) string {
-	switch v := id.(type) {
-	case string:
-		if GetRequestIdFromStringFn != nil {
-			return (*GetRequestIdFromStringFn)(v)
-		}
-		return v
-	case context.Context:
-		if GetRequestIdFromContextFn != nil {
-			return (*GetRequestIdFromContextFn)(v)
-		}
+func getRequestId(ctx context.Context) string {
+	var v string
+	if GetRequestIdFromContextFn != nil {
+		v = (*GetRequestIdFromContextFn)(ctx)
 	}
-	return "<none>"
+	if v == "" {
+		return "<none>"
+	}
+	return v
 }
 
 func jsonPrintf(severity, requestId string, format string, v ...any) {
@@ -74,12 +68,12 @@ func jsonPrintf(severity, requestId string, format string, v ...any) {
 	fmt.Printf("%s\n", string(bytes))
 }
 
-func Log(ctx any, level Level, format string, v ...any) {
+func Log(ctx context.Context, level Level, format string, v ...any) {
 	if Verbose != true && level == LevelDebug {
 		return
 	}
 	requestId := getRequestId(ctx)
-	if Jsonlog {
+	if JsonLog {
 		jsonPrintf(levelNameMap[level], requestId, format, v...)
 	} else {
 		log.Printf("[%s] [%s] %s", level, requestId, fmt.Sprintf(format, v...))
@@ -89,22 +83,22 @@ func Log(ctx any, level Level, format string, v ...any) {
 	}
 }
 
-func Debug(ctx any, format string, v ...any) {
+func Debug(ctx context.Context, format string, v ...any) {
 	Log(ctx, LevelDebug, format, v...)
 }
 
-func Info(ctx any, format string, v ...any) {
+func Info(ctx context.Context, format string, v ...any) {
 	Log(ctx, LevelInfo, format, v...)
 }
 
-func Warning(ctx any, format string, v ...any) {
+func Warning(ctx context.Context, format string, v ...any) {
 	Log(ctx, LevelWarning, format, v...)
 }
 
-func Error(ctx any, format string, v ...any) {
+func Error(ctx context.Context, format string, v ...any) {
 	Log(ctx, LevelError, format, v...)
 }
 
-func Fatal(ctx any, format string, v ...any) {
+func Fatal(ctx context.Context, format string, v ...any) {
 	Log(ctx, LevelFatal, format, v...)
 }

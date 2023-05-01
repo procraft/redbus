@@ -5,7 +5,7 @@ type RepeatData struct {
 	Group      string
 	ConsumerId string
 	MessageId  string
-	Key        []byte
+	Key        *[]byte
 	Message    []byte
 	Strategy   *RepeatStrategy
 }

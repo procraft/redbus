@@ -1,14 +1,15 @@
-package app
+package reqid
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/sergiusd/redbus/internal/pkg/logger"
 
 	"github.com/go-chi/chi/middleware"
 	"google.golang.org/grpc"
@@ -35,10 +36,29 @@ func GetRequestId(ctx context.Context) string {
 	return middleware.GetReqID(ctx)
 }
 
-func NewRequestIdInterceptor() grpc.UnaryServerInterceptor {
+func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		return handler(SetRequestId(ctx), req)
 	}
+}
+
+func StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		wrapper := &streamWrapper{
+			ctx:          SetRequestId(stream.Context()),
+			ServerStream: stream,
+		}
+		return handler(srv, wrapper)
+	}
+}
+
+type streamWrapper struct {
+	ctx context.Context
+	grpc.ServerStream
+}
+
+func (w *streamWrapper) Context() context.Context {
+	return w.ctx
 }
 
 func NewRequestIdMiddleware() func(next http.Handler) http.Handler {
@@ -69,11 +89,10 @@ func init() {
 	prefix = fmt.Sprintf("%s/%s", hostname, b64[0:10])
 
 	// bind with logger
-	var getRequestIDFromStringFn logger.GetRequestIdFromStringGetterFn = func(ctx string) string {
-		return prefix + "/" + ctx
-	}
-	logger.GetRequestIdFromStringFn = &getRequestIDFromStringFn
 	var getRequestIDFromContextFn logger.GetRequestIdFromContextGetterFn = func(ctx context.Context) string {
+		if ctx == logger.App {
+			return prefix + "/app"
+		}
 		return GetRequestId(ctx)
 	}
 	logger.GetRequestIdFromContextFn = &getRequestIDFromContextFn

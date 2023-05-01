@@ -26,7 +26,7 @@ message ProduceResponse {
 
 message ConsumeRequest {
   message Connect {
-    message Strategy {
+    message RepeatStrategy {
       message EvenConfig {
         int32 intervalSec = 1;
       }
@@ -43,7 +43,8 @@ message ConsumeRequest {
     string id = 1;
     string topic = 2;
     string group = 3;
-    Strategy strategy = 4;
+    RepeatStrategy repeatStrategy = 4;
+    int32 batchSize = 5;
   }
   message Payload {
     bool ok = 1;

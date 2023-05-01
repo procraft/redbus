@@ -193,13 +193,14 @@ func (m *ConsumeRequest) GetPayload() *ConsumeRequest_Payload {
 }
 
 type ConsumeRequest_Connect struct {
-	Id                   string                           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Topic                string                           `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
-	Group                string                           `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
-	Strategy             *ConsumeRequest_Connect_Strategy `protobuf:"bytes,4,opt,name=strategy,proto3" json:"strategy,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
-	XXX_unrecognized     []byte                           `json:"-"`
-	XXX_sizecache        int32                            `json:"-"`
+	Id                   string                                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Topic                string                                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	Group                string                                 `protobuf:"bytes,3,opt,name=group,proto3" json:"group,omitempty"`
+	RepeatStrategy       *ConsumeRequest_Connect_RepeatStrategy `protobuf:"bytes,4,opt,name=repeatStrategy,proto3" json:"repeatStrategy,omitempty"`
+	BatchSize            int32                                  `protobuf:"varint,5,opt,name=batchSize,proto3" json:"batchSize,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
+	XXX_unrecognized     []byte                                 `json:"-"`
+	XXX_sizecache        int32                                  `json:"-"`
 }
 
 func (m *ConsumeRequest_Connect) Reset()         { *m = ConsumeRequest_Connect{} }
@@ -256,34 +257,41 @@ func (m *ConsumeRequest_Connect) GetGroup() string {
 	return ""
 }
 
-func (m *ConsumeRequest_Connect) GetStrategy() *ConsumeRequest_Connect_Strategy {
+func (m *ConsumeRequest_Connect) GetRepeatStrategy() *ConsumeRequest_Connect_RepeatStrategy {
 	if m != nil {
-		return m.Strategy
+		return m.RepeatStrategy
 	}
 	return nil
 }
 
-type ConsumeRequest_Connect_Strategy struct {
-	MaxAttempts          int32                                              `protobuf:"varint,1,opt,name=maxAttempts,proto3" json:"maxAttempts,omitempty"`
-	EvenConfig           *ConsumeRequest_Connect_Strategy_EvenConfig        `protobuf:"bytes,2,opt,name=evenConfig,proto3" json:"evenConfig,omitempty"`
-	ProgressiveConfig    *ConsumeRequest_Connect_Strategy_ProgressiveConfig `protobuf:"bytes,3,opt,name=progressiveConfig,proto3" json:"progressiveConfig,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                                           `json:"-"`
-	XXX_unrecognized     []byte                                             `json:"-"`
-	XXX_sizecache        int32                                              `json:"-"`
+func (m *ConsumeRequest_Connect) GetBatchSize() int32 {
+	if m != nil {
+		return m.BatchSize
+	}
+	return 0
 }
 
-func (m *ConsumeRequest_Connect_Strategy) Reset()         { *m = ConsumeRequest_Connect_Strategy{} }
-func (m *ConsumeRequest_Connect_Strategy) String() string { return proto.CompactTextString(m) }
-func (*ConsumeRequest_Connect_Strategy) ProtoMessage()    {}
-func (*ConsumeRequest_Connect_Strategy) Descriptor() ([]byte, []int) {
+type ConsumeRequest_Connect_RepeatStrategy struct {
+	MaxAttempts          int32                                                    `protobuf:"varint,1,opt,name=maxAttempts,proto3" json:"maxAttempts,omitempty"`
+	EvenConfig           *ConsumeRequest_Connect_RepeatStrategy_EvenConfig        `protobuf:"bytes,2,opt,name=evenConfig,proto3" json:"evenConfig,omitempty"`
+	ProgressiveConfig    *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig `protobuf:"bytes,3,opt,name=progressiveConfig,proto3" json:"progressiveConfig,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                                                 `json:"-"`
+	XXX_unrecognized     []byte                                                   `json:"-"`
+	XXX_sizecache        int32                                                    `json:"-"`
+}
+
+func (m *ConsumeRequest_Connect_RepeatStrategy) Reset()         { *m = ConsumeRequest_Connect_RepeatStrategy{} }
+func (m *ConsumeRequest_Connect_RepeatStrategy) String() string { return proto.CompactTextString(m) }
+func (*ConsumeRequest_Connect_RepeatStrategy) ProtoMessage()    {}
+func (*ConsumeRequest_Connect_RepeatStrategy) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0}
 }
-func (m *ConsumeRequest_Connect_Strategy) XXX_Unmarshal(b []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConsumeRequest_Connect_Strategy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConsumeRequest_Connect_Strategy.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -293,62 +301,62 @@ func (m *ConsumeRequest_Connect_Strategy) XXX_Marshal(b []byte, deterministic bo
 		return b[:n], nil
 	}
 }
-func (m *ConsumeRequest_Connect_Strategy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy.Merge(m, src)
+func (m *ConsumeRequest_Connect_RepeatStrategy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy.Merge(m, src)
 }
-func (m *ConsumeRequest_Connect_Strategy) XXX_Size() int {
+func (m *ConsumeRequest_Connect_RepeatStrategy) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConsumeRequest_Connect_Strategy) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy.DiscardUnknown(m)
+func (m *ConsumeRequest_Connect_RepeatStrategy) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConsumeRequest_Connect_Strategy proto.InternalMessageInfo
+var xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy proto.InternalMessageInfo
 
-func (m *ConsumeRequest_Connect_Strategy) GetMaxAttempts() int32 {
+func (m *ConsumeRequest_Connect_RepeatStrategy) GetMaxAttempts() int32 {
 	if m != nil {
 		return m.MaxAttempts
 	}
 	return 0
 }
 
-func (m *ConsumeRequest_Connect_Strategy) GetEvenConfig() *ConsumeRequest_Connect_Strategy_EvenConfig {
+func (m *ConsumeRequest_Connect_RepeatStrategy) GetEvenConfig() *ConsumeRequest_Connect_RepeatStrategy_EvenConfig {
 	if m != nil {
 		return m.EvenConfig
 	}
 	return nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy) GetProgressiveConfig() *ConsumeRequest_Connect_Strategy_ProgressiveConfig {
+func (m *ConsumeRequest_Connect_RepeatStrategy) GetProgressiveConfig() *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig {
 	if m != nil {
 		return m.ProgressiveConfig
 	}
 	return nil
 }
 
-type ConsumeRequest_Connect_Strategy_EvenConfig struct {
+type ConsumeRequest_Connect_RepeatStrategy_EvenConfig struct {
 	IntervalSec          int32    `protobuf:"varint,1,opt,name=intervalSec,proto3" json:"intervalSec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Reset() {
-	*m = ConsumeRequest_Connect_Strategy_EvenConfig{}
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Reset() {
+	*m = ConsumeRequest_Connect_RepeatStrategy_EvenConfig{}
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) String() string {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) String() string {
 	return proto.CompactTextString(m)
 }
-func (*ConsumeRequest_Connect_Strategy_EvenConfig) ProtoMessage() {}
-func (*ConsumeRequest_Connect_Strategy_EvenConfig) Descriptor() ([]byte, []int) {
+func (*ConsumeRequest_Connect_RepeatStrategy_EvenConfig) ProtoMessage() {}
+func (*ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0, 0}
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Unmarshal(b []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_EvenConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -358,26 +366,26 @@ func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Marshal(b []byte, deter
 		return b[:n], nil
 	}
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.Merge(m, src)
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_EvenConfig.Merge(m, src)
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_Size() int {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig.DiscardUnknown(m)
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_EvenConfig.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConsumeRequest_Connect_Strategy_EvenConfig proto.InternalMessageInfo
+var xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_EvenConfig proto.InternalMessageInfo
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) GetIntervalSec() int32 {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) GetIntervalSec() int32 {
 	if m != nil {
 		return m.IntervalSec
 	}
 	return 0
 }
 
-type ConsumeRequest_Connect_Strategy_ProgressiveConfig struct {
+type ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig struct {
 	IntervalSec          int32    `protobuf:"varint,1,opt,name=intervalSec,proto3" json:"intervalSec,omitempty"`
 	Multiplier           float32  `protobuf:"fixed32,2,opt,name=multiplier,proto3" json:"multiplier,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -385,22 +393,22 @@ type ConsumeRequest_Connect_Strategy_ProgressiveConfig struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Reset() {
-	*m = ConsumeRequest_Connect_Strategy_ProgressiveConfig{}
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Reset() {
+	*m = ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig{}
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) String() string {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) String() string {
 	return proto.CompactTextString(m)
 }
-func (*ConsumeRequest_Connect_Strategy_ProgressiveConfig) ProtoMessage() {}
-func (*ConsumeRequest_Connect_Strategy_ProgressiveConfig) Descriptor() ([]byte, []int) {
+func (*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) ProtoMessage() {}
+func (*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1b40cafcd4234784, []int{2, 0, 0, 1}
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Unmarshal(b []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -410,26 +418,26 @@ func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Marshal(b []byte
 		return b[:n], nil
 	}
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.Merge(m, src)
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig.Merge(m, src)
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_Size() int {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig.DiscardUnknown(m)
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConsumeRequest_Connect_Strategy_ProgressiveConfig proto.InternalMessageInfo
+var xxx_messageInfo_ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig proto.InternalMessageInfo
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) GetIntervalSec() int32 {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) GetIntervalSec() int32 {
 	if m != nil {
 		return m.IntervalSec
 	}
 	return 0
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) GetMultiplier() float32 {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) GetMultiplier() float32 {
 	if m != nil {
 		return m.Multiplier
 	}
@@ -661,9 +669,9 @@ func init() {
 	proto.RegisterType((*ProduceResponse)(nil), "sergiusd.redbus.ProduceResponse")
 	proto.RegisterType((*ConsumeRequest)(nil), "sergiusd.redbus.ConsumeRequest")
 	proto.RegisterType((*ConsumeRequest_Connect)(nil), "sergiusd.redbus.ConsumeRequest.Connect")
-	proto.RegisterType((*ConsumeRequest_Connect_Strategy)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy")
-	proto.RegisterType((*ConsumeRequest_Connect_Strategy_EvenConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy.EvenConfig")
-	proto.RegisterType((*ConsumeRequest_Connect_Strategy_ProgressiveConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.Strategy.ProgressiveConfig")
+	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy")
+	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy_EvenConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig")
+	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig")
 	proto.RegisterType((*ConsumeRequest_Payload)(nil), "sergiusd.redbus.ConsumeRequest.Payload")
 	proto.RegisterType((*ConsumeResponse)(nil), "sergiusd.redbus.ConsumeResponse")
 	proto.RegisterType((*ConsumeResponse_Connect)(nil), "sergiusd.redbus.ConsumeResponse.Connect")
@@ -673,43 +681,44 @@ func init() {
 func init() { proto.RegisterFile("api/api.proto", fileDescriptor_1b40cafcd4234784) }
 
 var fileDescriptor_1b40cafcd4234784 = []byte{
-	// 561 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x31, 0x6e, 0xdb, 0x30,
-	0x14, 0x0d, 0xe5, 0x38, 0x76, 0xbe, 0x13, 0xbb, 0x21, 0x32, 0x18, 0x1a, 0x5c, 0xd7, 0x4b, 0xbd,
-	0x54, 0x09, 0xe2, 0xb1, 0x53, 0x1c, 0x14, 0xe8, 0x50, 0x14, 0x06, 0x8d, 0x2e, 0xed, 0x44, 0x4b,
-	0xac, 0x40, 0xd8, 0x16, 0x59, 0x92, 0x32, 0xea, 0xb5, 0xa7, 0xc8, 0xdc, 0x2b, 0xf4, 0x12, 0x1d,
-	0x7b, 0x84, 0xc2, 0x05, 0x7a, 0x8b, 0x02, 0x85, 0x28, 0x59, 0x91, 0xe4, 0x04, 0x71, 0x36, 0xf1,
-	0x8b, 0xff, 0xfd, 0xf7, 0x1e, 0x1e, 0x3f, 0x9c, 0x52, 0xc9, 0x2f, 0xa8, 0xe4, 0x9e, 0x54, 0xc2,
-	0x08, 0xdc, 0xd1, 0x4c, 0x85, 0x3c, 0xd6, 0x81, 0xa7, 0x58, 0x30, 0x8b, 0xf5, 0x80, 0x40, 0x7b,
-	0xa2, 0x44, 0x10, 0xfb, 0x8c, 0xb0, 0x2f, 0x31, 0xd3, 0x06, 0x9f, 0x43, 0xdd, 0x08, 0xc9, 0xfd,
-	0x2e, 0xea, 0xa3, 0xe1, 0x31, 0x49, 0x0f, 0xf8, 0x19, 0xd4, 0xe6, 0x6c, 0xdd, 0x75, 0x6c, 0x2d,
-	0xf9, 0xc4, 0x5d, 0x68, 0x2c, 0x99, 0xd6, 0x34, 0x64, 0xdd, 0x5a, 0x1f, 0x0d, 0x4f, 0xc8, 0xf6,
-	0x38, 0x78, 0x01, 0x9d, 0x1c, 0x53, 0x4b, 0x11, 0x69, 0x86, 0xdb, 0xe0, 0x88, 0xb9, 0x45, 0x6c,
-	0x12, 0x47, 0xcc, 0x07, 0x7f, 0xeb, 0xd0, 0xbe, 0x11, 0x91, 0x8e, 0x97, 0xf9, 0xdc, 0x6b, 0x68,
-	0xf8, 0x22, 0x8a, 0x98, 0x6f, 0xec, 0xbd, 0xd6, 0xd5, 0x4b, 0xaf, 0x42, 0xd6, 0x2b, 0x77, 0x24,
-	0xc7, 0xe4, 0x3a, 0xd9, 0xf6, 0x25, 0x10, 0x92, 0xae, 0x17, 0x82, 0x06, 0x96, 0xe8, 0x1e, 0x10,
-	0x93, 0xf4, 0x3a, 0xd9, 0xf6, 0xb9, 0xb7, 0x87, 0xd0, 0xc8, 0x70, 0x13, 0xd2, 0x3c, 0xc8, 0x6c,
-	0x70, 0x78, 0x70, 0xe7, 0x8c, 0x53, 0x74, 0xe6, 0x1c, 0xea, 0xa1, 0x12, 0xb1, 0xb4, 0x2e, 0x1c,
-	0x93, 0xf4, 0x80, 0xdf, 0x41, 0x53, 0x1b, 0x45, 0x0d, 0x0b, 0xd7, 0xdd, 0x43, 0xcb, 0xe5, 0x72,
-	0x4f, 0x39, 0xde, 0x34, 0xeb, 0x23, 0x39, 0x82, 0xfb, 0xad, 0x06, 0xcd, 0x6d, 0x19, 0xf7, 0xa1,
-	0xb5, 0xa4, 0x5f, 0xaf, 0x8d, 0x61, 0x4b, 0x69, 0xb4, 0xe5, 0x57, 0x27, 0xc5, 0x12, 0xfe, 0x04,
-	0xc0, 0x56, 0x2c, 0xba, 0x11, 0xd1, 0x67, 0x1e, 0x66, 0x56, 0xbc, 0x7e, 0xea, 0x78, 0xef, 0x4d,
-	0x0e, 0x41, 0x0a, 0x70, 0x58, 0xc2, 0x99, 0x54, 0x22, 0x54, 0x4c, 0x6b, 0xbe, 0x62, 0xd9, 0x8c,
-	0x9a, 0x9d, 0x31, 0x7e, 0xf2, 0x8c, 0x49, 0x15, 0x89, 0xec, 0x82, 0xbb, 0x1e, 0xc0, 0x1d, 0x97,
-	0x44, 0x3e, 0x8f, 0x0c, 0x53, 0x2b, 0xba, 0x98, 0x32, 0x7f, 0x2b, 0xbf, 0x50, 0x72, 0x3f, 0xc0,
-	0xd9, 0x0e, 0xee, 0xe3, 0x6d, 0xb8, 0x07, 0xb0, 0x8c, 0x17, 0x86, 0xcb, 0x05, 0x67, 0xca, 0xba,
-	0xe6, 0x90, 0x42, 0xc5, 0x1d, 0x41, 0x23, 0x8b, 0x4b, 0x35, 0xce, 0xc5, 0xb7, 0x90, 0x66, 0x23,
-	0x7f, 0x0b, 0xff, 0x10, 0x74, 0x72, 0x13, 0xb2, 0xc7, 0x30, 0xae, 0x26, 0x7d, 0xf8, 0xb0, 0x6f,
-	0x69, 0xcb, 0x6e, 0xd4, 0xc7, 0xd5, 0xa8, 0x3f, 0x8e, 0xb1, 0x93, 0xf5, 0x51, 0x29, 0xea, 0xfb,
-	0x09, 0x72, 0x5f, 0x95, 0x5c, 0x28, 0xbd, 0x0f, 0x0c, 0x87, 0x01, 0x35, 0xd4, 0x76, 0x9c, 0x10,
-	0xfb, 0x7d, 0xf5, 0x03, 0xc1, 0x29, 0xb1, 0x7c, 0xa6, 0x4c, 0xad, 0xb8, 0xcf, 0xf0, 0x7b, 0x68,
-	0x64, 0xdb, 0x01, 0x3f, 0xdf, 0xe1, 0x5c, 0xde, 0x45, 0x6e, 0xff, 0xe1, 0x0b, 0xa9, 0xa8, 0xc1,
-	0x01, 0x26, 0x56, 0x45, 0xa2, 0xf4, 0x1e, 0xbc, 0x72, 0xfe, 0xee, 0xc1, 0xab, 0x98, 0x34, 0x38,
-	0x18, 0xa2, 0x4b, 0x34, 0x7e, 0xfb, 0x73, 0xd3, 0x43, 0xbf, 0x36, 0x3d, 0xf4, 0x7b, 0xd3, 0x43,
-	0xb7, 0x7f, 0x7a, 0x07, 0x50, 0x5d, 0x9c, 0xe3, 0x56, 0xaa, 0x6a, 0x92, 0xac, 0xd5, 0x09, 0xfa,
-	0x68, 0xf7, 0x6c, 0x28, 0x16, 0x34, 0x0a, 0x2f, 0xe4, 0xec, 0xbb, 0x73, 0x94, 0xfe, 0x9e, 0x1d,
-	0xd9, 0xbd, 0x3b, 0xfa, 0x1f, 0x00, 0x00, 0xff, 0xff, 0x59, 0xa0, 0xf4, 0xa8, 0x88, 0x05, 0x00,
-	0x00,
+	// 586 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0x41, 0x6f, 0xd3, 0x4c,
+	0x10, 0xed, 0x3a, 0x4d, 0xf3, 0x75, 0xda, 0xa6, 0x5f, 0x57, 0x3d, 0x58, 0x16, 0x0a, 0x21, 0x17,
+	0x72, 0xc1, 0x45, 0xad, 0xc4, 0xbd, 0xa9, 0x90, 0x7a, 0x42, 0xd1, 0x46, 0x5c, 0x38, 0x20, 0x6d,
+	0xec, 0xc1, 0xac, 0x9a, 0x78, 0x97, 0xdd, 0x75, 0x44, 0xf9, 0x1d, 0x1c, 0x38, 0x73, 0xe2, 0xce,
+	0x9f, 0xe0, 0xc8, 0x99, 0x13, 0x2a, 0xbf, 0x03, 0x09, 0x79, 0xed, 0xa4, 0xb6, 0xd3, 0xaa, 0x55,
+	0x6f, 0x9e, 0xf1, 0xcc, 0x9b, 0x37, 0x4f, 0xfb, 0x06, 0xf6, 0xb8, 0x12, 0x47, 0x5c, 0x89, 0x50,
+	0x69, 0x69, 0x25, 0xdd, 0x37, 0xa8, 0x13, 0x91, 0x99, 0x38, 0xd4, 0x18, 0x4f, 0x33, 0x33, 0x60,
+	0xd0, 0x1d, 0x6b, 0x19, 0x67, 0x11, 0x32, 0xfc, 0x90, 0xa1, 0xb1, 0xf4, 0x10, 0xda, 0x56, 0x2a,
+	0x11, 0xf9, 0xa4, 0x4f, 0x86, 0xdb, 0xac, 0x08, 0xe8, 0xff, 0xd0, 0xba, 0xc0, 0x4b, 0xdf, 0x73,
+	0xb9, 0xfc, 0x93, 0xfa, 0xd0, 0x99, 0xa3, 0x31, 0x3c, 0x41, 0xbf, 0xd5, 0x27, 0xc3, 0x5d, 0xb6,
+	0x0c, 0x07, 0x4f, 0x60, 0x7f, 0x85, 0x69, 0x94, 0x4c, 0x0d, 0xd2, 0x2e, 0x78, 0xf2, 0xc2, 0x21,
+	0xfe, 0xc7, 0x3c, 0x79, 0x31, 0xf8, 0xb6, 0x05, 0xdd, 0x33, 0x99, 0x9a, 0x6c, 0xbe, 0x9a, 0x7b,
+	0x0a, 0x9d, 0x48, 0xa6, 0x29, 0x46, 0xd6, 0xd5, 0xed, 0x1c, 0x3f, 0x0d, 0x1b, 0x64, 0xc3, 0x7a,
+	0x47, 0x1e, 0xe6, 0xe5, 0x6c, 0xd9, 0x97, 0x43, 0x28, 0x7e, 0x39, 0x93, 0x3c, 0x76, 0x44, 0xef,
+	0x01, 0x31, 0x2e, 0xca, 0xd9, 0xb2, 0x2f, 0xf8, 0xb5, 0x09, 0x9d, 0x12, 0x37, 0x27, 0x2d, 0xe2,
+	0x52, 0x06, 0x4f, 0xc4, 0xd7, 0xca, 0x78, 0x55, 0x65, 0x0e, 0xa1, 0x9d, 0x68, 0x99, 0x29, 0xa7,
+	0xc2, 0x36, 0x2b, 0x02, 0xfa, 0x16, 0xba, 0x1a, 0x15, 0x72, 0x3b, 0xb1, 0x9a, 0x5b, 0x4c, 0x2e,
+	0xfd, 0x4d, 0xc7, 0xe8, 0xc5, 0x3d, 0x97, 0x0a, 0x59, 0xad, 0x9b, 0x35, 0xd0, 0xe8, 0x23, 0xd8,
+	0x9e, 0x72, 0x1b, 0xbd, 0x9f, 0x88, 0x4f, 0xe8, 0xb7, 0xfb, 0x64, 0xd8, 0x66, 0xd7, 0x89, 0xe0,
+	0x73, 0x0b, 0xba, 0x75, 0x00, 0xda, 0x87, 0x9d, 0x39, 0xff, 0x78, 0x6a, 0x2d, 0xce, 0x95, 0x35,
+	0x6e, 0xab, 0x36, 0xab, 0xa6, 0x28, 0x07, 0xc0, 0x05, 0xa6, 0x67, 0x32, 0x7d, 0x27, 0x92, 0x52,
+	0xc0, 0xd3, 0x87, 0xd1, 0x0d, 0x5f, 0xae, 0x80, 0x58, 0x05, 0x94, 0x2e, 0xe0, 0x40, 0x69, 0x99,
+	0x68, 0x34, 0x46, 0x2c, 0xb0, 0x9c, 0xd4, 0x72, 0x93, 0xce, 0x1f, 0x38, 0x69, 0xdc, 0xc4, 0x63,
+	0xeb, 0x23, 0x82, 0x10, 0xe0, 0x9a, 0x51, 0x2e, 0x85, 0x48, 0x2d, 0xea, 0x05, 0x9f, 0x4d, 0x30,
+	0x5a, 0x4a, 0x51, 0x49, 0x05, 0xaf, 0xe1, 0x60, 0x0d, 0xf7, 0xee, 0x36, 0xda, 0x03, 0x98, 0x67,
+	0x33, 0x2b, 0xd4, 0x4c, 0xa0, 0x76, 0x0a, 0x7a, 0xac, 0x92, 0x09, 0x4e, 0xa0, 0x53, 0x3e, 0xb8,
+	0xa6, 0x21, 0xaa, 0x6e, 0x2a, 0x5e, 0xd7, 0xca, 0x4d, 0x7f, 0x09, 0xec, 0xaf, 0xa4, 0x28, 0xed,
+	0x34, 0x6a, 0x7a, 0x65, 0x78, 0xbb, 0x7a, 0x45, 0xcb, 0xba, 0x59, 0x46, 0x4d, 0xb3, 0xdc, 0x8d,
+	0xb1, 0xe6, 0x96, 0x93, 0x9a, 0x59, 0xee, 0xb7, 0x50, 0xf0, 0xac, 0xa6, 0x42, 0xcd, 0x61, 0x14,
+	0x36, 0x63, 0x6e, 0xb9, 0xeb, 0xd8, 0x65, 0xee, 0xfb, 0xf8, 0x3b, 0x81, 0x3d, 0xe6, 0xf8, 0x4c,
+	0x50, 0x2f, 0x44, 0x84, 0xf4, 0x15, 0x74, 0xca, 0xfb, 0x42, 0x1f, 0xaf, 0x71, 0xae, 0x5f, 0xb3,
+	0xa0, 0x7f, 0x7b, 0x41, 0xb1, 0xd4, 0x60, 0x83, 0x32, 0xb7, 0x45, 0xbe, 0xe9, 0x0d, 0x78, 0xf5,
+	0x57, 0x78, 0x03, 0x5e, 0x43, 0xa4, 0xc1, 0xc6, 0x90, 0x3c, 0x27, 0xa3, 0xf3, 0x1f, 0x57, 0x3d,
+	0xf2, 0xf3, 0xaa, 0x47, 0x7e, 0x5f, 0xf5, 0xc8, 0x97, 0x3f, 0xbd, 0x0d, 0x68, 0x9e, 0xde, 0xd1,
+	0x4e, 0xb1, 0xd5, 0x38, 0x3f, 0xcc, 0x63, 0xf2, 0xc6, 0x5d, 0xea, 0x44, 0xce, 0x78, 0x9a, 0x1c,
+	0xa9, 0xe9, 0x57, 0x6f, 0xab, 0xf8, 0x3d, 0xdd, 0x72, 0x97, 0xfb, 0xe4, 0x5f, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0xee, 0xd0, 0x4d, 0x94, 0xca, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1021,9 +1030,14 @@ func (m *ConsumeRequest_Connect) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Strategy != nil {
+	if m.BatchSize != 0 {
+		i = encodeVarintApi(dAtA, i, uint64(m.BatchSize))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.RepeatStrategy != nil {
 		{
-			size, err := m.Strategy.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.RepeatStrategy.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1057,7 +1071,7 @@ func (m *ConsumeRequest_Connect) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy) Marshal() (dAtA []byte, err error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1067,12 +1081,12 @@ func (m *ConsumeRequest_Connect_Strategy) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConsumeRequest_Connect_Strategy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1113,7 +1127,7 @@ func (m *ConsumeRequest_Connect_Strategy) MarshalToSizedBuffer(dAtA []byte) (int
 	return len(dAtA) - i, nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Marshal() (dAtA []byte, err error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1123,12 +1137,12 @@ func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Marshal() (dAtA []byte, err
 	return dAtA[:n], nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1145,7 +1159,7 @@ func (m *ConsumeRequest_Connect_Strategy_EvenConfig) MarshalToSizedBuffer(dAtA [
 	return len(dAtA) - i, nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Marshal() (dAtA []byte, err error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1155,12 +1169,12 @@ func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Marshal() (dAtA []by
 	return dAtA[:n], nil
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1451,9 +1465,12 @@ func (m *ConsumeRequest_Connect) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovApi(uint64(l))
 	}
-	if m.Strategy != nil {
-		l = m.Strategy.Size()
+	if m.RepeatStrategy != nil {
+		l = m.RepeatStrategy.Size()
 		n += 1 + l + sovApi(uint64(l))
+	}
+	if m.BatchSize != 0 {
+		n += 1 + sovApi(uint64(m.BatchSize))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1461,7 +1478,7 @@ func (m *ConsumeRequest_Connect) Size() (n int) {
 	return n
 }
 
-func (m *ConsumeRequest_Connect_Strategy) Size() (n int) {
+func (m *ConsumeRequest_Connect_RepeatStrategy) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1484,7 +1501,7 @@ func (m *ConsumeRequest_Connect_Strategy) Size() (n int) {
 	return n
 }
 
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Size() (n int) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1499,7 +1516,7 @@ func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Size() (n int) {
 	return n
 }
 
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Size() (n int) {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2071,7 +2088,7 @@ func (m *ConsumeRequest_Connect) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Strategy", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field RepeatStrategy", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2098,13 +2115,32 @@ func (m *ConsumeRequest_Connect) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Strategy == nil {
-				m.Strategy = &ConsumeRequest_Connect_Strategy{}
+			if m.RepeatStrategy == nil {
+				m.RepeatStrategy = &ConsumeRequest_Connect_RepeatStrategy{}
 			}
-			if err := m.Strategy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.RepeatStrategy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BatchSize", wireType)
+			}
+			m.BatchSize = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BatchSize |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipApi(dAtA[iNdEx:])
@@ -2127,7 +2163,7 @@ func (m *ConsumeRequest_Connect) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2150,10 +2186,10 @@ func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Strategy: wiretype end group for non-group")
+			return fmt.Errorf("proto: RepeatStrategy: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Strategy: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: RepeatStrategy: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2205,7 +2241,7 @@ func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.EvenConfig == nil {
-				m.EvenConfig = &ConsumeRequest_Connect_Strategy_EvenConfig{}
+				m.EvenConfig = &ConsumeRequest_Connect_RepeatStrategy_EvenConfig{}
 			}
 			if err := m.EvenConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2241,7 +2277,7 @@ func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.ProgressiveConfig == nil {
-				m.ProgressiveConfig = &ConsumeRequest_Connect_Strategy_ProgressiveConfig{}
+				m.ProgressiveConfig = &ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig{}
 			}
 			if err := m.ProgressiveConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -2269,7 +2305,7 @@ func (m *ConsumeRequest_Connect_Strategy) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Unmarshal(dAtA []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2339,7 +2375,7 @@ func (m *ConsumeRequest_Connect_Strategy_EvenConfig) Unmarshal(dAtA []byte) erro
 	}
 	return nil
 }
-func (m *ConsumeRequest_Connect_Strategy_ProgressiveConfig) Unmarshal(dAtA []byte) error {
+func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
