@@ -75,3 +75,22 @@ func (r *Repository) UpdateAttempt(ctx context.Context, repeat *model.Repeat) er
 		repeat.StartedAt, repeat.Attempt, repeat.Error, repeat.FinishedAt, repeat.Id)
 	return err
 }
+
+func (r *Repository) GetCount(ctx context.Context) (int, int, error) {
+	conn := db.FromContext(ctx)
+	var (
+		allCount    int
+		failedCount int
+	)
+	sql := "SELECT COUNT(*) FROM repeat"
+	err := conn.QueryRow(ctx, sql).Scan(&allCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Can't get all repeat count from db: %w", err)
+	}
+	sql = "SELECT COUNT(*) FROM repeat WHERE finished_at IS NOT NULL"
+	err = conn.QueryRow(ctx, sql).Scan(&failedCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Can't get failed repeat count from db: %w", err)
+	}
+	return allCount, failedCount, nil
+}

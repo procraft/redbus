@@ -8,12 +8,17 @@ import (
 
 type Config struct {
 	Grpc   grpcConfig
+	Admin  adminConfig
 	Kafka  kafkaConfig
 	Repeat repeatConfig
 	DB     dbConfig
 }
 
 type grpcConfig struct {
+	ServerPort int
+}
+
+type adminConfig struct {
 	ServerPort int
 }
 
@@ -42,6 +47,9 @@ func New() *Config {
 	return &Config{
 		Grpc: grpcConfig{
 			ServerPort: 50005,
+		},
+		Admin: adminConfig{
+			ServerPort: 50006,
 		},
 		Kafka: kafkaConfig{
 			FailTimeout:            time.Second * 5,

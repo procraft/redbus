@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sergiusd/redbus/api/golang/pb"
@@ -14,12 +15,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func New(host string, port int, options ...OptionFn) *Consumer {
-	c := Consumer{
+func New(host string, port int, options ...ServiceOptionFn) *Service {
+	c := Service{
 		host:               host,
 		port:               port,
 		unavailableTimeout: 60 * time.Second,
-		consumeTimeout:     60 * time.Second,
 	}
 	for _, o := range options {
 		o(&c)
@@ -27,7 +27,14 @@ func New(host string, port int, options ...OptionFn) *Consumer {
 	return &c
 }
 
-func (c *Consumer) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor) error {
+func (c *Service) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor, options ...ListenerOptionFn) error {
+	listener := Listener{
+		consumeTimeout: 60 * time.Second,
+		batchSize:      1,
+	}
+	for _, o := range options {
+		o(&listener)
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -45,7 +52,8 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 		Id:             fmt.Sprintf("%d-%d", os.Getpid(), time.Now().Unix()),
 		Topic:          topic,
 		Group:          group,
-		RepeatStrategy: toPBRepeatStrategy(c.repeatStrategy),
+		RepeatStrategy: toPBRepeatStrategy(listener.repeatStrategy),
+		BatchSize:      int32(listener.batchSize),
 	}
 
 	// connect to topic
@@ -94,7 +102,7 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 			default:
 			}
 
-			// receive payload
+			// receive messages
 			payloadResponse, err := stream.Recv()
 			if err == io.EOF {
 				return
@@ -103,22 +111,16 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 				log.Printf("Can't receive payload: %v\n", err)
 				return
 			}
-			log.Printf("[%v] Receive payload\n", payloadResponse.Payload.Id)
+			messageIdList := fromPBMessageIds(payloadResponse.MessageList)
+			log.Printf("Receive messages: %v\n", strings.Join(messageIdList, ","))
 
-			// process
-			processErr := c.processMessage(ctx, processor, payloadResponse.Payload)
+			// process messages
+			processResultMap := c.processMessageList(ctx, listener, processor, payloadResponse.MessageList)
 
-			// send result of process payload
-			var payloadResult *pb.ConsumeRequest_Payload
-			if processErr == nil {
-				log.Printf("[%v] Process payload success\n", payloadResponse.Payload.Id)
-				payloadResult = &pb.ConsumeRequest_Payload{Ok: true}
-			} else {
-				log.Printf("[%v] Process payload error: %v\n", payloadResponse.Payload.Id, processErr)
-				payloadResult = &pb.ConsumeRequest_Payload{Ok: false, Message: processErr.Error()}
-			}
-			if err := stream.Send(&pb.ConsumeRequest{Payload: payloadResult}); err != nil {
-				log.Printf("[%v] Can't send result of process payload: %v\n", payloadResponse.Payload.Id, err)
+			// send result of process messages
+			resultList := toPBResultList(processResultMap)
+			if err := stream.Send(&pb.ConsumeRequest{ResultList: resultList}); err != nil {
+				log.Printf("Can't send result of process messages: %v, error: %v\n", strings.Join(messageIdList, ","), err)
 				return
 			}
 		}
@@ -147,8 +149,41 @@ func (c *Consumer) Consume(ctx context.Context, topic, group string, processor C
 	return nil
 }
 
-func (c *Consumer) processMessage(ctx context.Context, processor ConsumeProcessor, payload *pb.ConsumeResponse_Payload) error {
-	processCtx, processCancel := context.WithTimeout(ctx, c.consumeTimeout)
+func (c *Service) processMessageList(
+	ctx context.Context,
+	listener Listener,
+	processor ConsumeProcessor,
+	messageList []*pb.ConsumeResponse_Message,
+) []ProcessResult {
+	if len(messageList) == 0 {
+		return nil
+	}
+	if len(messageList) == 1 {
+		err := c.processMessage(ctx, listener, processor, messageList[0])
+		return []ProcessResult{{id: messageList[0].Id, err: err}}
+	}
+	resultCh := make(chan ProcessResult, len(messageList))
+	for i := range messageList {
+		go func(m *pb.ConsumeResponse_Message) {
+			err := c.processMessage(ctx, listener, processor, m)
+			resultCh <- ProcessResult{id: m.Id, err: err}
+		}(messageList[i])
+	}
+	ret := make([]ProcessResult, 0, len(messageList))
+	for i := 0; i < len(messageList); i++ {
+		result := <-resultCh
+		ret = append(ret, result)
+	}
+	return ret
+}
+
+func (c *Service) processMessage(
+	ctx context.Context,
+	listener Listener,
+	processor ConsumeProcessor,
+	message *pb.ConsumeResponse_Message,
+) error {
+	processCtx, processCancel := context.WithTimeout(ctx, listener.consumeTimeout)
 	defer processCancel()
 	processErrCh := make(chan error)
 	defer close(processErrCh)
@@ -160,11 +195,11 @@ func (c *Consumer) processMessage(ctx context.Context, processor ConsumeProcesso
 				processErrCh <- fmt.Errorf("Recovered: %v", r)
 			}
 		}()
-		processErrCh <- processor(processCtx, payload.Data, payload.Id)
+		processErrCh <- processor(processCtx, message.Data, message.Id)
 	}()
 	select {
 	case <-processCtx.Done():
-		processErr = fmt.Errorf("Execution timeout %v limit for %v", c.consumeTimeout, payload.Id)
+		processErr = fmt.Errorf("Execution timeout %v limit for %v", listener.consumeTimeout, message.Id)
 	case err := <-processErrCh:
 		processErr = err
 	}

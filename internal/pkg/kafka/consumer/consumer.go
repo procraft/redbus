@@ -3,7 +3,7 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"log"
+	kpkg "github.com/sergiusd/redbus/internal/app/model"
 	"time"
 
 	"github.com/sergiusd/redbus/internal/pkg/kafka/credential"
@@ -23,6 +23,7 @@ type Consumer struct {
 type conf struct {
 	log         bool
 	credentials *credential.Conf
+	batchSize   int
 }
 
 func New(ctx context.Context, hosts []string, topic, group, id string, partition int, options ...Option) (*Consumer, error) {
@@ -33,7 +34,8 @@ func New(ctx context.Context, hosts []string, topic, group, id string, partition
 	c.topic = topic
 	c.group = group
 	c.conf = conf{
-		log: false,
+		log:       false,
+		batchSize: 1,
 	}
 	for _, o := range options {
 		o(&c.conf)
@@ -84,15 +86,25 @@ func (c *Consumer) GetID() string {
 	return c.id
 }
 
-func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Context, k, v []byte, id string) error) error {
+func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Context, list kpkg.MessageList) error) error {
+	batchSize := c.conf.batchSize
 	for {
-		m, err := c.reader.FetchMessage(ctx)
+		var mList []kafka.Message
+		var err error
+		if batchSize > 1 {
+			mList, err = c.reader.FetchMessages(ctx, batchSize, time.Millisecond*100)
+		} else {
+			var m kafka.Message
+			m, err = c.reader.FetchMessage(ctx)
+			if err == nil {
+				mList = []kafka.Message{m}
+			}
+		}
 		if err != nil {
 			return fmt.Errorf("Failed to read kafka message: %w\n", err)
 		}
-		log.Printf("Receive message from kafka: %v", m.Value)
 
-		if err := c.processAndCommit(ctx, m, processor); err != nil {
+		if err := c.processAndCommit(ctx, mList, processor); err != nil {
 			return err
 		}
 
@@ -105,17 +117,25 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 	}
 }
 
-func (c *Consumer) processAndCommit(ctx context.Context, m kafka.Message, processor func(ctx context.Context, k, v []byte, id string) error) error {
+func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, processor func(ctx context.Context, list kpkg.MessageList) error) error {
 	fn := func() error {
-		k := m.Key
-		v := m.Value
-
-		if c.conf.log {
-			fmt.Printf("Receive kafka message at topic/partition/offset %v/%v/%v: [%s] %s\n", m.Topic, m.Partition, m.Offset, string(k), v)
+		topic := c.topic
+		partition := mList[0].Partition
+		offset := mList[len(mList)-1].Offset
+		list := make(kpkg.MessageList, 0, len(mList))
+		for _, m := range mList {
+			list = append(list, kpkg.Message{
+				Id:    fmt.Sprintf("%v/%v", partition, m.Offset),
+				Key:   m.Key,
+				Value: m.Value,
+			})
 		}
 
-		id := fmt.Sprintf("%v/%v", m.Partition, m.Offset)
-		if err := processor(ctx, k, v, id); err != nil {
+		if c.conf.log {
+			fmt.Printf("Receive %d kafka message at topic/partition/offset %v/%v/%v: %v\n", len(mList), topic, partition, offset, list)
+		}
+
+		if err := processor(ctx, list); err != nil {
 			return fmt.Errorf("Can't process kafka event: %w\n", err)
 		}
 
@@ -127,7 +147,7 @@ func (c *Consumer) processAndCommit(ctx context.Context, m kafka.Message, proces
 		return err
 	}
 
-	if err := c.reader.CommitMessages(ctx, m); err != nil {
+	if err := c.reader.CommitMessages(ctx, mList...); err != nil {
 		fmt.Printf("failed to commit messages: %v\n", err)
 		return err
 	}

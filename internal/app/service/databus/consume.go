@@ -15,8 +15,12 @@ import (
 
 var errHandler = errors.New("error in handler")
 
-func (b *DataBus) CreateConsumerConnection(ctx context.Context, kafkaHost []string, topic, group, id string) (model.IConsumer, error) {
-	c, err := consumer.New(ctx, kafkaHost, topic, group, id, 0)
+func (b *DataBus) CreateConsumerConnection(ctx context.Context, kafkaHost []string, topic, group, id string, batchSize int) (model.IConsumer, error) {
+	options := []consumer.Option{}
+	if batchSize != 0 {
+		options = append(options, consumer.WithBatchSize(batchSize))
+	}
+	c, err := consumer.New(ctx, kafkaHost, topic, group, id, 0, options...)
 	if err != nil {
 		logger.Consumer(ctx, c, "Failed connect to kafka: %v", err)
 	} else {
@@ -35,7 +39,7 @@ func (b *DataBus) Consume(
 	topic, group, id string,
 	repeatStrategy *model.RepeatStrategy,
 	c model.IConsumer,
-	handler func(ctx context.Context, k, v []byte, id string) error,
+	handler func(ctx context.Context, list model.MessageList) error,
 	cancel context.CancelFunc,
 ) error {
 	b.startConsumer(ctx, srv, topic, group, id, repeatStrategy, c)
@@ -51,10 +55,15 @@ func (b *DataBus) startConsumer(ctx context.Context, srv pb.RedbusService_Consum
 
 func (b *DataBus) finishConsumer(ctx context.Context, topic, group, id string, c model.IConsumer, err error) {
 	b.connStore.RemoveConsumer(topic, group, id)
-	logger.Consumer(ctx, c, "Finish consuming: %v", err)
+	logger.Consumer(ctx, c, "Finish consuming, error: %v", err)
 }
 
-func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc, c model.IConsumer, handler func(ctx context.Context, k, v []byte, id string) error) error {
+func (b *DataBus) consumeProcess(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	c model.IConsumer,
+	handler func(ctx context.Context, list model.MessageList) error,
+) error {
 
 	go func() {
 		defer func() {
@@ -73,7 +82,7 @@ func (b *DataBus) consumeProcess(ctx context.Context, cancel context.CancelFunc,
 				time.Sleep(b.conf.Kafka.FailTimeout)
 			}
 			logger.Consumer(ctx, c, "Consume kafka starting...")
-			consumeErr = c.Consume(ctx, func(ctx context.Context, msgKey, msg []byte, id string) error { return handler(ctx, msgKey, msg, id) })
+			consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })
 			// handler error
 			if errors.Is(consumeErr, errHandler) {
 				cancel()

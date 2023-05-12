@@ -26,14 +26,20 @@ func main() {
 	}
 
 	c := consumer.New("localhost", dataBusServerPort,
-		consumer.WithUnavailableTimeout(dataBusUnavailableTimeout),
-		consumer.WithRepeatStrategyEven(3, 30),
+		consumer.WithServiceUnavailableTimeout(dataBusUnavailableTimeout),
 	)
-	if err := c.Consume(context.Background(), topic, group, func(_ context.Context, data []byte, id string) error {
-		time.Sleep(time.Second)
-		panic("I'm panic in consumer")
-		return nil
-	}); err != nil {
+	if err := c.Consume(
+		context.Background(),
+		topic,
+		group,
+		func(_ context.Context, data []byte, id string) error {
+			time.Sleep(time.Second)
+			panic("I'm panic in consumer")
+			return nil
+		},
+		consumer.WithRepeatStrategyEven(3, 30),
+		consumer.WithBatchSize(5),
+	); err != nil {
 		fmt.Printf("Finish example with error: %v", err)
 	}
 }

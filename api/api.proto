@@ -46,13 +46,14 @@ message ConsumeRequest {
     RepeatStrategy repeatStrategy = 4;
     int32 batchSize = 5;
   }
-  message Payload {
-    bool ok = 1;
-    string message = 2;
+  message Result {
+    string id = 1;
+    bool ok = 2;
+    string message = 3;
   }
 
   Connect connect = 1;
-  Payload payload = 2;
+  repeated Result resultList = 2;
 }
 
 message ConsumeResponse {
@@ -60,11 +61,11 @@ message ConsumeResponse {
     bool ok = 1;
     string message = 2;
   }
-  message Payload {
+  message Message {
     string id = 1;
     bytes data = 2;
   }
 
   Connect connect = 1;
-  Payload payload = 2;
+  repeated Message messageList = 2;
 }

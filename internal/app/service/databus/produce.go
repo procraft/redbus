@@ -16,6 +16,6 @@ func (b *DataBus) Produce(ctx context.Context, topic, key string, message []byte
 	if err := p.Produce(ctx, []byte(key), message); err != nil {
 		return err
 	}
-	logger.Produce(ctx, topic, "Produce to kafka: %v", message)
+	logger.Produce(ctx, topic, "Produce to kafka: %s", message)
 	return err
 }

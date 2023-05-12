@@ -5,12 +5,16 @@ import (
 	"time"
 )
 
-type Consumer struct {
+type Service struct {
 	host               string
 	port               int
 	unavailableTimeout time.Duration
-	consumeTimeout     time.Duration
-	repeatStrategy     *RepeatStrategy
+}
+
+type Listener struct {
+	consumeTimeout time.Duration
+	repeatStrategy *RepeatStrategy
+	batchSize      int
 }
 
 type RepeatStrategy struct {
@@ -29,3 +33,8 @@ type RepeatStrategyProgressive struct {
 }
 
 type ConsumeProcessor = func(ctx context.Context, data []byte, id string) error
+
+type ProcessResult struct {
+	id  string
+	err error
+}

@@ -52,6 +52,15 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	}
 }
 
+func ServerMiddleware(extraPrefix ...string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(SetRequestId(r.Context(), extraPrefix...))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 type streamWrapper struct {
 	ctx context.Context
 	grpc.ServerStream

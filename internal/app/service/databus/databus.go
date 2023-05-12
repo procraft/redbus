@@ -32,8 +32,11 @@ type IConnStore interface {
 	FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy
 	AddConsumer(srv pb.RedbusService_ConsumeServer, topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer)
 	RemoveConsumer(topic, group, id string)
+	GetConsumerCount() int
+	GetConsumeTopicCount() int
 }
 
 type IRepeater interface {
 	Add(ctx context.Context, data model.RepeatData, errorMsg string) error
+	GetCount(ctx context.Context) (int, int, error)
 }

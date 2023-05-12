@@ -29,3 +29,11 @@ func fromPBRepeatStrategy(strategy *pb.ConsumeRequest_Connect_RepeatStrategy) *m
 
 	return nil
 }
+
+func toPBMessageList(list model.MessageList) []*pb.ConsumeResponse_Message {
+	ret := make([]*pb.ConsumeResponse_Message, 0, len(list))
+	for _, v := range list {
+		ret = append(ret, &pb.ConsumeResponse_Message{Id: v.Id, Data: v.Value})
+	}
+	return ret
+}

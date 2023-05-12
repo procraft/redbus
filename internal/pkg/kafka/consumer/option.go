@@ -17,3 +17,9 @@ func WithCredentials(algo, user, password, cert string) Option {
 		conf.credentials = &credential.Conf{Algo: credential.Algo(algo), User: user, Password: password, Cert: cert}
 	}
 }
+
+func WithBatchSize(value int) Option {
+	return func(conf *conf) {
+		conf.batchSize = value
+	}
+}

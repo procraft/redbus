@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/sergiusd/redbus/internal/app/adminapi"
+	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/recovery"
+	"github.com/sergiusd/redbus/internal/pkg/evtsrc"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,12 +37,14 @@ import (
 
 type App struct {
 	conf                  *config.Config
+	eventSource           *evtsrc.EventSource
 	dataBusService        *databus.DataBus
 	repeaterService       *repeater.Repeater
 	grpcServer            *grpc.Server
 	dbClient              db.IClient
 	grpcUnaryInterceptor  []grpc.UnaryServerInterceptor
 	grpcStreamInterceptor []grpc.StreamServerInterceptor
+	adminHttpMiddleware   []func(next http.Handler) http.Handler
 	background            *bgpkg.Background
 }
 
@@ -61,6 +67,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	eg.Go(a.getTerminateWatcher(egCtx, cancel))
 	eg.Go(a.getGrpcApiListener(egCtx))
+	eg.Go(a.getAdminListener(egCtx))
 	for _, fn := range a.getBackgroundExecutorList(egCtx) {
 		eg.Go(fn)
 	}
@@ -74,6 +81,7 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initService,
 		a.initBackground,
 		a.initGrpcApi,
+		a.initAdminApi,
 	}
 
 	for _, fn := range inits {
@@ -105,11 +113,12 @@ func (a *App) initDb(ctx context.Context) error {
 	}
 	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, dbmw.UnaryServerInterceptor(dbFn))
 	a.grpcStreamInterceptor = append(a.grpcStreamInterceptor, dbmw.StreamServerInterceptor(dbFn))
-	//a.httpMiddleware = append(a.httpMiddleware, dbmw.ServerMiddleware(dbFn))
+	a.adminHttpMiddleware = append(a.adminHttpMiddleware, dbmw.ServerMiddleware(dbFn))
 	return nil
 }
 
 func (a *App) initService(_ context.Context) error {
+	a.eventSource = evtsrc.New()
 	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
 		return producer.New(ctx, []string{a.conf.Kafka.HostPort}, topic,
 			producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor),
@@ -117,7 +126,7 @@ func (a *App) initService(_ context.Context) error {
 			producer.WithBalancer(&kafka.RoundRobin{}),
 		)
 	}
-	connStoreService := connstore.New(createProducerFn)
+	connStoreService := connstore.New(createProducerFn, a.eventSource)
 	repeaterService := repeater.New(
 		a.conf.Repeat.DefaultStrategy,
 		connStoreService,
@@ -163,6 +172,10 @@ func (a *App) initGrpcApi(_ context.Context) error {
 	return nil
 }
 
+func (a *App) initAdminApi(_ context.Context) error {
+	return nil
+}
+
 func (a *App) getTerminateWatcher(ctx context.Context, cancel context.CancelFunc) func() error {
 	return func() error {
 		signalCh := make(chan os.Signal, 1)
@@ -189,6 +202,33 @@ func (a *App) getGrpcApiListener(ctx context.Context) func() error {
 				return
 			}
 			err = a.grpcServer.Serve(listener)
+			errCh <- fmt.Errorf("Failed to serve: %w", err)
+		}()
+		select {
+		case err := <-errCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (a *App) getAdminListener(ctx context.Context) func() error {
+	return func() error {
+		logger.Info(logger.App, "Start Admin server on port %d", a.conf.Admin.ServerPort)
+		errCh := make(chan error)
+		adminApi := adminapi.New(a.dataBusService, a.repeaterService, a.eventSource)
+
+		a.adminHttpMiddleware = append(a.adminHttpMiddleware,
+			reqid.ServerMiddleware("admin"),
+			recovery.ServerMiddleware,
+		)
+		cancel := adminApi.RegisterHandlers(a.adminHttpMiddleware...)
+		defer cancel()
+		http.Handle("/", http.FileServer(http.Dir("./web/admin/dist")))
+
+		go func() {
+			err := http.ListenAndServe(fmt.Sprintf(":%d", a.conf.Admin.ServerPort), nil)
 			errCh <- fmt.Errorf("Failed to serve: %w", err)
 		}()
 		select {

@@ -1,12 +1,14 @@
 package model
 
-import "context"
+import (
+	"context"
+)
 
 type IConsumer interface {
 	GetHosts() []string
 	GetTopic() string
 	GetGroup() string
 	GetID() string
-	Consume(ctx context.Context, processor func(ctx context.Context, k, v []byte, id string) error) error
+	Consume(ctx context.Context, processor func(ctx context.Context, list MessageList) error) error
 	Close() error
 }

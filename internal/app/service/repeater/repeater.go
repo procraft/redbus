@@ -23,6 +23,7 @@ type IRepository interface {
 	FindForRepeat(ctx context.Context, topicGroupList model.TopicGroupList) (model.RepeatList, error)
 	Delete(ctx context.Context, repeatId int64) error
 	UpdateAttempt(ctx context.Context, repeat *model.Repeat) error
+	GetCount(ctx context.Context) (int, int, error)
 }
 
 type IConnStore interface {
@@ -77,22 +78,26 @@ func (r *Repeater) Repeat(ctx context.Context) error {
 	return nil
 }
 
+func (r *Repeater) GetCount(ctx context.Context) (int, int, error) {
+	return r.repo.GetCount(ctx)
+}
+
 func (r *Repeater) repeatConsumer(ctx context.Context, repeatList model.RepeatList) {
 	for _, repeat := range repeatList {
 		bag := r.connStore.FindBestConsumerBag(repeat.Topic, repeat.Group, repeat.ConsumerId)
 		if bag == nil {
 			continue
 		}
-		data, err := grpcapi.SendToConsumerAndWaitResponse(logger.App, bag.Consumer, bag.Srv, repeat.Data, repeat.MessageId)
+		data, err := grpcapi.SendToConsumerAndWaitResponse(logger.App, bag.Consumer, bag.Srv, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
 		if err != nil {
 			logger.Error(ctx, "Error on repeat process message: %v", err)
 			continue
 		}
-		if data.Payload.Ok {
+		if data.ResultList[0].Ok {
 			err = r.repo.Delete(ctx, repeat.Id)
 		} else {
 			repeat.ApplyNextAttempt(r.defaultStrategy)
-			repeat.Error = data.Payload.Message
+			repeat.Error = data.ResultList[0].Message
 			err = r.repo.UpdateAttempt(ctx, repeat)
 		}
 		if err != nil {

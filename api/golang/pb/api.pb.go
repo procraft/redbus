@@ -138,11 +138,11 @@ func (m *ProduceResponse) GetOk() bool {
 }
 
 type ConsumeRequest struct {
-	Connect              *ConsumeRequest_Connect `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
-	Payload              *ConsumeRequest_Payload `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	Connect              *ConsumeRequest_Connect  `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
+	ResultList           []*ConsumeRequest_Result `protobuf:"bytes,2,rep,name=resultList,proto3" json:"resultList,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
+	XXX_unrecognized     []byte                   `json:"-"`
+	XXX_sizecache        int32                    `json:"-"`
 }
 
 func (m *ConsumeRequest) Reset()         { *m = ConsumeRequest{} }
@@ -185,9 +185,9 @@ func (m *ConsumeRequest) GetConnect() *ConsumeRequest_Connect {
 	return nil
 }
 
-func (m *ConsumeRequest) GetPayload() *ConsumeRequest_Payload {
+func (m *ConsumeRequest) GetResultList() []*ConsumeRequest_Result {
 	if m != nil {
-		return m.Payload
+		return m.ResultList
 	}
 	return nil
 }
@@ -444,26 +444,27 @@ func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) GetMultiplier(
 	return 0
 }
 
-type ConsumeRequest_Payload struct {
-	Ok                   bool     `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
-	Message              string   `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+type ConsumeRequest_Result struct {
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ok                   bool     `protobuf:"varint,2,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message              string   `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ConsumeRequest_Payload) Reset()         { *m = ConsumeRequest_Payload{} }
-func (m *ConsumeRequest_Payload) String() string { return proto.CompactTextString(m) }
-func (*ConsumeRequest_Payload) ProtoMessage()    {}
-func (*ConsumeRequest_Payload) Descriptor() ([]byte, []int) {
+func (m *ConsumeRequest_Result) Reset()         { *m = ConsumeRequest_Result{} }
+func (m *ConsumeRequest_Result) String() string { return proto.CompactTextString(m) }
+func (*ConsumeRequest_Result) ProtoMessage()    {}
+func (*ConsumeRequest_Result) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1b40cafcd4234784, []int{2, 1}
 }
-func (m *ConsumeRequest_Payload) XXX_Unmarshal(b []byte) error {
+func (m *ConsumeRequest_Result) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConsumeRequest_Payload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ConsumeRequest_Result) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConsumeRequest_Payload.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ConsumeRequest_Result.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -473,26 +474,33 @@ func (m *ConsumeRequest_Payload) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return b[:n], nil
 	}
 }
-func (m *ConsumeRequest_Payload) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsumeRequest_Payload.Merge(m, src)
+func (m *ConsumeRequest_Result) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeRequest_Result.Merge(m, src)
 }
-func (m *ConsumeRequest_Payload) XXX_Size() int {
+func (m *ConsumeRequest_Result) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConsumeRequest_Payload) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConsumeRequest_Payload.DiscardUnknown(m)
+func (m *ConsumeRequest_Result) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeRequest_Result.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConsumeRequest_Payload proto.InternalMessageInfo
+var xxx_messageInfo_ConsumeRequest_Result proto.InternalMessageInfo
 
-func (m *ConsumeRequest_Payload) GetOk() bool {
+func (m *ConsumeRequest_Result) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *ConsumeRequest_Result) GetOk() bool {
 	if m != nil {
 		return m.Ok
 	}
 	return false
 }
 
-func (m *ConsumeRequest_Payload) GetMessage() string {
+func (m *ConsumeRequest_Result) GetMessage() string {
 	if m != nil {
 		return m.Message
 	}
@@ -500,11 +508,11 @@ func (m *ConsumeRequest_Payload) GetMessage() string {
 }
 
 type ConsumeResponse struct {
-	Connect              *ConsumeResponse_Connect `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
-	Payload              *ConsumeResponse_Payload `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
-	XXX_unrecognized     []byte                   `json:"-"`
-	XXX_sizecache        int32                    `json:"-"`
+	Connect              *ConsumeResponse_Connect   `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
+	MessageList          []*ConsumeResponse_Message `protobuf:"bytes,2,rep,name=messageList,proto3" json:"messageList,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
 func (m *ConsumeResponse) Reset()         { *m = ConsumeResponse{} }
@@ -547,9 +555,9 @@ func (m *ConsumeResponse) GetConnect() *ConsumeResponse_Connect {
 	return nil
 }
 
-func (m *ConsumeResponse) GetPayload() *ConsumeResponse_Payload {
+func (m *ConsumeResponse) GetMessageList() []*ConsumeResponse_Message {
 	if m != nil {
-		return m.Payload
+		return m.MessageList
 	}
 	return nil
 }
@@ -609,7 +617,7 @@ func (m *ConsumeResponse_Connect) GetMessage() string {
 	return ""
 }
 
-type ConsumeResponse_Payload struct {
+type ConsumeResponse_Message struct {
 	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -617,18 +625,18 @@ type ConsumeResponse_Payload struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ConsumeResponse_Payload) Reset()         { *m = ConsumeResponse_Payload{} }
-func (m *ConsumeResponse_Payload) String() string { return proto.CompactTextString(m) }
-func (*ConsumeResponse_Payload) ProtoMessage()    {}
-func (*ConsumeResponse_Payload) Descriptor() ([]byte, []int) {
+func (m *ConsumeResponse_Message) Reset()         { *m = ConsumeResponse_Message{} }
+func (m *ConsumeResponse_Message) String() string { return proto.CompactTextString(m) }
+func (*ConsumeResponse_Message) ProtoMessage()    {}
+func (*ConsumeResponse_Message) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1b40cafcd4234784, []int{3, 1}
 }
-func (m *ConsumeResponse_Payload) XXX_Unmarshal(b []byte) error {
+func (m *ConsumeResponse_Message) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ConsumeResponse_Payload) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ConsumeResponse_Message) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ConsumeResponse_Payload.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ConsumeResponse_Message.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -638,26 +646,26 @@ func (m *ConsumeResponse_Payload) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
-func (m *ConsumeResponse_Payload) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ConsumeResponse_Payload.Merge(m, src)
+func (m *ConsumeResponse_Message) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConsumeResponse_Message.Merge(m, src)
 }
-func (m *ConsumeResponse_Payload) XXX_Size() int {
+func (m *ConsumeResponse_Message) XXX_Size() int {
 	return m.Size()
 }
-func (m *ConsumeResponse_Payload) XXX_DiscardUnknown() {
-	xxx_messageInfo_ConsumeResponse_Payload.DiscardUnknown(m)
+func (m *ConsumeResponse_Message) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConsumeResponse_Message.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ConsumeResponse_Payload proto.InternalMessageInfo
+var xxx_messageInfo_ConsumeResponse_Message proto.InternalMessageInfo
 
-func (m *ConsumeResponse_Payload) GetId() string {
+func (m *ConsumeResponse_Message) GetId() string {
 	if m != nil {
 		return m.Id
 	}
 	return ""
 }
 
-func (m *ConsumeResponse_Payload) GetData() []byte {
+func (m *ConsumeResponse_Message) GetData() []byte {
 	if m != nil {
 		return m.Data
 	}
@@ -672,53 +680,55 @@ func init() {
 	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy")
 	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy_EvenConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig")
 	proto.RegisterType((*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig)(nil), "sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig")
-	proto.RegisterType((*ConsumeRequest_Payload)(nil), "sergiusd.redbus.ConsumeRequest.Payload")
+	proto.RegisterType((*ConsumeRequest_Result)(nil), "sergiusd.redbus.ConsumeRequest.Result")
 	proto.RegisterType((*ConsumeResponse)(nil), "sergiusd.redbus.ConsumeResponse")
 	proto.RegisterType((*ConsumeResponse_Connect)(nil), "sergiusd.redbus.ConsumeResponse.Connect")
-	proto.RegisterType((*ConsumeResponse_Payload)(nil), "sergiusd.redbus.ConsumeResponse.Payload")
+	proto.RegisterType((*ConsumeResponse_Message)(nil), "sergiusd.redbus.ConsumeResponse.Message")
 }
 
 func init() { proto.RegisterFile("api/api.proto", fileDescriptor_1b40cafcd4234784) }
 
 var fileDescriptor_1b40cafcd4234784 = []byte{
-	// 586 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0x41, 0x6f, 0xd3, 0x4c,
-	0x10, 0xed, 0x3a, 0x4d, 0xf3, 0x75, 0xda, 0xa6, 0x5f, 0x57, 0x3d, 0x58, 0x16, 0x0a, 0x21, 0x17,
-	0x72, 0xc1, 0x45, 0xad, 0xc4, 0xbd, 0xa9, 0x90, 0x7a, 0x42, 0xd1, 0x46, 0x5c, 0x38, 0x20, 0x6d,
-	0xec, 0xc1, 0xac, 0x9a, 0x78, 0x97, 0xdd, 0x75, 0x44, 0xf9, 0x1d, 0x1c, 0x38, 0x73, 0xe2, 0xce,
-	0x9f, 0xe0, 0xc8, 0x99, 0x13, 0x2a, 0xbf, 0x03, 0x09, 0x79, 0xed, 0xa4, 0xb6, 0xd3, 0xaa, 0x55,
-	0x6f, 0x9e, 0xf1, 0xcc, 0x9b, 0x37, 0x4f, 0xfb, 0x06, 0xf6, 0xb8, 0x12, 0x47, 0x5c, 0x89, 0x50,
-	0x69, 0x69, 0x25, 0xdd, 0x37, 0xa8, 0x13, 0x91, 0x99, 0x38, 0xd4, 0x18, 0x4f, 0x33, 0x33, 0x60,
-	0xd0, 0x1d, 0x6b, 0x19, 0x67, 0x11, 0x32, 0xfc, 0x90, 0xa1, 0xb1, 0xf4, 0x10, 0xda, 0x56, 0x2a,
-	0x11, 0xf9, 0xa4, 0x4f, 0x86, 0xdb, 0xac, 0x08, 0xe8, 0xff, 0xd0, 0xba, 0xc0, 0x4b, 0xdf, 0x73,
-	0xb9, 0xfc, 0x93, 0xfa, 0xd0, 0x99, 0xa3, 0x31, 0x3c, 0x41, 0xbf, 0xd5, 0x27, 0xc3, 0x5d, 0xb6,
-	0x0c, 0x07, 0x4f, 0x60, 0x7f, 0x85, 0x69, 0x94, 0x4c, 0x0d, 0xd2, 0x2e, 0x78, 0xf2, 0xc2, 0x21,
-	0xfe, 0xc7, 0x3c, 0x79, 0x31, 0xf8, 0xb6, 0x05, 0xdd, 0x33, 0x99, 0x9a, 0x6c, 0xbe, 0x9a, 0x7b,
-	0x0a, 0x9d, 0x48, 0xa6, 0x29, 0x46, 0xd6, 0xd5, 0xed, 0x1c, 0x3f, 0x0d, 0x1b, 0x64, 0xc3, 0x7a,
-	0x47, 0x1e, 0xe6, 0xe5, 0x6c, 0xd9, 0x97, 0x43, 0x28, 0x7e, 0x39, 0x93, 0x3c, 0x76, 0x44, 0xef,
-	0x01, 0x31, 0x2e, 0xca, 0xd9, 0xb2, 0x2f, 0xf8, 0xb5, 0x09, 0x9d, 0x12, 0x37, 0x27, 0x2d, 0xe2,
-	0x52, 0x06, 0x4f, 0xc4, 0xd7, 0xca, 0x78, 0x55, 0x65, 0x0e, 0xa1, 0x9d, 0x68, 0x99, 0x29, 0xa7,
-	0xc2, 0x36, 0x2b, 0x02, 0xfa, 0x16, 0xba, 0x1a, 0x15, 0x72, 0x3b, 0xb1, 0x9a, 0x5b, 0x4c, 0x2e,
-	0xfd, 0x4d, 0xc7, 0xe8, 0xc5, 0x3d, 0x97, 0x0a, 0x59, 0xad, 0x9b, 0x35, 0xd0, 0xe8, 0x23, 0xd8,
-	0x9e, 0x72, 0x1b, 0xbd, 0x9f, 0x88, 0x4f, 0xe8, 0xb7, 0xfb, 0x64, 0xd8, 0x66, 0xd7, 0x89, 0xe0,
-	0x73, 0x0b, 0xba, 0x75, 0x00, 0xda, 0x87, 0x9d, 0x39, 0xff, 0x78, 0x6a, 0x2d, 0xce, 0x95, 0x35,
-	0x6e, 0xab, 0x36, 0xab, 0xa6, 0x28, 0x07, 0xc0, 0x05, 0xa6, 0x67, 0x32, 0x7d, 0x27, 0x92, 0x52,
-	0xc0, 0xd3, 0x87, 0xd1, 0x0d, 0x5f, 0xae, 0x80, 0x58, 0x05, 0x94, 0x2e, 0xe0, 0x40, 0x69, 0x99,
-	0x68, 0x34, 0x46, 0x2c, 0xb0, 0x9c, 0xd4, 0x72, 0x93, 0xce, 0x1f, 0x38, 0x69, 0xdc, 0xc4, 0x63,
-	0xeb, 0x23, 0x82, 0x10, 0xe0, 0x9a, 0x51, 0x2e, 0x85, 0x48, 0x2d, 0xea, 0x05, 0x9f, 0x4d, 0x30,
-	0x5a, 0x4a, 0x51, 0x49, 0x05, 0xaf, 0xe1, 0x60, 0x0d, 0xf7, 0xee, 0x36, 0xda, 0x03, 0x98, 0x67,
-	0x33, 0x2b, 0xd4, 0x4c, 0xa0, 0x76, 0x0a, 0x7a, 0xac, 0x92, 0x09, 0x4e, 0xa0, 0x53, 0x3e, 0xb8,
-	0xa6, 0x21, 0xaa, 0x6e, 0x2a, 0x5e, 0xd7, 0xca, 0x4d, 0x7f, 0x09, 0xec, 0xaf, 0xa4, 0x28, 0xed,
-	0x34, 0x6a, 0x7a, 0x65, 0x78, 0xbb, 0x7a, 0x45, 0xcb, 0xba, 0x59, 0x46, 0x4d, 0xb3, 0xdc, 0x8d,
-	0xb1, 0xe6, 0x96, 0x93, 0x9a, 0x59, 0xee, 0xb7, 0x50, 0xf0, 0xac, 0xa6, 0x42, 0xcd, 0x61, 0x14,
-	0x36, 0x63, 0x6e, 0xb9, 0xeb, 0xd8, 0x65, 0xee, 0xfb, 0xf8, 0x3b, 0x81, 0x3d, 0xe6, 0xf8, 0x4c,
-	0x50, 0x2f, 0x44, 0x84, 0xf4, 0x15, 0x74, 0xca, 0xfb, 0x42, 0x1f, 0xaf, 0x71, 0xae, 0x5f, 0xb3,
-	0xa0, 0x7f, 0x7b, 0x41, 0xb1, 0xd4, 0x60, 0x83, 0x32, 0xb7, 0x45, 0xbe, 0xe9, 0x0d, 0x78, 0xf5,
-	0x57, 0x78, 0x03, 0x5e, 0x43, 0xa4, 0xc1, 0xc6, 0x90, 0x3c, 0x27, 0xa3, 0xf3, 0x1f, 0x57, 0x3d,
-	0xf2, 0xf3, 0xaa, 0x47, 0x7e, 0x5f, 0xf5, 0xc8, 0x97, 0x3f, 0xbd, 0x0d, 0x68, 0x9e, 0xde, 0xd1,
-	0x4e, 0xb1, 0xd5, 0x38, 0x3f, 0xcc, 0x63, 0xf2, 0xc6, 0x5d, 0xea, 0x44, 0xce, 0x78, 0x9a, 0x1c,
-	0xa9, 0xe9, 0x57, 0x6f, 0xab, 0xf8, 0x3d, 0xdd, 0x72, 0x97, 0xfb, 0xe4, 0x5f, 0x00, 0x00, 0x00,
-	0xff, 0xff, 0xee, 0xd0, 0x4d, 0x94, 0xca, 0x05, 0x00, 0x00,
+	// 613 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0xcd, 0x6e, 0xd3, 0x4c,
+	0x14, 0xad, 0x9d, 0x26, 0xf9, 0x72, 0xd3, 0xa6, 0x5f, 0x47, 0x5d, 0x58, 0x16, 0x0a, 0x21, 0x0b,
+	0xc8, 0x06, 0x17, 0xa5, 0x12, 0xfb, 0xa6, 0x02, 0x55, 0x08, 0x50, 0x34, 0x11, 0x1b, 0x16, 0x48,
+	0x13, 0xe7, 0x62, 0x46, 0x4d, 0x3c, 0x66, 0x66, 0x1c, 0x51, 0xf6, 0xbc, 0x01, 0x0b, 0xd6, 0xbc,
+	0x02, 0x5b, 0x1e, 0x80, 0x25, 0x6b, 0x56, 0xa8, 0xbc, 0x08, 0xf2, 0xd8, 0x49, 0xfc, 0xd3, 0x2a,
+	0xa8, 0x3b, 0xcf, 0xf5, 0x9c, 0x73, 0xef, 0x39, 0x9a, 0x73, 0x61, 0x9f, 0x45, 0xfc, 0x98, 0x45,
+	0xdc, 0x8b, 0xa4, 0xd0, 0x82, 0x1c, 0x28, 0x94, 0x01, 0x8f, 0xd5, 0xcc, 0x93, 0x38, 0x9b, 0xc6,
+	0xaa, 0x4f, 0xa1, 0x33, 0x96, 0x62, 0x16, 0xfb, 0x48, 0xf1, 0x7d, 0x8c, 0x4a, 0x93, 0x23, 0xa8,
+	0x6b, 0x11, 0x71, 0xdf, 0xb1, 0x7a, 0xd6, 0xa0, 0x45, 0xd3, 0x03, 0xf9, 0x1f, 0x6a, 0x17, 0x78,
+	0xe9, 0xd8, 0xa6, 0x96, 0x7c, 0x12, 0x07, 0x9a, 0x0b, 0x54, 0x8a, 0x05, 0xe8, 0xd4, 0x7a, 0xd6,
+	0x60, 0x8f, 0xae, 0x8e, 0xfd, 0x7b, 0x70, 0xb0, 0xe6, 0x54, 0x91, 0x08, 0x15, 0x92, 0x0e, 0xd8,
+	0xe2, 0xc2, 0x30, 0xfe, 0x47, 0x6d, 0x71, 0xd1, 0xff, 0xde, 0x80, 0xce, 0x99, 0x08, 0x55, 0xbc,
+	0x58, 0xf7, 0x3d, 0x85, 0xa6, 0x2f, 0xc2, 0x10, 0x7d, 0x6d, 0xee, 0xb5, 0x87, 0x0f, 0xbc, 0xd2,
+	0xb0, 0x5e, 0x11, 0x91, 0x1c, 0x93, 0xeb, 0x74, 0x85, 0x23, 0x4f, 0x01, 0x24, 0xaa, 0x78, 0xae,
+	0x9f, 0x73, 0xa5, 0x1d, 0xbb, 0x57, 0x1b, 0xb4, 0x87, 0xf7, 0xb7, 0xb1, 0x50, 0x83, 0xa0, 0x39,
+	0xa4, 0xfb, 0x6b, 0x17, 0x9a, 0x19, 0x79, 0x32, 0x39, 0x9f, 0x65, 0x5e, 0xd8, 0x7c, 0xb6, 0xb1,
+	0xc7, 0xce, 0xdb, 0x73, 0x04, 0xf5, 0x40, 0x8a, 0x38, 0x32, 0x56, 0xb4, 0x68, 0x7a, 0x20, 0x6f,
+	0xa0, 0x23, 0x31, 0x42, 0xa6, 0x27, 0x5a, 0x32, 0x8d, 0xc1, 0xa5, 0xb3, 0x6b, 0x94, 0x3d, 0xfe,
+	0x47, 0x65, 0x1e, 0x2d, 0xa0, 0x69, 0x89, 0x8d, 0xdc, 0x81, 0xd6, 0x94, 0x69, 0xff, 0xdd, 0x84,
+	0x7f, 0x44, 0xa7, 0xde, 0xb3, 0x06, 0x75, 0xba, 0x29, 0xb8, 0x9f, 0x6b, 0xd0, 0x29, 0x12, 0x90,
+	0x1e, 0xb4, 0x17, 0xec, 0xc3, 0xa9, 0xd6, 0xb8, 0x88, 0xb4, 0x32, 0xaa, 0xea, 0x34, 0x5f, 0x22,
+	0x0c, 0x00, 0x97, 0x18, 0x9e, 0x89, 0xf0, 0x2d, 0x0f, 0x8c, 0xc6, 0xf6, 0xf0, 0xf4, 0x76, 0xe3,
+	0x7a, 0x4f, 0xd6, 0x44, 0x34, 0x47, 0x4a, 0x96, 0x70, 0x18, 0x49, 0x11, 0x48, 0x54, 0x8a, 0x2f,
+	0x31, 0xeb, 0x54, 0x33, 0x9d, 0xce, 0x6f, 0xd9, 0x69, 0x5c, 0xe6, 0xa3, 0xd5, 0x16, 0xae, 0x07,
+	0xb0, 0x99, 0x28, 0xb1, 0x82, 0x87, 0x1a, 0xe5, 0x92, 0xcd, 0x27, 0xe8, 0xaf, 0xac, 0xc8, 0x95,
+	0xdc, 0x57, 0x70, 0x58, 0xe1, 0xdd, 0x0e, 0x23, 0x5d, 0x80, 0x45, 0x3c, 0xd7, 0x3c, 0x9a, 0x73,
+	0x94, 0xc6, 0x41, 0x9b, 0xe6, 0x2a, 0xee, 0x08, 0x1a, 0xe9, 0x93, 0xab, 0x3c, 0xad, 0x34, 0x24,
+	0xf6, 0x2a, 0x24, 0xe5, 0x84, 0xb5, 0x36, 0x09, 0xfb, 0x64, 0xc3, 0xc1, 0xda, 0x99, 0x2c, 0x62,
+	0xa3, 0x72, 0x7e, 0x06, 0x37, 0x9b, 0x99, 0x42, 0xaa, 0x01, 0x7a, 0x06, 0xed, 0xac, 0x45, 0x2e,
+	0x41, 0xdb, 0x79, 0x5e, 0xa4, 0x18, 0x9a, 0x07, 0xbb, 0x27, 0x85, 0x0c, 0xe5, 0xd3, 0x9f, 0x17,
+	0x66, 0x17, 0x84, 0xb9, 0x0f, 0xa1, 0x99, 0x91, 0x55, 0xdc, 0x21, 0xb0, 0x3b, 0x63, 0x9a, 0x19,
+	0xc4, 0x1e, 0x35, 0xdf, 0xc3, 0x6f, 0x16, 0xec, 0x53, 0x33, 0xd3, 0x04, 0xe5, 0x92, 0xfb, 0x48,
+	0x5e, 0x42, 0x33, 0xdb, 0x3d, 0xe4, 0x6e, 0x65, 0xee, 0xe2, 0xa6, 0x73, 0x7b, 0x37, 0x5f, 0x48,
+	0x85, 0xf5, 0x77, 0x08, 0x35, 0x2a, 0x12, 0xb5, 0xd7, 0xf0, 0x15, 0x1f, 0xe7, 0x35, 0x7c, 0x25,
+	0xa3, 0xfa, 0x3b, 0x03, 0xeb, 0x91, 0x35, 0x3a, 0xff, 0x71, 0xd5, 0xb5, 0x7e, 0x5e, 0x75, 0xad,
+	0xdf, 0x57, 0x5d, 0xeb, 0xcb, 0x9f, 0xee, 0x0e, 0x94, 0xd7, 0xf2, 0xa8, 0x9d, 0xaa, 0x1a, 0x27,
+	0x4b, 0x7b, 0x6c, 0xbd, 0x36, 0x5b, 0x3c, 0x10, 0x73, 0x16, 0x06, 0xc7, 0xd1, 0xf4, 0xab, 0xdd,
+	0x48, 0x7f, 0x4f, 0x1b, 0x66, 0xab, 0x9f, 0xfc, 0x0d, 0x00, 0x00, 0xff, 0xff, 0x88, 0xe9, 0x60,
+	0xfa, 0xe6, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -979,17 +989,19 @@ func (m *ConsumeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Payload != nil {
-		{
-			size, err := m.Payload.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
+	if len(m.ResultList) > 0 {
+		for iNdEx := len(m.ResultList) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ResultList[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
 			}
-			i -= size
-			i = encodeVarintApi(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x12
 		}
-		i--
-		dAtA[i] = 0x12
 	}
 	if m.Connect != nil {
 		{
@@ -1197,7 +1209,7 @@ func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) MarshalToSized
 	return len(dAtA) - i, nil
 }
 
-func (m *ConsumeRequest_Payload) Marshal() (dAtA []byte, err error) {
+func (m *ConsumeRequest_Result) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1207,12 +1219,12 @@ func (m *ConsumeRequest_Payload) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ConsumeRequest_Payload) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Result) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConsumeRequest_Payload) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ConsumeRequest_Result) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1226,7 +1238,7 @@ func (m *ConsumeRequest_Payload) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		copy(dAtA[i:], m.Message)
 		i = encodeVarintApi(dAtA, i, uint64(len(m.Message)))
 		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0x1a
 	}
 	if m.Ok {
 		i--
@@ -1236,7 +1248,14 @@ func (m *ConsumeRequest_Payload) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x8
+		dAtA[i] = 0x10
+	}
+	if len(m.Id) > 0 {
+		i -= len(m.Id)
+		copy(dAtA[i:], m.Id)
+		i = encodeVarintApi(dAtA, i, uint64(len(m.Id)))
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -1265,17 +1284,19 @@ func (m *ConsumeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Payload != nil {
-		{
-			size, err := m.Payload.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
+	if len(m.MessageList) > 0 {
+		for iNdEx := len(m.MessageList) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.MessageList[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintApi(dAtA, i, uint64(size))
 			}
-			i -= size
-			i = encodeVarintApi(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x12
 		}
-		i--
-		dAtA[i] = 0x12
 	}
 	if m.Connect != nil {
 		{
@@ -1336,7 +1357,7 @@ func (m *ConsumeResponse_Connect) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *ConsumeResponse_Payload) Marshal() (dAtA []byte, err error) {
+func (m *ConsumeResponse_Message) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -1346,12 +1367,12 @@ func (m *ConsumeResponse_Payload) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ConsumeResponse_Payload) MarshalTo(dAtA []byte) (int, error) {
+func (m *ConsumeResponse_Message) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ConsumeResponse_Payload) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ConsumeResponse_Message) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1437,9 +1458,11 @@ func (m *ConsumeRequest) Size() (n int) {
 		l = m.Connect.Size()
 		n += 1 + l + sovApi(uint64(l))
 	}
-	if m.Payload != nil {
-		l = m.Payload.Size()
-		n += 1 + l + sovApi(uint64(l))
+	if len(m.ResultList) > 0 {
+		for _, e := range m.ResultList {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1534,12 +1557,16 @@ func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Size() (n int)
 	return n
 }
 
-func (m *ConsumeRequest_Payload) Size() (n int) {
+func (m *ConsumeRequest_Result) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
+	l = len(m.Id)
+	if l > 0 {
+		n += 1 + l + sovApi(uint64(l))
+	}
 	if m.Ok {
 		n += 2
 	}
@@ -1563,9 +1590,11 @@ func (m *ConsumeResponse) Size() (n int) {
 		l = m.Connect.Size()
 		n += 1 + l + sovApi(uint64(l))
 	}
-	if m.Payload != nil {
-		l = m.Payload.Size()
-		n += 1 + l + sovApi(uint64(l))
+	if len(m.MessageList) > 0 {
+		for _, e := range m.MessageList {
+			l = e.Size()
+			n += 1 + l + sovApi(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1592,7 +1621,7 @@ func (m *ConsumeResponse_Connect) Size() (n int) {
 	return n
 }
 
-func (m *ConsumeResponse_Payload) Size() (n int) {
+func (m *ConsumeResponse_Message) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1905,7 +1934,7 @@ func (m *ConsumeRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ResultList", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1932,10 +1961,8 @@ func (m *ConsumeRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Payload == nil {
-				m.Payload = &ConsumeRequest_Payload{}
-			}
-			if err := m.Payload.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.ResultList = append(m.ResultList, &ConsumeRequest_Result{})
+			if err := m.ResultList[len(m.ResultList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2456,7 +2483,7 @@ func (m *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Unmarshal(dAtA
 	}
 	return nil
 }
-func (m *ConsumeRequest_Payload) Unmarshal(dAtA []byte) error {
+func (m *ConsumeRequest_Result) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2479,13 +2506,45 @@ func (m *ConsumeRequest_Payload) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Payload: wiretype end group for non-group")
+			return fmt.Errorf("proto: Result: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Payload: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Result: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthApi
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthApi
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Ok", wireType)
 			}
@@ -2505,7 +2564,7 @@ func (m *ConsumeRequest_Payload) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Ok = bool(v != 0)
-		case 2:
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
 			}
@@ -2626,7 +2685,7 @@ func (m *ConsumeResponse) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageList", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2653,10 +2712,8 @@ func (m *ConsumeResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Payload == nil {
-				m.Payload = &ConsumeResponse_Payload{}
-			}
-			if err := m.Payload.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.MessageList = append(m.MessageList, &ConsumeResponse_Message{})
+			if err := m.MessageList[len(m.MessageList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -2785,7 +2842,7 @@ func (m *ConsumeResponse_Connect) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ConsumeResponse_Payload) Unmarshal(dAtA []byte) error {
+func (m *ConsumeResponse_Message) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2808,10 +2865,10 @@ func (m *ConsumeResponse_Payload) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: Payload: wiretype end group for non-group")
+			return fmt.Errorf("proto: Message: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Payload: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Message: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

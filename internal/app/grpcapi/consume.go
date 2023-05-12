@@ -28,7 +28,7 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 
 	// Get kafka connection
 	kafkaHost := []string{b.conf.Kafka.HostPort}
-	c, connectErr := b.dataBus.CreateConsumerConnection(ctx, kafkaHost, data.Connect.Topic, data.Connect.Group, data.Connect.Id)
+	c, connectErr := b.dataBus.CreateConsumerConnection(ctx, kafkaHost, data.Connect.Topic, data.Connect.Group, data.Connect.Id, int(data.Connect.BatchSize))
 	var connectResult *pb.ConsumeResponse_Connect
 	if connectErr != nil {
 		connectResult = &pb.ConsumeResponse_Connect{Ok: false, Message: err.Error()}
@@ -46,27 +46,31 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 	}
 
 	// Consume
-	handler := func(ctx context.Context, messageKey, message []byte, id string) error {
-		logger.Consumer(ctx, c, "[%s] Receive message from kafka and send", id)
-		data, err := SendToConsumerAndWaitResponse(ctx, c, srv, message, id)
+	handler := func(ctx context.Context, list model.MessageList) error {
+		logger.Consumer(ctx, c, "Receive %d messages from kafka and send", len(list))
+		data, err := SendToConsumerAndWaitResponse(ctx, c, srv, list)
 		if err != nil {
 			return fmt.Errorf("%w: %v", errHandler, err)
 		}
-		if !data.Payload.Ok {
-			var key *[]byte
-			if len(messageKey) != 0 {
-				key = &messageKey
-			}
-			if err := b.repeater.Add(ctx, model.RepeatData{
-				Topic:      c.GetTopic(),
-				Group:      c.GetGroup(),
-				ConsumerId: c.GetID(),
-				Key:        key,
-				Message:    message,
-				MessageId:  id,
-				Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
-			}, data.Payload.Message); err != nil {
-				return fmt.Errorf("%w: %v", errHandler, err)
+		for i := range data.ResultList {
+			result := data.ResultList[i]
+			m := list.GetById(result.Id)
+			if !result.Ok {
+				var key *[]byte
+				if len(m.Key) != 0 {
+					key = &m.Key
+				}
+				if err := b.repeater.Add(ctx, model.RepeatData{
+					Topic:      c.GetTopic(),
+					Group:      c.GetGroup(),
+					ConsumerId: c.GetID(),
+					Key:        key,
+					Message:    m.Value,
+					MessageId:  m.Id,
+					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
+				}, result.Message); err != nil {
+					return fmt.Errorf("%w: %v", errHandler, err)
+				}
 			}
 		}
 		return nil
@@ -100,21 +104,23 @@ func consumerRecv(ctx context.Context, c model.IConsumer, srv pb.RedbusService_C
 	return true, rest, nil
 }
 
-func SendToConsumerAndWaitResponse(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, message []byte, id string) (*pb.ConsumeRequest, error) {
-	ok, err := consumerSend(ctx, c, srv, &pb.ConsumeResponse{Payload: &pb.ConsumeResponse_Payload{Id: id, Data: message}})
+func SendToConsumerAndWaitResponse(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, list model.MessageList) (*pb.ConsumeRequest, error) {
+	ok, err := consumerSend(ctx, c, srv, &pb.ConsumeResponse{MessageList: toPBMessageList(list)})
 	if !ok {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errHandler, err)
 	}
-	logger.Consumer(ctx, c, "[%v] Wait message processing", id)
+	logger.Consumer(ctx, c, "Wait %d message processing", len(list))
 	ok, data, err := consumerRecv(ctx, c, srv)
 	if err == nil {
-		if data.Payload.Ok {
-			logger.Consumer(ctx, c, "[%v] Message processing success", id)
-		} else {
-			logger.Consumer(ctx, c, "[%v] Message processing error: %v", id, data.Payload.Message)
+		for _, v := range data.ResultList {
+			if v.Ok {
+				logger.Consumer(ctx, c, "[%v] Message processing success", v.Id)
+			} else {
+				logger.Consumer(ctx, c, "[%v] Message processing error: %v", v.Id, v.Message)
+			}
 		}
 	}
 	if !ok {
