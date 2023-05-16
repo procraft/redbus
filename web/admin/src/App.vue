@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <nav class="navbar navbar-expand navbar-dark bg-dark">
-      <router-link to="/" class="navbar-brand">RED Bus</router-link>
+      <router-link to="/" class="navbar-brand">RED Bus control panel</router-link>
       <ul class="navbar-nav mr-auto">
 <!--        <li class="nav-item">-->
 <!--          <router-link to="/consumers" class="nav-link">Consumers</router-link>-->

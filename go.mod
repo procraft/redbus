@@ -14,6 +14,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	google.golang.org/grpc v1.49.0
+	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225
 )
 
 require (
@@ -40,7 +41,6 @@ require (
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/genproto v0.0.0-20220314164441-57ef72a4c106 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
-	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

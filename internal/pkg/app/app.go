@@ -16,10 +16,10 @@ import (
 	"github.com/sergiusd/redbus/internal/app/config"
 	"github.com/sergiusd/redbus/internal/app/grpcapi"
 	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/sergiusd/redbus/internal/app/repository"
 	"github.com/sergiusd/redbus/internal/app/service/connstore"
 	"github.com/sergiusd/redbus/internal/app/service/databus"
 	"github.com/sergiusd/redbus/internal/app/service/repeater"
-	"github.com/sergiusd/redbus/internal/app/service/repeater/repository"
 	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/reqid"
 	bgpkg "github.com/sergiusd/redbus/internal/pkg/background"
 	"github.com/sergiusd/redbus/internal/pkg/db"
@@ -131,6 +131,7 @@ func (a *App) initService(_ context.Context) error {
 		a.conf.Repeat.DefaultStrategy,
 		connStoreService,
 		repository.New(),
+		a.eventSource,
 	)
 	a.dataBusService = databus.New(
 		a.conf,

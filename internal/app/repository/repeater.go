@@ -12,12 +12,6 @@ import (
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, attempt, repeat_strategy, error, created_at, started_at, finished_at`
 
-type Repository struct{}
-
-func New() *Repository {
-	return &Repository{}
-}
-
 func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
 	b, _ := json.Marshal(repeat.Strategy)
 	fmt.Printf("%v\n", b)

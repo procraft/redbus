@@ -16,6 +16,7 @@ type Repeater struct {
 	defaultStrategy *model.RepeatStrategy
 	connStore       IConnStore
 	repo            IRepository
+	eventSource     IEventSource
 }
 
 type IRepository interface {
@@ -31,11 +32,16 @@ type IConnStore interface {
 	FindBestConsumerBag(topic, group, id string) *connstore.ConsumerBag
 }
 
-func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepository) *Repeater {
+type IEventSource interface {
+	Publish(fn func() model.Event)
+}
+
+func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepository, eventSource IEventSource) *Repeater {
 	return &Repeater{
 		defaultStrategy: defaultStrategy,
 		connStore:       connStore,
 		repo:            repo,
+		eventSource:     eventSource,
 	}
 }
 
@@ -52,7 +58,9 @@ func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg stri
 		CreatedAt:  runtime.Now(),
 	}
 	repeat.SetZeroAttempt(r.defaultStrategy)
-	return r.repo.Insert(ctx, repeat)
+	err := r.repo.Insert(ctx, repeat)
+	r.publishEventSource(ctx)
+	return err
 }
 
 func (r *Repeater) Repeat(ctx context.Context) error {
@@ -82,6 +90,13 @@ func (r *Repeater) GetCount(ctx context.Context) (int, int, error) {
 	return r.repo.GetCount(ctx)
 }
 
+func (r *Repeater) publishEventSource(ctx context.Context) {
+	r.eventSource.Publish(func() model.Event {
+		allCount, failedCount, _ := r.GetCount(ctx)
+		return model.EventRepeater{AllCount: allCount, Failedount: failedCount}
+	})
+}
+
 func (r *Repeater) repeatConsumer(ctx context.Context, repeatList model.RepeatList) {
 	for _, repeat := range repeatList {
 		bag := r.connStore.FindBestConsumerBag(repeat.Topic, repeat.Group, repeat.ConsumerId)
@@ -95,10 +110,14 @@ func (r *Repeater) repeatConsumer(ctx context.Context, repeatList model.RepeatLi
 		}
 		if data.ResultList[0].Ok {
 			err = r.repo.Delete(ctx, repeat.Id)
+			r.publishEventSource(ctx)
 		} else {
 			repeat.ApplyNextAttempt(r.defaultStrategy)
 			repeat.Error = data.ResultList[0].Message
 			err = r.repo.UpdateAttempt(ctx, repeat)
+			if repeat.FinishedAt != nil {
+				r.publishEventSource(ctx)
+			}
 		}
 		if err != nil {
 			logger.Consumer(logger.App, bag.Consumer, "Failed save to repo after processed: %v", err)
