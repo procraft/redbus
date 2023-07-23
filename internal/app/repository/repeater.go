@@ -72,19 +72,54 @@ func (r *Repository) UpdateAttempt(ctx context.Context, repeat *model.Repeat) er
 
 func (r *Repository) GetCount(ctx context.Context) (int, int, error) {
 	conn := db.FromContext(ctx)
-	var (
-		allCount    int
-		failedCount int
-	)
-	sql := "SELECT COUNT(*) FROM repeat"
-	err := conn.QueryRow(ctx, sql).Scan(&allCount)
+	allCount, failedCount := 0, 0
+	sql := `SELECT 
+    	COUNT(*) as all_count,
+		SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END) AS failed_count
+	FROM repeat`
+	err := conn.QueryRow(ctx, sql).Scan(&allCount, &failedCount)
 	if err != nil {
 		return 0, 0, fmt.Errorf("Can't get all repeat count from db: %w", err)
 	}
-	sql = "SELECT COUNT(*) FROM repeat WHERE finished_at IS NOT NULL"
-	err = conn.QueryRow(ctx, sql).Scan(&failedCount)
-	if err != nil {
-		return 0, 0, fmt.Errorf("Can't get failed repeat count from db: %w", err)
-	}
 	return allCount, failedCount, nil
+}
+
+func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
+	conn := db.FromContext(ctx)
+	sql := `WITH groups AS (
+		SELECT
+			id, topic, "group", finished_at,
+			(first_value(error) OVER (PARTITION BY topic, "group" ORDER BY started_at DESC))::text AS last_error
+		FROM repeat
+	)
+	SELECT 
+		topic, "group", last_error,
+		COUNT(id) AS all_count,
+		SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END) AS failed_count
+	FROM groups
+	GROUP BY topic, "group", last_error`
+	rows, err := conn.Query(ctx, sql)
+	if err != nil {
+		return nil, fmt.Errorf("Can't get repeat stat from db: %w", err)
+	}
+	defer rows.Close()
+
+	ret := make(model.RepeatStat, 0)
+	for rows.Next() {
+		r := model.RepeatStatItem{}
+		err := rows.Scan(&r.Topic, &r.Group, &r.LastError, &r.AllCount, &r.FailedCount)
+		if err != nil {
+			return nil, fmt.Errorf("Can't scan on get repeat stat from db: %w", err)
+		}
+		ret = append(ret, r)
+	}
+	return ret, nil
+}
+
+func (r *Repository) RestartFailed(ctx context.Context, topic, group string) error {
+	conn := db.FromContext(ctx)
+	_, err := conn.Exec(ctx, `UPDATE repeat 
+		SET started_at = $1, attempt = 0, error = '', finished_at = null
+		WHERE finished_at IS NOT NULL AND topic = $2 AND "group" = $3`, runtime.Now(), topic, group)
+	return err
 }

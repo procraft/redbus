@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	kpkg "github.com/sergiusd/redbus/internal/app/model"
 	"time"
@@ -91,10 +92,30 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 	for {
 		var mList []kafka.Message
 		var err error
+		var m kafka.Message
 		if batchSize > 1 {
-			mList, err = c.reader.FetchMessages(ctx, batchSize, time.Millisecond*100)
+			m, err = c.reader.FetchMessage(ctx)
+			if err == nil {
+				mList = append(mList, m)
+
+				waitTimeout := time.Millisecond * 100
+				for {
+					ctx, cancel := context.WithTimeout(ctx, waitTimeout)
+					m, err = c.reader.FetchMessage(ctx)
+					cancel()
+					if err == nil {
+						mList = append(mList, m)
+						if len(mList) == batchSize {
+							break
+						}
+					}
+					if errors.Is(err, context.DeadlineExceeded) {
+						err = nil
+						break
+					}
+				}
+			}
 		} else {
-			var m kafka.Message
 			m, err = c.reader.FetchMessage(ctx)
 			if err == nil {
 				mList = []kafka.Message{m}

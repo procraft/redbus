@@ -4,8 +4,8 @@
 
 <img src="./doc/logo.jpeg" height="347"/>
 
-RED Bus allows you to publish messages and process them with control over the result of processing. You can set a retry
-strategy for each consumer and the number of retries after which a message will be marked as failed by that consumer.
+RED Bus allows you to publish messages and process them with control over the result. You can set a retry
+strategy for each consumer and the number of retries after which a message will be marked as failed.
 The administrator can start reprocessing of unsuccessfully processed messages after fixing the problem through the
 web interface.
 
@@ -17,7 +17,7 @@ view failed messages and the ability to reprocess on demand.
 
 ## Resolve
 
-Produce messages from anyway and process it with repeat retries.  
+Produce messages from anywhere and process them with repeated retries.  
 RED Bus will do the rest for you.
 
 ![RED Bus Diagram](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/sergiusd/redbus/master/doc/resolve.puml)

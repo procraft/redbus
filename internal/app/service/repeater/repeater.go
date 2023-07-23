@@ -25,6 +25,8 @@ type IRepository interface {
 	Delete(ctx context.Context, repeatId int64) error
 	UpdateAttempt(ctx context.Context, repeat *model.Repeat) error
 	GetCount(ctx context.Context) (int, int, error)
+	GetStat(ctx context.Context) (model.RepeatStat, error)
+	RestartFailed(ctx context.Context, topic, group string) error
 }
 
 type IConnStore interface {
@@ -88,6 +90,14 @@ func (r *Repeater) Repeat(ctx context.Context) error {
 
 func (r *Repeater) GetCount(ctx context.Context) (int, int, error) {
 	return r.repo.GetCount(ctx)
+}
+
+func (r *Repeater) GetStat(ctx context.Context) (model.RepeatStat, error) {
+	return r.repo.GetStat(ctx)
+}
+
+func (r *Repeater) RestartFailed(ctx context.Context, topic, group string) error {
+	return r.repo.RestartFailed(ctx, topic, group)
 }
 
 func (r *Repeater) publishEventSource(ctx context.Context) {

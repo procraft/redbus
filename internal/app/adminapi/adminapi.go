@@ -10,6 +10,8 @@ type IDataBusService interface {
 }
 
 type IRepeater interface {
+	GetStat(ctx context.Context) (model.RepeatStat, error)
+	RestartFailed(ctx context.Context, topic, group string) error
 }
 
 type IEventSource interface {

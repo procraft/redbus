@@ -21,6 +21,8 @@ func (a *AdminApi) RegisterHandlers(m ...func(next http.Handler) http.Handler) c
 	routes := []route{
 		{path: "/health", handler: h(a.healthHandler)},
 		{path: "/dashboard/stat", handler: h(a.dashboardStatHandler)},
+		{path: "/repeat/stat", handler: h(a.repeatStatHandler)},
+		{path: "/repeat/repeatTopicGroup", handler: h(a.repeatTopicGroupHandler)},
 	}
 
 	for _, r := range routes {
@@ -99,14 +101,14 @@ func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error)) 
 	}
 }
 
-func sendErrorResponse(w http.ResponseWriter, err error, code int) {
-	respJson, err := json.Marshal(errorResponse{Error: err.Error()})
+func sendErrorResponse(w http.ResponseWriter, respErr error, respCode int) {
+	respJson, err := json.Marshal(errorResponse{Error: respErr.Error()})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("%+v", err), code)
+		http.Error(w, fmt.Sprintf("%+v", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(respJson)))
-	http.Error(w, string(respJson), code)
+	http.Error(w, string(respJson), respCode)
 }
 
 type emptyRequest struct{}

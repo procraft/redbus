@@ -70,3 +70,13 @@ func (tg TopicGroupList) GetStrList(delimiter string) []string {
 	}
 	return ret
 }
+
+type RepeatStatItem struct {
+	Topic       string
+	Group       string
+	AllCount    int
+	FailedCount int
+	LastError   string
+}
+
+type RepeatStat = []RepeatStatItem

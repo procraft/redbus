@@ -34,7 +34,7 @@ func main() {
 		group,
 		func(_ context.Context, data []byte, id string) error {
 			time.Sleep(time.Second)
-			panic("I'm panic in consumer")
+			// panic("I'm panic in consumer")
 			return nil
 		},
 		consumer.WithRepeatStrategyEven(3, 30),

@@ -70,18 +70,6 @@ func (w *streamWrapper) Context() context.Context {
 	return w.ctx
 }
 
-func NewRequestIdMiddleware() func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			if key, ok := r.Context().Value(middleware.RequestIDKey).(string); ok {
-				w.Header().Set(requestIDHeaderName, key)
-			}
-			next.ServeHTTP(w, r)
-		}
-		return middleware.RequestID(http.HandlerFunc(fn))
-	}
-}
-
 func init() {
 	hostname, err := os.Hostname()
 	if hostname == "" || err != nil {

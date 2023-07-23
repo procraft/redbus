@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sergiusd/redbus/internal/app/adminapi"
+	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/log"
 	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/recovery"
 	"github.com/sergiusd/redbus/internal/pkg/evtsrc"
 	"net"
@@ -221,6 +222,7 @@ func (a *App) getAdminListener(ctx context.Context) func() error {
 		adminApi := adminapi.New(a.dataBusService, a.repeaterService, a.eventSource)
 
 		a.adminHttpMiddleware = append(a.adminHttpMiddleware,
+			log.ServerMiddleware(),
 			reqid.ServerMiddleware("admin"),
 			recovery.ServerMiddleware,
 		)
