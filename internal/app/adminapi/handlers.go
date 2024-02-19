@@ -108,7 +108,8 @@ func sendErrorResponse(w http.ResponseWriter, respErr error, respCode int) {
 		return
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(respJson)))
-	http.Error(w, string(respJson), respCode)
+	w.WriteHeader(respCode)
+	_, _ = w.Write(respJson)
 }
 
 type emptyRequest struct{}

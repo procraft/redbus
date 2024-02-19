@@ -36,3 +36,6 @@ build-example:
 	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/producer ./example/golang/producer/producer.go
 
 build-all: build build-example
+
+export-env:
+	export $(shell sed 's/=.*//' .env)

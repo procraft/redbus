@@ -1,5 +1,11 @@
 # Scala REDBus example
 
+You should have published [API and SDK packages](../../api/scala/README.md).
+
+```shell
+    cd ../.. && make export-env
+```
+
 ## Consumer
 
 ```shell

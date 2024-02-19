@@ -14,6 +14,7 @@ case class Client(host: String, port: Int) {
   }
 
   def consume(topic: String, group: String, processor: Array[Byte] => Either[String, Unit]): Unit = {
+    println("Consume")
     //grpc.consume()
   }
 

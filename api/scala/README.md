@@ -1,6 +1,18 @@
-## Redbus service protobuf api.
+## Redbus service scala API and SDK.
 
-Run `sbt compile` to build api.
+### Compile
 
-Set environment variable `MAVEN_HOST`, `MAVEN_USER`, `MAVEN_PASSWORD`.  
-Run `sbt publish` to update maven package.
+Run to build (working in Java 8).
+
+```shell
+sbt compile
+```
+
+### Publish
+
+Run to update maven package.
+
+```shell
+pushd ../.. && make export-env && popd
+sbt publish
+```

@@ -53,7 +53,7 @@ func New() *Config {
 		},
 		Kafka: kafkaConfig{
 			FailTimeout:            time.Second * 5,
-			HostPort:               "127.0.0.1:9092",
+			HostPort:               "127.0.0.1:29092",
 			TopicNumPartitions:     3,
 			TopicReplicationFactor: 1,
 		},

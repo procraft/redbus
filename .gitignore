@@ -1,6 +1,7 @@
 /.dev
 /.idea
 /.vscode
+/.env
 /bin
 /vendors
 
