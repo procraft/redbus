@@ -29,8 +29,12 @@ class GrpcClientFactory(actorSystem: ActorSystem) {
     }
   }
 
+  def shutdown(): Unit = {
+    actorSystem.terminate()
+  }
+
   actorSystem.registerOnTermination {
-    System.err.println("*** shutting down gRPC client channels since actor system is shutting down")
+    System.err.println("*** shutting down gRPC client channels")
     channels.values.foreach(_.shutdown())
   }
 }

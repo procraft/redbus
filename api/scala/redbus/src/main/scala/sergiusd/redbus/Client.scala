@@ -18,4 +18,8 @@ case class Client(host: String, port: Int) {
     //grpc.consume()
   }
 
+  def close(): Unit = {
+    grpcClientFactory.shutdown()
+  }
+
 }

@@ -5,10 +5,10 @@
 /bin
 /vendors
 
-/api/scala/.idea
-/api/scala/target
-/api/scala/project/project
-/api/scala/project/target
+/api/scala/redbus/.idea
+/api/scala/redbus/target
+/api/scala/redbus/project/project
+/api/scala/redbus/project/target
 
 /example/scala/target
 /example/scala/project/project

@@ -13,6 +13,6 @@ sbt compile
 Run to update maven package.
 
 ```shell
-pushd ../.. && make export-env && popd
+pushd ../../.. && make export-env && popd
 sbt publish
 ```

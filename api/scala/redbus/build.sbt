@@ -2,7 +2,7 @@ name := "redbus"
 organization := "sergiusd"
 version := "0.0.5"
 
-scalaVersion in ThisBuild := "2.13.3"
+scalaVersion in ThisBuild := "2.13.12"
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
 PB.targets in Compile := Seq(
@@ -13,7 +13,7 @@ libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
-  "com.typesafe.akka" % "akka-actor_2.11" % "2.5.32",
+  "com.typesafe.akka" %% "akka-actor" % "2.6.8",
 )
 
 publishTo := Some(
