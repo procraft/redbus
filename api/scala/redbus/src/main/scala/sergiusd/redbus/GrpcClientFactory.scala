@@ -18,7 +18,7 @@ class GrpcClientFactory(actorSystem: ActorSystem) {
   private def getChannel(host: String, port: Int): ManagedChannel = {
     val channelId = s"$host:$port"
     // protect mutable map from multi-thread access
-    this.synchronized {
+    synchronized {
       if (!channels.contains(channelId)) {
         val channel = ManagedChannelBuilder
           .forAddress(host, port)

@@ -1,19 +1,20 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.0.5"
+version := "0.0.7"
 
-scalaVersion in ThisBuild := "2.13.12"
+ThisBuild / scalaVersion := "2.13.12"
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
-PB.targets in Compile := Seq(
-  scalapb.gen() -> (sourceManaged in Compile).value,
+Compile / PB.targets := Seq(
+  scalapb.gen() -> (Compile / sourceManaged).value,
 )
 
 libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
-  "com.typesafe.akka" %% "akka-actor" % "2.6.8",
+  "com.typesafe.akka" %% "akka-actor" % "2.8.6",
+  "com.typesafe.akka" %% "akka-stream" % "2.8.6"
 )
 
 publishTo := Some(
@@ -26,5 +27,5 @@ credentials += Credentials(
     sys.env.getOrElse("MAVEN_PASSWORD", "")
 )
 
-sources in doc := Seq.empty
-publishArtifact in packageDoc := false
+doc / sources := Seq.empty
+packageDoc / publishArtifact := false

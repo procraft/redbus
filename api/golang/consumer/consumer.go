@@ -57,8 +57,8 @@ func (c *Service) Consume(ctx context.Context, topic, group string, processor Co
 	}
 
 	// connect to topic
+	connectPayload := pb.ConsumeRequest{Connect: connect}
 	waitBusClientConnectedStream := func() pb.RedbusService_ConsumeClient {
-		connectPayload := pb.ConsumeRequest{Connect: connect}
 		var stream pb.RedbusService_ConsumeClient
 		var connectResponse *pb.ConsumeResponse
 		var streamErr error

@@ -2,17 +2,19 @@ name := "redbus-example"
 organization := "sergiusd"
 version := "0.0.1"
 
-scalaVersion in ThisBuild := "2.13.12"
+ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / versionScheme := Some("semver-spec")
+scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
-//lazy val root = (project in file("."))
-//  .dependsOn(redbusClient).aggregate(redbusClient)
+lazy val root = (project in file("."))
+  //.dependsOn(redbusClient).aggregate(redbusClient)
 //lazy val redbusClient = ProjectRef(file("../../api/scala/redbus"), "redbus")
 
 libraryDependencies ++= Seq(
-    "sergiusd" %% "redbus" % "0.0.5",
+    "sergiusd" %% "redbus" % "0.0.7",
 )
 
-resolvers += "Artifactory" at "https://" + sys.env.getOrElse("MAVEN_HOST", "") + "/artifactory/sbt/"
+resolvers += "Artifactory" at "https://maven.libicraft.ru/artifactory/sbt/"
 credentials += Credentials(
     "Artifactory Realm",
     sys.env.getOrElse("MAVEN_HOST", ""),
