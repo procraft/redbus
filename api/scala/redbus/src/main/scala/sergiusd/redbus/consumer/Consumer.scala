@@ -2,11 +2,12 @@ package sergiusd.redbus.consumer
 
 import akka.Done
 import akka.actor.ActorSystem
+import akka.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -140,9 +141,11 @@ class Consumer(
   }
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
-    processor(message.data.toByteArray)
-      .map(_ => Right(()))
-      .recover(e => Left(e))
+    runWithTimeout(listener.consumeTimeout) {
+      processor(message.data.toByteArray)
+        .map(_ => Right(()))
+        .recover(e => Left(e))
+    }
   }
 
   private def runWithPause(duration: FiniteDuration)(fn: => Unit): Unit = {
@@ -151,6 +154,14 @@ class Consumer(
       pr.complete(Try(()))
     }
     pr.future.map(_ => fn)
+  }
+
+  private def runWithTimeout[T](duration: FiniteDuration)(f: Future[T])
+    (implicit ec: ExecutionContext, actorSystem: ActorSystem): Future[T] = {
+    val timeoutFuture = after(duration, actorSystem.scheduler)(
+      Future.failed(new TimeoutException("Future timed out"))
+    )
+    Future.firstCompletedOf(Seq(f, timeoutFuture))
   }
 
 }

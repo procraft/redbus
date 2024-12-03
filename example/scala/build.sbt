@@ -11,7 +11,7 @@ lazy val root = (project in file("."))
 //lazy val redbusClient = ProjectRef(file("../../api/scala/redbus"), "redbus")
 
 libraryDependencies ++= Seq(
-    "sergiusd" %% "redbus" % "0.0.7",
+    "sergiusd" %% "redbus" % "0.0.8",
 )
 
 resolvers += "Artifactory" at "https://maven.libicraft.ru/artifactory/sbt/"
