@@ -1,6 +1,6 @@
 package evtsrc
 
-import "github.com/sergiusd/redbus/internal/app/model"
+import "github.com/prokraft/redbus/internal/app/model"
 
 type EventSource struct {
 	handler func(event model.Event)

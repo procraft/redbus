@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/model"
 	"gopkg.in/antage/eventsource.v1"
 	"io"
 	"net/http"

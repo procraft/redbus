@@ -4,12 +4,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/sergiusd/redbus/internal/app/grpcapi"
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/app/service/connstore"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/app/grpcapi"
+	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/service/connstore"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 
-	"github.com/sergiusd/redbus/internal/pkg/runtime"
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 type Repeater struct {

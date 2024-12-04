@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 
 	"github.com/go-chi/chi/middleware"
 	"google.golang.org/grpc"

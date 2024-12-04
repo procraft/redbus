@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
 var errHandler = errors.New("error in handler")

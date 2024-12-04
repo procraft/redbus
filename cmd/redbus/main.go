@@ -3,16 +3,19 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/prokraft/redbus/internal/config"
 	"log"
 
-	"github.com/sergiusd/redbus/internal/app/config"
-	"github.com/sergiusd/redbus/internal/pkg/app"
+	"github.com/prokraft/redbus/internal/pkg/app"
 )
 
 func main() {
-	ctx := context.Background()
-	conf := config.New()
+	conf, err := config.FromFileAndEnv("./config.json", "./config.local.json")
+	if err != nil {
+		log.Fatalln(err)
+	}
 
+	ctx := context.Background()
 	redbus, err := app.New(ctx, conf)
 	if err != nil {
 		log.Fatalf(err.Error())

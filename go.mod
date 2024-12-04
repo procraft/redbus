@@ -1,8 +1,9 @@
-module github.com/sergiusd/redbus
+module github.com/prokraft/redbus
 
 go 1.20
 
 require (
+	github.com/caarlos0/env/v6 v6.10.1
 	github.com/go-chi/chi v1.5.4
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/golang/protobuf v1.5.2
@@ -10,6 +11,7 @@ require (
 	github.com/jackc/pgconn v1.14.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/lib/pq v1.10.2
+	github.com/pkg/errors v0.9.1
 	github.com/segmentio/kafka-go v0.4.39
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4

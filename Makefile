@@ -18,7 +18,7 @@ $(LOCAL_BIN)/%:
 
 fmt: $(LOCAL_BIN) | $(GOIMPORTS)
 	$(GOFMT) -l -w $(PKGS)
-	$(GOIMPORTS) -l -w -local 'github.com/sergiusd/redbus' $(PKGS)
+	$(GOIMPORTS) -l -w -local 'github.com/prokraft/redbus' $(PKGS)
 
 gen:
 	GOBIN=$(LOCAL_BIN) go get github.com/gogo/protobuf/protoc-gen-gofast

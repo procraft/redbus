@@ -3,7 +3,7 @@ package grpcapi
 import (
 	"context"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/api/golang/pb"
 )
 
 func (b *GrpcApi) Produce(ctx context.Context, req *pb.ProduceRequest) (*pb.ProduceResponse, error) {

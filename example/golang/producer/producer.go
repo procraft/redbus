@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/sergiusd/redbus/api/golang/producer"
+	"github.com/prokraft/redbus/api/golang/producer"
 )
 
 const dataBusServerPort = 50005

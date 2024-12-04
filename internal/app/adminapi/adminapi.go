@@ -2,7 +2,7 @@ package adminapi
 
 import (
 	"context"
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 type IDataBusService interface {

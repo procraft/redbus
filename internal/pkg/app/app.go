@@ -3,30 +3,30 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/sergiusd/redbus/internal/app/adminapi"
-	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/log"
-	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/recovery"
-	"github.com/sergiusd/redbus/internal/pkg/evtsrc"
+	"github.com/prokraft/redbus/internal/app/adminapi"
+	"github.com/prokraft/redbus/internal/config"
+	"github.com/prokraft/redbus/internal/pkg/app/interceptor/log"
+	"github.com/prokraft/redbus/internal/pkg/app/interceptor/recovery"
+	"github.com/prokraft/redbus/internal/pkg/evtsrc"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
-	"github.com/sergiusd/redbus/internal/app/config"
-	"github.com/sergiusd/redbus/internal/app/grpcapi"
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/app/repository"
-	"github.com/sergiusd/redbus/internal/app/service/connstore"
-	"github.com/sergiusd/redbus/internal/app/service/databus"
-	"github.com/sergiusd/redbus/internal/app/service/repeater"
-	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/reqid"
-	bgpkg "github.com/sergiusd/redbus/internal/pkg/background"
-	"github.com/sergiusd/redbus/internal/pkg/db"
-	dbmw "github.com/sergiusd/redbus/internal/pkg/db/interceptor"
-	"github.com/sergiusd/redbus/internal/pkg/kafka/producer"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/internal/app/grpcapi"
+	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/repository"
+	"github.com/prokraft/redbus/internal/app/service/connstore"
+	"github.com/prokraft/redbus/internal/app/service/databus"
+	"github.com/prokraft/redbus/internal/app/service/repeater"
+	"github.com/prokraft/redbus/internal/pkg/app/interceptor/reqid"
+	bgpkg "github.com/prokraft/redbus/internal/pkg/background"
+	"github.com/prokraft/redbus/internal/pkg/db"
+	dbmw "github.com/prokraft/redbus/internal/pkg/db/interceptor"
+	"github.com/prokraft/redbus/internal/pkg/kafka/producer"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -146,7 +146,7 @@ func (a *App) initService(_ context.Context) error {
 func (a *App) initBackground(_ context.Context) error {
 	a.background.Add("repeat", func(ctx context.Context) error {
 		return a.repeaterService.Repeat(ctx)
-	}, a.conf.Repeat.Interval)
+	}, a.conf.Repeat.Interval.Duration)
 	return nil
 }
 

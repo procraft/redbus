@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 type ConsumerBag struct {

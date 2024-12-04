@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/sergiusd/redbus/internal/pkg/runtime"
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 func TestRepeatStrategy(t *testing.T) {

@@ -2,7 +2,7 @@ package log
 
 import (
 	"context"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 	"google.golang.org/grpc"
 	"net/http"
 )

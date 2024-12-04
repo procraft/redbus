@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
 func (b *DataBus) Produce(ctx context.Context, topic, key string, message []byte) error {

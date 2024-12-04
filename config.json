@@ -1,0 +1,32 @@
+{
+  "grpc": {
+    "serverPort": 50005
+  },
+  "admin": {
+    "serverPort": 50006
+  },
+  "kafka": {
+    "failTimeout": "5s",
+    "hostPort": "127.0.0.1:29092",
+    "topicNumPartitions": 3,
+    "topicReplicationFactor": 1
+  },
+  "repeat": {
+    "interval": "10s",
+    "defaultStrategy": {
+      "kind": "even",
+      "max": 5,
+      "config": {
+        "interval": "5m"
+      }
+    }
+  },
+  "db": {
+    "host": "localhost",
+    "port": 5432,
+    "user": "libicraft",
+    "password": "",
+    "name": "redbus",
+    "poolSize": 10
+  }
+}

@@ -1,7 +1,7 @@
 package consumer
 
 import (
-	"github.com/sergiusd/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/api/golang/pb"
 	"log"
 )
 

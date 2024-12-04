@@ -2,7 +2,7 @@ package recovery
 
 import (
 	"encoding/json"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 	"net/http"
 )
 

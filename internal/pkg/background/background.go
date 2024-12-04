@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sergiusd/redbus/internal/pkg/app/interceptor/reqid"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/app/interceptor/reqid"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
 type Job struct {

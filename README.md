@@ -1,6 +1,6 @@
 # Reliable Easy Data BUS
 
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/sergiusd/redbus/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/prokraft/redbus/blob/master/LICENSE)
 
 <img src="./doc/logo.jpeg" height="347"/>
 
@@ -30,19 +30,25 @@ RED Bus will do the rest for you.
 
 ## How to try
 
-1. Start essential environment
+1. Set configuration 
+
+   See `config.json` and `config/config.go`. Environment variable overwrited json data.
+   For development environment you might use `config.local.json`
+
+
+2. Start essential environment
 
    ```shell
        docker-compose -f example/docker-compose.yml up   
    ```
 
-2. Run data bus service
+3. Run data bus service
 
    ```shell
        ./bin/databus
    ```
 
-3. Try consumer and producer
+4. Try consumer and producer
 
    - [GoLang client](./example/golang/README.md)
-   - [Scala client](./example/scala/README.md) (isn't working yet)
+   - [Scala client](./example/scala/README.md)

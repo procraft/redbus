@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/pkg/db"
-	"github.com/sergiusd/redbus/internal/pkg/runtime"
+	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/db"
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, attempt, repeat_strategy, error, created_at, started_at, finished_at`

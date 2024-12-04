@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	kpkg "github.com/sergiusd/redbus/internal/app/model"
+	kpkg "github.com/prokraft/redbus/internal/app/model"
 	"time"
 
-	"github.com/sergiusd/redbus/internal/pkg/kafka/credential"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 
 	"github.com/segmentio/kafka-go"
 )

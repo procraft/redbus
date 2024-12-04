@@ -2,7 +2,7 @@ package databus
 
 import (
 	"context"
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 func (b *DataBus) GetStat(ctx context.Context) (model.DataBusStat, error) {

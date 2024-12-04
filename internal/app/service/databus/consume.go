@@ -6,11 +6,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
-	"github.com/sergiusd/redbus/internal/app/model"
-	"github.com/sergiusd/redbus/internal/pkg/kafka/consumer"
+	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/kafka/consumer"
 )
 
 var errHandler = errors.New("error in handler")
@@ -79,7 +79,7 @@ func (b *DataBus) consumeProcess(
 			attempt++
 			if attempt != 1 {
 				logger.Consumer(ctx, c, "Consume kafka error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
-				time.Sleep(b.conf.Kafka.FailTimeout)
+				time.Sleep(b.conf.Kafka.FailTimeout.Duration)
 			}
 			logger.Consumer(ctx, c, "Consume kafka starting...")
 			consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })

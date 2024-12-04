@@ -2,11 +2,11 @@ package databus
 
 import (
 	"context"
+	"github.com/prokraft/redbus/internal/config"
 
-	"github.com/sergiusd/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/api/golang/pb"
 
-	"github.com/sergiusd/redbus/internal/app/config"
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 type DataBus struct {

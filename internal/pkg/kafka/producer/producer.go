@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sergiusd/redbus/internal/pkg/kafka/credential"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 
 	"github.com/segmentio/kafka-go"
 )

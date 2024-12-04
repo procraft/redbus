@@ -1,7 +1,7 @@
 package consumer
 
 import (
-	"github.com/sergiusd/redbus/internal/pkg/kafka/credential"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 )
 
 type Option func(conf *conf)

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/sergiusd/redbus/internal/pkg/runtime"
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 	"time"
 )
 

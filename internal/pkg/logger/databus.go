@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/sergiusd/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 func Consumer(ctx context.Context, c model.IConsumer, message string, args ...any) {

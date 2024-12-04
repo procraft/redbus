@@ -4,6 +4,7 @@
 /.env
 /bin
 /vendors
+/config.local.json
 
 /api/scala/redbus/.idea
 /api/scala/redbus/target

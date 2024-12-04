@@ -2,7 +2,7 @@ package adminapi
 
 import (
 	"context"
-	"github.com/sergiusd/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
 type healthResponse struct {
