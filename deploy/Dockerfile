@@ -7,7 +7,8 @@ COPY ./go.mod .
 COPY ./go.sum .
 RUN go mod download
 
-RUN go mod tidy && ls -la . && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w -extldflags "-static"' -o redbus ./cmd/redbus/main.go
+COPY . .
+RUN go mod tidy && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w -extldflags "-static"' -o redbus ./cmd/redbus/main.go
 
 
 FROM alpine:3.20
