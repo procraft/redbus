@@ -3,7 +3,6 @@ FROM golang:1.23-alpine3.20 as builder
 WORKDIR /app
 
 # for cache go mod depends
-RUN ls -la ../
 COPY ../go.mod .
 COPY ../go.sum .
 RUN go mod download
