@@ -3,11 +3,10 @@ FROM golang:1.23-alpine3.20 as builder
 WORKDIR /app
 
 # for cache go mod depends
-COPY ../go.mod .
-COPY ../go.sum .
+COPY ./go.mod .
+COPY ./go.sum .
 RUN go mod download
 
-COPY .. .
 RUN go mod tidy && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w -extldflags "-static"' -o redbus ./cmd/redbus/main.go
 
 
