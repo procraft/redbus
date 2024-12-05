@@ -12,9 +12,9 @@ func WithLog() Option {
 	}
 }
 
-func WithCredentials(algo, user, password, cert string) Option {
+func WithCredentials(credentials *credential.Conf) Option {
 	return func(conf *conf) {
-		conf.credentials = &credential.Conf{Algo: credential.Algo(algo), User: user, Password: password, Cert: cert}
+		conf.credentials = credentials
 	}
 }
 

@@ -5,10 +5,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/scram"
+
+	"github.com/prokraft/redbus/internal/config"
 )
 
 type Algo string
@@ -17,6 +19,18 @@ const (
 	Sha256 Algo = "sha256"
 	Sha512 Algo = "sha512"
 )
+
+func FromConf(conf *config.KafkaCredentialsConfig) *Conf {
+	if conf == nil || conf.Algo == "" {
+		return nil
+	}
+	return &Conf{
+		Algo:     Algo(conf.Algo),
+		User:     conf.User,
+		Password: conf.Password,
+		Cert:     conf.Cert,
+	}
+}
 
 func (a Algo) ToScamAlgo() *scram.Algorithm {
 	switch a {
@@ -50,7 +64,7 @@ func (c Conf) GetSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, 
 	if c.Cert != "" {
 		certs := x509.NewCertPool()
 		pemPath := c.Cert
-		pemData, err := ioutil.ReadFile(pemPath)
+		pemData, err := os.ReadFile(pemPath)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Can't read pem file for kafka producer, path: %v, err: %w\n", pemPath, err)
 		}

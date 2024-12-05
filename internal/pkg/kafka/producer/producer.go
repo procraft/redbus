@@ -29,13 +29,13 @@ type conf struct {
 	balancer    kafka.Balancer
 }
 
-func New(ctx context.Context, hosts []string, topic string, options ...Option) (*Producer, error) {
+func New(ctx context.Context, hosts []string, credentials *credential.Conf, topic string, options ...Option) (*Producer, error) {
 	p := Producer{
 		topic: topic,
 		conf: conf{
 			log:         false,
 			createTopic: nil,
-			credentials: nil,
+			credentials: credentials,
 			balancer:    &kafka.CRC32Balancer{},
 		},
 	}

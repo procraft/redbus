@@ -8,6 +8,7 @@ import (
 	"github.com/prokraft/redbus/internal/pkg/app/interceptor/log"
 	"github.com/prokraft/redbus/internal/pkg/app/interceptor/recovery"
 	"github.com/prokraft/redbus/internal/pkg/evtsrc"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"net"
 	"net/http"
 	"os"
@@ -121,7 +122,11 @@ func (a *App) initDb(ctx context.Context) error {
 func (a *App) initService(_ context.Context) error {
 	a.eventSource = evtsrc.New()
 	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
-		return producer.New(ctx, []string{a.conf.Kafka.HostPort}, topic,
+		return producer.New(
+			ctx,
+			[]string{a.conf.Kafka.HostPort},
+			credential.FromConf(a.conf.Kafka.Credentials),
+			topic,
 			producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor),
 			producer.WithLog(),
 			producer.WithBalancer(&kafka.RoundRobin{}),

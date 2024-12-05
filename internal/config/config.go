@@ -25,10 +25,18 @@ type adminConfig struct {
 }
 
 type kafkaConfig struct {
-	FailTimeout            model.Duration `json:"failTimeout,string" env:"REDBUS_KAFKA_FAIL_TIMEOUT"`
-	HostPort               string         `json:"hostPort" env:"REDBUS_KAFKA_HOST_PORT"`
-	TopicNumPartitions     int            `json:"topicNumPartitions" env:"REDBUS_KAFKA_TOPIC_NUM_PARTITIONS"`
-	TopicReplicationFactor int            `json:"topicReplicationFactor" env:"REDBUS_KAFKA_TOPIC_REPLICATION_FACTOR"`
+	HostPort               string                  `json:"hostPort" env:"REDBUS_KAFKA_HOST_PORT"`
+	Credentials            *KafkaCredentialsConfig `json:"credentials"`
+	FailTimeout            model.Duration          `json:"failTimeout,string" env:"REDBUS_KAFKA_FAIL_TIMEOUT"`
+	TopicNumPartitions     int                     `json:"topicNumPartitions" env:"REDBUS_KAFKA_TOPIC_NUM_PARTITIONS"`
+	TopicReplicationFactor int                     `json:"topicReplicationFactor" env:"REDBUS_KAFKA_TOPIC_REPLICATION_FACTOR"`
+}
+
+type KafkaCredentialsConfig struct {
+	Algo     string `json:"algo" env:"REDBUS_KAFKA_ALGO"`
+	User     string `json:"user" env:"REDBUS_KAFKA_USER"`
+	Password string `json:"password" env:"REDBUS_KAFKA_PASSWORD"`
+	Cert     string `json:"cert" env:"REDBUS_KAFKA_CERT"`
 }
 
 type repeatConfig struct {

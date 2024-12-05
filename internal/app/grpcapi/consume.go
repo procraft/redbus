@@ -8,6 +8,7 @@ import (
 
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
@@ -28,7 +29,15 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 
 	// Get kafka connection
 	kafkaHost := []string{b.conf.Kafka.HostPort}
-	c, connectErr := b.dataBus.CreateConsumerConnection(ctx, kafkaHost, data.Connect.Topic, data.Connect.Group, data.Connect.Id, int(data.Connect.BatchSize))
+	c, connectErr := b.dataBus.CreateConsumerConnection(
+		ctx,
+		kafkaHost,
+		credential.FromConf(b.conf.Kafka.Credentials),
+		data.Connect.Topic,
+		data.Connect.Group,
+		data.Connect.Id,
+		int(data.Connect.BatchSize),
+	)
 	var connectResult *pb.ConsumeResponse_Connect
 	if connectErr != nil {
 		connectResult = &pb.ConsumeResponse_Connect{Ok: false, Message: err.Error()}

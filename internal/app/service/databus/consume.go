@@ -3,6 +3,7 @@ package databus
 import (
 	"context"
 	"errors"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"io"
 	"time"
 
@@ -15,10 +16,13 @@ import (
 
 var errHandler = errors.New("error in handler")
 
-func (b *DataBus) CreateConsumerConnection(ctx context.Context, kafkaHost []string, topic, group, id string, batchSize int) (model.IConsumer, error) {
+func (b *DataBus) CreateConsumerConnection(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic, group, id string, batchSize int) (model.IConsumer, error) {
 	options := []consumer.Option{}
 	if batchSize != 0 {
 		options = append(options, consumer.WithBatchSize(batchSize))
+	}
+	if credentials != nil {
+		options = append(options, consumer.WithCredentials(credentials))
 	}
 	c, err := consumer.New(ctx, kafkaHost, topic, group, id, 0, options...)
 	if err != nil {

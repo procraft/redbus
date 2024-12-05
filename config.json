@@ -6,8 +6,8 @@
     "serverPort": 50006
   },
   "kafka": {
-    "failTimeout": "5s",
     "hostPort": "127.0.0.1:29092",
+    "failTimeout": "5s",
     "topicNumPartitions": 3,
     "topicReplicationFactor": 1
   },
