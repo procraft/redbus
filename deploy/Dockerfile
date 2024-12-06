@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine3.20 as builder
+FROM golang:1.23-alpine3.20 AS builder
 
 WORKDIR /app
 
@@ -12,9 +12,8 @@ RUN go mod tidy && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-
 
 
 FROM alpine:3.20
-EXPOSE 8080
 RUN adduser -D -H -h /app redbus && \
-    mkdir -p /app/internal/migrations  && \
+    mkdir -p /app/internal/migrations && \
     chown -R redbus:redbus /app
 WORKDIR /app
 USER redbus

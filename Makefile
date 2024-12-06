@@ -1,3 +1,5 @@
+include deploy/deploy.mk
+
 LOCAL_BIN:=$(CURDIR)/bin
 BUILD_ENVPARMS:=CGO_ENABLED=0
 UNAME_S:=$(shell uname -s)
