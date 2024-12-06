@@ -4,7 +4,7 @@ ARG apiHost
 ENV VUE_APP_REDBUS_API_HOST=$apiHost
 WORKDIR /app
 COPY ./web/admin .
-RUN yarn && yarn build && ls -la /app
+RUN yarn && yarn build
 
 
 FROM nginx
