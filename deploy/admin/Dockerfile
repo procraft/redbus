@@ -11,4 +11,4 @@ FROM nginx
 EXPOSE 8080
 WORKDIR /usr/share/nginx/html
 
-COPY --chown=redbus --from=builder /app/dist .
+COPY --from=builder /app/dist .
