@@ -52,20 +52,25 @@ func (a *AdminApi) RegisterHandlers(m ...func(next http.Handler) http.Handler) c
 
 func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		headers := w.Header()
-		headers.Set("Access-Control-Allow-Origin", "*")
-		headers.Set("Access-Control-Allow-Methods", "POST")
-		headers.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Content-Length, Accept")
 
+		headers.Set("Access-Control-Allow-Origin", "*")
+		headers.Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		headers.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Content-Length, Accept")
+		headers.Set("Access-Control-Allow-Credentials", "true")
+
+		// Если это предварительный запрос (OPTIONS), отвечаем только CORS-заголовками и завершаем обработку
 		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			sendErrorResponse(w, fmt.Errorf("expected POST request, got %v", r.Method), http.StatusMethodNotAllowed)
 			return
 		}
 
 		headers.Set("Content-Type", "application/json")
-		if r.Method != http.MethodPost {
-			sendErrorResponse(w, fmt.Errorf("Expected POST request, got %v", r.Method), http.StatusMethodNotAllowed)
-		}
 
 		var req REQ
 		body, err := io.ReadAll(r.Body)
