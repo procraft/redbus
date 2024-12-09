@@ -11,7 +11,7 @@ RUN --mount=type=cache,id=cache-bust,target=/yarn echo $CACHE_BUST && yarn && ya
 
 
 FROM nginx
-EXPOSE 8080
+EXPOSE 80
 WORKDIR /usr/share/nginx/html
 
 COPY --from=builder /app/dist .
