@@ -7,7 +7,7 @@ ENV VUE_APP_REDBUS_API_HOST=$apiHost
 ENV VUE_APP_REDBUS_API_TOKEN=$apiToken
 WORKDIR /app
 COPY ./web/admin .
-RUN --mount=type=cache,id=cache-bust,target=/yarn echo $CACHE_BUST && yarn && yarn build
+RUN yarn && yarn build
 
 
 FROM nginx
