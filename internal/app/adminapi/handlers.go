@@ -8,7 +8,9 @@ import (
 	"gopkg.in/antage/eventsource.v1"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 )
 
 type route struct {
@@ -16,17 +18,26 @@ type route struct {
 	handler http.HandlerFunc
 }
 
-func (a *AdminApi) RegisterHandlers(m ...func(next http.Handler) http.Handler) context.CancelFunc {
-	baseUrl := "/api"
-	routes := []route{
-		{path: "/health", handler: h(a.healthHandler)},
+func (a *AdminApi) RegisterHandlers(
+	authMiddleware func(next http.Handler) http.Handler,
+	m ...func(next http.Handler) http.Handler,
+) context.CancelFunc {
+	publicRoutes := []route{
+		{path: "/health", handler: h(a.healthHandler, http.MethodGet)},
+	}
+	apiRoutes := []route{
 		{path: "/dashboard/stat", handler: h(a.dashboardStatHandler)},
 		{path: "/repeat/stat", handler: h(a.repeatStatHandler)},
 		{path: "/repeat/repeatTopicGroup", handler: h(a.repeatTopicGroupHandler)},
 	}
-
-	for _, r := range routes {
-		http.Handle(baseUrl+r.path, middlewareChain(r.handler, m...))
+	for _, r := range publicRoutes {
+		http.Handle(r.path, middlewareChain(r.handler, m...))
+	}
+	baseBaseUrl := "/api"
+	mWithAuth := []func(next http.Handler) http.Handler{authMiddleware}
+	mWithAuth = append(mWithAuth, m...)
+	for _, r := range apiRoutes {
+		http.Handle(baseBaseUrl+r.path, middlewareChain(r.handler, mWithAuth...))
 	}
 
 	es := eventsource.New(
@@ -38,7 +49,7 @@ func (a *AdminApi) RegisterHandlers(m ...func(next http.Handler) http.Handler) c
 			}
 		},
 	)
-	http.Handle(baseUrl+"/events", es)
+	http.Handle(baseBaseUrl+"/events", es)
 	i := 0
 	a.eventSource.Handler(func(event model.Event) {
 		es.SendEventMessage(event.GetData(), event.GetName(), strconv.Itoa(i))
@@ -50,12 +61,15 @@ func (a *AdminApi) RegisterHandlers(m ...func(next http.Handler) http.Handler) c
 	}
 }
 
-func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error)) http.HandlerFunc {
+func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error), methods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		headers := w.Header()
 
+		if len(methods) == 0 {
+			methods = []string{http.MethodPost, http.MethodOptions}
+		}
 		headers.Set("Access-Control-Allow-Origin", "*")
-		headers.Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		headers.Set("Access-Control-Allow-Methods", strings.Join(methods, ","))
 		headers.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Content-Length, Accept")
 		headers.Set("Access-Control-Allow-Credentials", "true")
 
@@ -65,24 +79,26 @@ func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error)) 
 			return
 		}
 
-		if r.Method != http.MethodPost {
-			sendErrorResponse(w, fmt.Errorf("expected POST request, got %v", r.Method), http.StatusMethodNotAllowed)
+		if !slices.Contains(methods, r.Method) {
+			sendErrorResponse(w, fmt.Errorf("expected %v request, got %v", methods, r.Method), http.StatusMethodNotAllowed)
 			return
 		}
 
 		headers.Set("Content-Type", "application/json")
 
 		var req REQ
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			sendErrorResponse(w, err, http.StatusBadRequest)
-			return
-		}
+		if r.Method == http.MethodPost {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				sendErrorResponse(w, err, http.StatusBadRequest)
+				return
+			}
 
-		err = json.Unmarshal(body, &req)
-		if err != nil {
-			sendErrorResponse(w, err, http.StatusBadRequest)
-			return
+			err = json.Unmarshal(body, &req)
+			if err != nil {
+				sendErrorResponse(w, err, http.StatusBadRequest)
+				return
+			}
 		}
 
 		resp, err := fn(r.Context(), req)

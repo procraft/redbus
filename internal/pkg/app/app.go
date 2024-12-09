@@ -227,12 +227,11 @@ func (a *App) getAdminListener(ctx context.Context) func() error {
 		adminApi := adminapi.New(a.dataBusService, a.repeaterService, a.eventSource)
 
 		a.adminHttpMiddleware = append(a.adminHttpMiddleware,
-			adminapi.AuthMiddleware(a.conf.Admin.Token),
 			log.ServerMiddleware(),
 			reqid.ServerMiddleware("admin"),
 			recovery.ServerMiddleware,
 		)
-		cancel := adminApi.RegisterHandlers(a.adminHttpMiddleware...)
+		cancel := adminApi.RegisterHandlers(adminapi.AuthMiddleware(a.conf.Admin.Token), a.adminHttpMiddleware...)
 		defer cancel()
 		http.Handle("/", http.FileServer(http.Dir("./web/admin/dist")))
 
