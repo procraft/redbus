@@ -5,6 +5,7 @@ const apiClient: AxiosInstance = axios.create({
     baseURL: `${config.apiHost}/api`,
     headers: {
         "Content-type": "application/json",
+        "Authorization": `Token ${config.apiToken}`,
     },
 });
 

@@ -1,10 +1,12 @@
 FROM node:fermium AS builder
 
 ARG apiHost
+ARG apiToken
 ENV VUE_APP_REDBUS_API_HOST=$apiHost
+ENV VUE_APP_REDBUS_API_TOKEN=$apiToken
 WORKDIR /app
 COPY ./web/admin .
-RUN yarn && yarn build && ls -la /app/
+RUN yarn && yarn build
 
 
 FROM nginx

@@ -21,7 +21,8 @@ type grpcConfig struct {
 }
 
 type adminConfig struct {
-	ServerPort int `json:"serverPort" env:"REDBUS_ADMIN_SERVER_PORT"`
+	ServerPort int    `json:"serverPort" env:"REDBUS_ADMIN_SERVER_PORT"`
+	Token      string `json:"Token" env:"REDBUS_ADMIN_TOKEN"`
 }
 
 type kafkaConfig struct {

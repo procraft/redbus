@@ -122,5 +122,8 @@ func middlewareChain(h http.Handler, m ...func(next http.Handler) http.Handler) 
 	if len(m) == 0 {
 		return h
 	}
-	return m[0](middlewareChain(h, m[1:cap(m)]...))
+	if m[0] == nil {
+		panic("middlewareChain: found nil middleware")
+	}
+	return m[0](middlewareChain(h, m[1:]...))
 }

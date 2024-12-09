@@ -3,7 +3,8 @@
     "serverPort": 50005
   },
   "admin": {
-    "serverPort": 50006
+    "serverPort": 50006,
+    "token": "changeme"
   },
   "kafka": {
     "hostPort": "127.0.0.1:29092",
