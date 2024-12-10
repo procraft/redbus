@@ -2,6 +2,7 @@ package migrator
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -42,8 +43,17 @@ func (m *Migrator) Up() error {
 		return err
 	}
 	err = mig.Up()
-	if err == migrate.ErrNoChange {
-		logger.Info(logger.App, "Database doesn't change")
+	if err == nil || errors.Is(err, migrate.ErrNoChange) {
+		version, dirty, migErr := mig.Version()
+		if migErr != nil {
+			logger.Fatal(logger.App, "Can't get database version %v", migErr)
+			return migErr
+		}
+		if err == nil {
+			logger.Info(logger.App, "Database up to version %v, dirty = %v", version, dirty)
+		} else {
+			logger.Info(logger.App, "Database doesn't change: version %v, dirty = %v", version, dirty)
+		}
 		return nil
 	}
 	return err
