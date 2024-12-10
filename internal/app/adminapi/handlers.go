@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 	"gopkg.in/antage/eventsource.v1"
 	"io"
 	"net/http"
@@ -63,6 +64,7 @@ func (a *AdminApi) RegisterHandlers(
 
 func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error), methods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Debug(r.Context(), "Request: %v:%v, allow: %v", r.Method, r.URL.Path, methods)
 		headers := w.Header()
 
 		if len(methods) == 0 {
