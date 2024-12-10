@@ -7,7 +7,6 @@ const apiClient: AxiosInstance = axios.create({
         "Content-type": "application/json",
         "Authorization": `Token ${config.apiToken}`,
     },
-    withCredentials: true,
 });
 
 export default apiClient;
