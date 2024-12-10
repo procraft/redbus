@@ -75,7 +75,7 @@ func (r *Repository) GetCount(ctx context.Context) (int, int, error) {
 	allCount, failedCount := 0, 0
 	sql := `SELECT 
     	COUNT(*) as all_count,
-		SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END) AS failed_count
+		COALESCE(SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END), 0) AS failed_count
 	FROM repeat`
 	err := conn.QueryRow(ctx, sql).Scan(&allCount, &failedCount)
 	if err != nil {
