@@ -70,7 +70,7 @@ func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error), 
 		}
 		headers.Set("Access-Control-Allow-Origin", "*")
 		headers.Set("Access-Control-Allow-Methods", strings.Join(methods, ","))
-		headers.Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Content-Length, Authorization, Accept")
+		headers.Set("Access-Control-Allow-Headers", "*")
 
 		// Если это предварительный запрос (OPTIONS), отвечаем только CORS-заголовками и завершаем обработку
 		if r.Method == http.MethodOptions {
