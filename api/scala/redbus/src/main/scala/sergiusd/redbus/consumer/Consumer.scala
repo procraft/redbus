@@ -142,7 +142,7 @@ class Consumer(
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
     runWithTimeout(listener.consumeTimeout) {
-      processor(message.data.toByteArray)
+      processor(message.id, message.data.toByteArray)
         .map(_ => Right(()))
         .recover(e => Left(e))
     }

@@ -19,8 +19,8 @@ object Consumer extends App {
     shutdown()
   })
 
-  private def processor(bytes: Array[Byte]): Future[Either[String, Unit]] = {
-    println(s"Consumer / message: ${new String(bytes, StandardCharsets.UTF_8)}")
+  private def processor(key: String, bytes: Array[Byte]): Future[Either[String, Unit]] = {
+    println(s"Consumer / message: $key / ${new String(bytes, StandardCharsets.UTF_8)}")
     Future.successful(Right(()))
   }
 

@@ -7,7 +7,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object Model {
 
-  type Processor = Array[Byte] => Future[Either[String, Unit]]
+  type Processor = (String, Array[Byte]) => Future[Either[String, Unit]]
   type StopHook = (() => Future[_]) => Unit
 
   case class Listener(
