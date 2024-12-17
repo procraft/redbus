@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.0.8"
+version := "0.0.10"
 
 ThisBuild / scalaVersion := "2.13.12"
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
@@ -9,12 +9,14 @@ Compile / PB.targets := Seq(
   scalapb.gen() -> (Compile / sourceManaged).value,
 )
 
+val akkaVersion = "2.6.21"
+
 libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
-  "com.typesafe.akka" %% "akka-actor" % "2.8.6",
-  "com.typesafe.akka" %% "akka-stream" % "2.8.6"
+  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+  "com.typesafe.akka" %% "akka-stream" % akkaVersion
 )
 
 publishTo := Some(

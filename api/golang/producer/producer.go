@@ -25,8 +25,12 @@ func New(host string, port int) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) Produce(ctx context.Context, topic, key string, message []byte) error {
-	_, err := p.client.Produce(ctx, &pb.ProduceRequest{Topic: topic, Key: key, Message: message})
+func (p *Producer) Produce(ctx context.Context, topic string, message []byte, options ...OptionFn) error {
+	req := pb.ProduceRequest{Topic: topic, Message: message}
+	for _, o := range options {
+		o(&req)
+	}
+	_, err := p.client.Produce(ctx, &req)
 	if err != nil {
 		return err
 	}

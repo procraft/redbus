@@ -18,7 +18,7 @@ class Consumer(
   group: String,
   processor: Model.Processor,
   addStopHook: Model.StopHook,
-  options: Option.ListenerOptionFn*,
+  options: Option.Fn*,
 ) {
 
   implicit private val actorSystem: ActorSystem = ActorSystem("ConsumerActorSystem")

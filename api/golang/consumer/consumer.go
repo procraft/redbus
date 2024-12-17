@@ -27,7 +27,7 @@ func New(host string, port int, options ...ServiceOptionFn) *Service {
 	return &c
 }
 
-func (c *Service) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor, options ...ListenerOptionFn) error {
+func (c *Service) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor, options ...OptionFn) error {
 	listener := Listener{
 		consumeTimeout: 60 * time.Second,
 		batchSize:      1,

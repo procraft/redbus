@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	if err := p.Produce(context.Background(), topic, key, []byte(message)); err != nil {
+	if err := p.Produce(context.Background(), topic, []byte(message), producer.WithKeyUUIDv4()); err != nil {
 		panic(err.Error())
 	}
 

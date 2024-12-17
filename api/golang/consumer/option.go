@@ -10,15 +10,15 @@ func WithServiceUnavailableTimeout(unavailableTimeout time.Duration) ServiceOpti
 	}
 }
 
-type ListenerOptionFn = func(c *Listener)
+type OptionFn = func(c *Listener)
 
-func WithConsumeTimeout(consumeTimeout time.Duration) ListenerOptionFn {
+func WithConsumeTimeout(consumeTimeout time.Duration) OptionFn {
 	return func(l *Listener) {
 		l.consumeTimeout = consumeTimeout
 	}
 }
 
-func WithRepeatStrategyEven(maxAttempts int, intervalSec int) ListenerOptionFn {
+func WithRepeatStrategyEven(maxAttempts int, intervalSec int) OptionFn {
 	return func(l *Listener) {
 		l.repeatStrategy = &RepeatStrategy{
 			maxAttempts:  maxAttempts,
@@ -27,7 +27,7 @@ func WithRepeatStrategyEven(maxAttempts int, intervalSec int) ListenerOptionFn {
 	}
 }
 
-func WithRepeatStrategyProgressive(maxAttempts int, intervalSec int, multiplier float32) ListenerOptionFn {
+func WithRepeatStrategyProgressive(maxAttempts int, intervalSec int, multiplier float32) OptionFn {
 	return func(l *Listener) {
 		l.repeatStrategy = &RepeatStrategy{
 			maxAttempts:         maxAttempts,
@@ -36,7 +36,7 @@ func WithRepeatStrategyProgressive(maxAttempts int, intervalSec int, multiplier 
 	}
 }
 
-func WithBatchSize(batchSize int) ListenerOptionFn {
+func WithBatchSize(batchSize int) OptionFn {
 	return func(l *Listener) {
 		l.batchSize = batchSize
 	}
