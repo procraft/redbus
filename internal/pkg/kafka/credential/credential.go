@@ -21,8 +21,8 @@ const (
 	Sha512 Algo = "sha512"
 )
 
-func FromConf(conf *config.KafkaCredentialsConfig) *Conf {
-	if conf == nil || conf.Algo == "" {
+func FromConf(conf config.KafkaCredentialsConfig) *Conf {
+	if conf.Algo == "" {
 		return nil
 	}
 	return &Conf{
