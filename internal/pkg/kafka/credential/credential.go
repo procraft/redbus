@@ -79,12 +79,12 @@ func (c Conf) GetSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, 
 func (c Conf) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf(
-		"%s:%s@%s%s%s",
+		"%s@%s:%s%s%s",
 		c.Algo, c.User,
 		string(c.Password[0]), strings.Repeat("*", len(c.Password)-2), string(c.Password[len(c.Password)-1])),
 	)
 	if c.Cert != "" {
-		s.WriteString("/" + c.Cert)
+		s.WriteString("@" + c.Cert)
 	}
 	return s.String()
 }
