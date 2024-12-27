@@ -53,13 +53,14 @@ class Consumer(
 
   def consume(): Future[Unit] = {
 
+    listener.logger("Start consumer")
     connectAndServe()
 
     addStopHook { () =>
       Future {
         isRunning = false
         promise.trySuccess(Done)
-        println("Consumer shutting down")
+        listener.logger("Consumer shutting down")
       }
     }
 
@@ -94,7 +95,7 @@ class Consumer(
       }
 
       override def onCompleted(): Unit = {
-        println("Stream completed")
+        listener.logger("Stream completed")
         promise.success(Done)
       }
     }
@@ -107,12 +108,13 @@ class Consumer(
   private def reconnect(error: String): Unit = {
     requestObserver = None
     attempt += 1
-    println(s"Connect to $hostPort error: $error, attempt $attempt, ${listener.unavailableTimeout} waiting...")
+    listener.logger(s"Connect to $hostPort error: $error, attempt $attempt, ${listener.unavailableTimeout} waiting...")
     runWithPause(listener.unavailableTimeout)(connectAndServe())
   }
 
   private def sendRequest(request: ConsumeRequest): Unit = {
     try {
+      listener.logger("Send connect request")
       requestObserver.foreach(_.onNext(request))
     } catch {
       case e: Throwable => reconnect(e.getMessage)
@@ -123,7 +125,7 @@ class Consumer(
     if (response.ok) {
       attempt = 0
       isConnected = true
-      println(s"Connect to $hostPort, id = ${connectRequest.connect.map(_.id).getOrElse("?")}")
+      listener.logger(s"Connect to $hostPort, id = ${connectRequest.connect.map(_.id).getOrElse("?")}")
     } else {
       reconnect(response.message)
     }

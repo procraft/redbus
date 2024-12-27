@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/scram"
@@ -73,4 +74,17 @@ func (c Conf) GetSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, 
 	}
 
 	return &mechanism, tlsConfig, nil
+}
+
+func (c Conf) String() string {
+	var s strings.Builder
+	s.WriteString(fmt.Sprintf(
+		"%s:%s@%s%s%s",
+		c.Algo, c.User,
+		string(c.Password[0]), strings.Repeat("*", len(c.Password)-2), string(c.Password[len(c.Password)-1])),
+	)
+	if c.Cert != "" {
+		s.WriteString("/" + c.Cert)
+	}
+	return s.String()
 }

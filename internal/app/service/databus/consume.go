@@ -3,8 +3,10 @@ package databus
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/prokraft/redbus/internal/pkg/logger"
@@ -25,10 +27,11 @@ func (b *DataBus) CreateConsumerConnection(ctx context.Context, kafkaHost []stri
 		options = append(options, consumer.WithCredentials(credentials))
 	}
 	c, err := consumer.New(ctx, kafkaHost, topic, group, id, 0, options...)
+	connMsg := fmt.Sprintf("%s with credentials %s", strings.Join(kafkaHost, ", "), credentials)
 	if err != nil {
-		logger.Consumer(ctx, c, "Failed connect to kafka: %v", err)
+		logger.Consumer(ctx, c, "Failed connect to kafka %s: %v", connMsg, err)
 	} else {
-		logger.Consumer(ctx, c, "Success connect to kafka")
+		logger.Consumer(ctx, c, "Success connect to kafka %s", connMsg)
 	}
 	return c, err
 }

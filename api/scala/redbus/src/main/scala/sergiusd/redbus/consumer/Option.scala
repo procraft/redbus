@@ -33,4 +33,8 @@ object Option {
     consumer => consumer.copy(batchSize = batchSize)
   }
 
+  def WithLogger(logger: String => Unit): Fn = {
+    consumer => consumer.copy(logger = logger)
+  }
+
 }

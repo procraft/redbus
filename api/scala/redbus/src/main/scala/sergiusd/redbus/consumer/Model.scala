@@ -15,6 +15,7 @@ object Model {
     repeatStrategy: Option[RepeatStrategy] = None,
     batchSize: Int,
     unavailableTimeout: FiniteDuration,
+    logger: String => Unit = _ => (),
   )
 
   class RepeatStrategy(
