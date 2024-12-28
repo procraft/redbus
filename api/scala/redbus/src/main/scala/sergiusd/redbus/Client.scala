@@ -14,7 +14,7 @@ case class Client(host: String, port: Int)(implicit ec: ExecutionContext) {
     topic: String,
     message: Array[Byte],
     options: producer.Option.Fn*,
-  ): Future[Unit] = {
+  ): Future[Boolean] = {
     producer.Producer.produce(grpc, topic, message, options: _*)
   }
 

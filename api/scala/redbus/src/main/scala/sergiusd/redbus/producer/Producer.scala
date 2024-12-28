@@ -13,9 +13,9 @@ object Producer {
     topic: String,
     message: Array[Byte],
     options: producer.Option.Fn*,
-  )(implicit ec: ExecutionContext): Future[Unit] = {
+  )(implicit ec: ExecutionContext): Future[Boolean] = {
     val req = options.foldLeft(ProduceRequest(topic = topic, message = ByteString.copyFrom(message)))((x, fn) => fn(x))
-    grpcClient.produce(req).map(_ => ())
+    grpcClient.produce(req).map(_.ok)
   }
 
 }
