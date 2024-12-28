@@ -129,10 +129,10 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 			return err
 		}
 
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return ctx.Err()
 		}
-		if ctx.Err() == context.Canceled {
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return nil
 		}
 	}

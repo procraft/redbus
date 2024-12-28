@@ -16,10 +16,10 @@ func (ml MessageList) GetById(id string) Message {
 			return v
 		}
 	}
-	panic("Not found message with id " + id + ", available: " + strings.Join(ml.getIdList(), ", "))
+	panic("Not found message with id " + id + ", available: " + strings.Join(ml.GetIdList(), ", "))
 }
 
-func (ml MessageList) getIdList() []string {
+func (ml MessageList) GetIdList() []string {
 	ret := make([]string, 0, len(ml))
 	for _, v := range ml {
 		ret = append(ret, v.Id)
