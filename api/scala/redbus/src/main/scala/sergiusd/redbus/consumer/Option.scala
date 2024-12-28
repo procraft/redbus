@@ -1,10 +1,17 @@
 package sergiusd.redbus.consumer
 
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object Option {
 
   type Fn = Model.Listener => Model.Listener
+
+  case class EventKey(
+     topic: String,
+     group: String,
+     key: String,
+  )
 
   def WithConsumeTimeout(consumeTimeout: FiniteDuration): Fn = {
     consumer => consumer.copy(consumeTimeout = consumeTimeout)
@@ -35,6 +42,16 @@ object Option {
 
   def WithLogger(logger: String => Unit): Fn = {
     consumer => consumer.copy(logger = logger)
+  }
+
+  def WithOnlyOnceProcessor(
+    isEventProcessedFn: EventKey => Future[Boolean],
+    setEventProcessedFn: EventKey => Future[_],
+  ): Fn = {
+    consumer => consumer.copy(
+      isEventProcessedFn = Some(isEventProcessedFn),
+      setEventProcessedFn = Some(setEventProcessedFn),
+    )
   }
 
 }

@@ -5,6 +5,7 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
+import sergiusd.redbus
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
@@ -144,9 +145,26 @@ class Consumer(
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
     runWithTimeout(listener.consumeTimeout) {
-      processor(message.id, message.data.toByteArray)
-        .map(_ => Right(()))
-        .recover(e => Left(e))
+      for {
+        isProcessed <- listener.isEventProcessedFn match {
+          case Some (fn) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id))
+          case _ => Future.successful(false)
+        }
+        result <- if (isProcessed) {
+          listener.logger(s"Skip already processed message $group / $topic / ${message.id}")
+          Future.successful(Right(()))
+        } else {
+          for {
+            result <- processor(message.id, message.data.toByteArray)
+              .map(_ => Right(()))
+              .recover(e => Left(e))
+            _ <- (result, listener.setEventProcessedFn) match {
+              case (Right(_), Some(fn)) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id))
+              case _ => Future.unit
+            }
+          } yield result
+        }
+      } yield result
     }
   }
 

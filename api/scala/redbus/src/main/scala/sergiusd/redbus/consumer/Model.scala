@@ -1,6 +1,7 @@
 package sergiusd.redbus.consumer
 
 import sergiusd.redbus.api.ConsumeRequest
+import sergiusd.redbus.consumer.Option.EventKey
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
@@ -16,6 +17,8 @@ object Model {
     batchSize: Int,
     unavailableTimeout: FiniteDuration,
     logger: String => Unit = _ => (),
+    isEventProcessedFn: Option[EventKey => Future[Boolean]] = None,
+    setEventProcessedFn: Option[EventKey => Future[_]] = None,
   )
 
   class RepeatStrategy(
