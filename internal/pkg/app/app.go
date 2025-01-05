@@ -9,6 +9,7 @@ import (
 	"github.com/prokraft/redbus/internal/pkg/app/interceptor/recovery"
 	"github.com/prokraft/redbus/internal/pkg/evtsrc"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
+	"github.com/prokraft/redbus/internal/pkg/kafka/provider"
 	"net"
 	"net/http"
 	"os"
@@ -121,11 +122,12 @@ func (a *App) initDb(ctx context.Context) error {
 
 func (a *App) initService(_ context.Context) error {
 	a.eventSource = evtsrc.New()
+	kafkaCredentials := credential.FromConf(a.conf.Kafka.Credentials)
 	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
 		return producer.New(
 			ctx,
 			[]string{a.conf.Kafka.HostPort},
-			credential.FromConf(a.conf.Kafka.Credentials),
+			kafkaCredentials,
 			topic,
 			producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor),
 			producer.WithLog(),
@@ -139,10 +141,15 @@ func (a *App) initService(_ context.Context) error {
 		repository.New(),
 		a.eventSource,
 	)
+	kafkaProvider, err := provider.New(a.conf.Kafka.HostPort, kafkaCredentials)
+	if err != nil {
+		return err
+	}
 	a.dataBusService = databus.New(
 		a.conf,
 		connStoreService,
 		repeaterService,
+		kafkaProvider,
 	)
 	a.repeaterService = repeaterService
 	return nil

@@ -2,6 +2,7 @@ package connstore
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/prokraft/redbus/api/golang/pb"
@@ -17,6 +18,7 @@ type ConsumerBag struct {
 type ConsumerStore struct {
 	store  map[ConsumerKey]ConsumerBag
 	random *rand.Rand
+	mu     sync.RWMutex
 }
 
 type ConsumerKey struct {
@@ -35,14 +37,20 @@ func NewConsumerStore() *ConsumerStore {
 }
 
 func (s *ConsumerStore) add(topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer, srv pb.RedbusService_ConsumeServer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.store[s.getKey(topic, group, id)] = ConsumerBag{Consumer: c, Srv: srv, RepeatStrategy: repeatStrategy}
 }
 
 func (s *ConsumerStore) remove(topic, group, id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.store, s.getKey(topic, group, id))
 }
 
 func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	ret := make(model.TopicGroupList, 0, len(s.store))
 	exists := make(map[string]struct{}, len(s.store))
 	for k := range s.store {
@@ -60,6 +68,8 @@ func (s *ConsumerStore) getKey(topic, group, id string) ConsumerKey {
 }
 
 func (s *ConsumerStore) findBest(topic, group, id string) *ConsumerBag {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	list := make([]ConsumerBag, 0, len(s.store))
 	if bag, ok := s.store[ConsumerKey{Topic: topic, Group: group, Id: id}]; ok {
 		return &bag

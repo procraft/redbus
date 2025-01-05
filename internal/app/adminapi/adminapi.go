@@ -6,7 +6,8 @@ import (
 )
 
 type IDataBusService interface {
-	GetStat(ctx context.Context) (model.DataBusStat, error)
+	GetStat(ctx context.Context) (model.Stat, error)
+	GetTopicList(ctx context.Context) (model.TopicList, error)
 }
 
 type IRepeater interface {

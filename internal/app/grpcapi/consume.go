@@ -57,7 +57,7 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 
 	// Consume
 	handler := func(ctx context.Context, list model.MessageList) error {
-		logger.Consumer(ctx, c, "Receive %d messages (%s) from kafka and send", strings.Join(list.GetIdList(), ", "), len(list))
+		logger.Consumer(ctx, c, "Receive %d messages (%s) from kafka and send", len(list), strings.Join(list.GetIdList(), ", "))
 		data, err := SendToConsumerAndWaitResponse(ctx, c, srv, list)
 		if err != nil {
 			return fmt.Errorf("%w: %v", errHandler, err)

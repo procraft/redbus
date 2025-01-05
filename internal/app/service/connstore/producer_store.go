@@ -2,6 +2,7 @@ package connstore
 
 import (
 	"context"
+	"sync"
 
 	"github.com/prokraft/redbus/internal/app/model"
 )
@@ -9,6 +10,7 @@ import (
 type ProducerStore struct {
 	createFn CreateProducerFn
 	store    map[string]model.IProducer
+	mu       sync.Mutex
 }
 
 type CreateProducerFn = func(ctx context.Context, topic string) (model.IProducer, error)
@@ -21,6 +23,8 @@ func NewProducerStore(createFn CreateProducerFn) *ProducerStore {
 }
 
 func (s *ProducerStore) get(ctx context.Context, topic string) (model.IProducer, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if p := s.store[topic]; p != nil {
 		return p, nil
 	}

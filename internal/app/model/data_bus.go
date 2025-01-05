@@ -1,6 +1,6 @@
 package model
 
-type DataBusStat struct {
+type Stat struct {
 	ConsumeTopicCount int
 	ConsumerCount     int
 	RepeatAllCount    int
