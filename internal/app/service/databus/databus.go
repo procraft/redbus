@@ -33,8 +33,8 @@ func New(
 type IConnStore interface {
 	GetProducer(ctx context.Context, topic string) (model.IProducer, error)
 	FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy
-	AddConsumer(srv pb.RedbusService_ConsumeServer, topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer)
-	RemoveConsumer(topic, group, id string)
+	AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy)
+	RemoveConsumer(c model.IConsumer)
 	GetConsumerCount() int
 	GetConsumeTopicCount() int
 }

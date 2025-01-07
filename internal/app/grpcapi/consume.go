@@ -2,35 +2,33 @@ package grpcapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
-var errHandler = errors.New("error in handler")
+func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 
-func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
-
-	ctx, cancel := context.WithCancel(srv.Context())
+	ctx, cancel := context.WithCancel(server.Context())
 	defer cancel()
 
 	logger.Info(ctx, "Handle new consume")
+	serverStream := stream.New(server)
 
 	// Receive connect data
-	ok, data, err := consumerRecv(ctx, nil, srv)
+	ok, data, err := serverStream.Recv(ctx, nil)
 	if !ok || err != nil {
 		return err
 	}
 
-	// Get kafka connection
+	// Get consumer with kafka connection
 	kafkaHost := []string{b.conf.Kafka.HostPort}
-	c, connectErr := b.dataBus.CreateConsumerConnection(
+	c, connectErr := b.dataBus.CreateConsumer(
 		ctx,
 		kafkaHost,
 		credential.FromConf(b.conf.Kafka.Credentials),
@@ -41,13 +39,13 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 	)
 	var connectResult *pb.ConsumeResponse_Connect
 	if connectErr != nil {
-		connectResult = &pb.ConsumeResponse_Connect{Ok: false, Message: err.Error()}
+		connectResult = &pb.ConsumeResponse_Connect{Ok: false, Message: connectErr.Error()}
 	} else {
 		connectResult = &pb.ConsumeResponse_Connect{Ok: true}
 	}
 
 	// Notify about connection
-	if ok, err := consumerSend(ctx, c, srv, &pb.ConsumeResponse{Connect: connectResult}); !ok || err != nil {
+	if ok, err := serverStream.Send(ctx, c, &pb.ConsumeResponse{Connect: connectResult}); !ok || err != nil {
 		return err
 	}
 
@@ -58,9 +56,9 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 	// Consume
 	handler := func(ctx context.Context, list model.MessageList) error {
 		logger.Consumer(ctx, c, "Receive %d messages (%s) from kafka and send", len(list), strings.Join(list.GetIdList(), ", "))
-		data, err := SendToConsumerAndWaitResponse(ctx, c, srv, list)
+		data, err := stream.New(server).SendToConsumerAndWaitResponse(ctx, c, list)
 		if err != nil {
-			return fmt.Errorf("%w: %v", errHandler, err)
+			return fmt.Errorf("%w: %v", model.ErrHandler, err)
 		}
 		for i := range data.ResultList {
 			result := data.ResultList[i]
@@ -79,7 +77,7 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 					MessageId:  m.Id,
 					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
 				}, result.Message); err != nil {
-					return fmt.Errorf("%w: %v", errHandler, err)
+					return fmt.Errorf("%w: %v", model.ErrHandler, err)
 				}
 			}
 		}
@@ -87,54 +85,5 @@ func (b *GrpcApi) Consume(srv pb.RedbusService_ConsumeServer) error {
 	}
 
 	repeatStrategy := fromPBRepeatStrategy(data.Connect.RepeatStrategy)
-	return b.dataBus.Consume(ctx, srv, data.Connect.Topic, data.Connect.Group, data.Connect.Id, repeatStrategy, c, handler, cancel)
-}
-
-func consumerSend(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, data *pb.ConsumeResponse) (bool, error) {
-	err := srv.Send(data)
-	if err == io.EOF {
-		return false, err
-	}
-	if err != nil {
-		logger.Consumer(ctx, c, "Can't send to example client: %v", err)
-		return true, err
-	}
-	return true, nil
-}
-
-func consumerRecv(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer) (bool, *pb.ConsumeRequest, error) {
-	rest, err := srv.Recv()
-	if err == io.EOF {
-		return false, nil, nil
-	}
-	if err != nil {
-		logger.Consumer(ctx, c, "Can't receive from example client: %v", err)
-		return true, nil, err
-	}
-	return true, rest, nil
-}
-
-func SendToConsumerAndWaitResponse(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, list model.MessageList) (*pb.ConsumeRequest, error) {
-	ok, err := consumerSend(ctx, c, srv, &pb.ConsumeResponse{MessageList: toPBMessageList(list)})
-	if !ok {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errHandler, err)
-	}
-	logger.Consumer(ctx, c, "Wait %d message processing", len(list))
-	ok, data, err := consumerRecv(ctx, c, srv)
-	if err == nil {
-		for _, v := range data.ResultList {
-			if v.Ok {
-				logger.Consumer(ctx, c, "[%v] Message processing success", v.Id)
-			} else {
-				logger.Consumer(ctx, c, "[%v] Message processing error: %v", v.Id, v.Message)
-			}
-		}
-	}
-	if !ok {
-		return nil, nil
-	}
-	return data, err
+	return b.dataBus.Consume(ctx, c, server, repeatStrategy, handler, cancel)
 }

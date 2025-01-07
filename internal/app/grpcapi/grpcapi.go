@@ -27,9 +27,9 @@ func New(
 }
 
 type IDataBus interface {
-	CreateConsumerConnection(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic, group, id string, batchSize int) (model.IConsumer, error)
+	CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic, group, id string, batchSize int) (model.IConsumer, error)
 	FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy
-	Consume(ctx context.Context, srv pb.RedbusService_ConsumeServer, topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
+	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
 	Produce(ctx context.Context, topic, key string, message []byte) error
 }

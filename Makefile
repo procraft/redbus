@@ -15,7 +15,7 @@ $(LOCAL_BIN):
 	@mkdir -p $@
 $(LOCAL_BIN)/%:
 	$Q tmp=$$(mktemp -d); \
-		(GOPATH=$$tmp GO111MODULE=off go get $(REPOSITORY) && cp $$tmp/bin/* $(LOCAL_BIN)/.) || ret=$$?; \
+		(GOPATH=$$tmp GO111MODULE=on go get $(REPOSITORY) && cp $$tmp/bin/* $(LOCAL_BIN)/.) || ret=$$?; \
 		rm -rf $$tmp ; exit $$ret
 
 fmt: $(LOCAL_BIN) | $(GOIMPORTS)

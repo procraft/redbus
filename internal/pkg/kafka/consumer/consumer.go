@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	kpkg "github.com/prokraft/redbus/internal/app/model"
+	"sync"
 	"time"
 
+	kpkg "github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 
 	"github.com/segmentio/kafka-go"
@@ -19,6 +20,7 @@ type Consumer struct {
 	topic  string
 	group  string
 	reader *kafka.Reader
+	mu     sync.Mutex
 }
 
 type conf struct {
@@ -174,6 +176,14 @@ func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, 
 	}
 
 	return nil
+}
+
+func (c *Consumer) Lock() {
+	c.mu.Lock()
+}
+
+func (c *Consumer) Unlock() {
+	c.mu.Unlock()
 }
 
 func (c *Consumer) Close() error {

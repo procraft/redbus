@@ -49,15 +49,15 @@ func (s *ConnStore) GetConsumerTopicGroupList() model.TopicGroupList {
 	return s.consumerStore.getTopicGroupList()
 }
 
-func (s *ConnStore) AddConsumer(srv pb.RedbusService_ConsumeServer, topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer) {
-	s.consumerStore.add(topic, group, id, repeatStrategy, c, srv)
+func (s *ConnStore) AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy) {
+	s.consumerStore.add(c, repeatStrategy, srv)
 	s.eventSource.Publish(func() model.Event {
 		return model.EventConsumers{ConsumerCount: s.GetConsumerCount(), ConsumeTopicCount: s.GetConsumeTopicCount()}
 	})
 }
 
-func (s *ConnStore) RemoveConsumer(topic, group, id string) {
-	s.consumerStore.remove(topic, group, id)
+func (s *ConnStore) RemoveConsumer(c model.IConsumer) {
+	s.consumerStore.remove(c)
 	s.eventSource.Publish(func() model.Event {
 		return model.EventConsumers{ConsumerCount: s.GetConsumerCount(), ConsumeTopicCount: s.GetConsumeTopicCount()}
 	})

@@ -4,12 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/prokraft/redbus/internal/app/grpcapi"
 	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/app/service/connstore"
 	"github.com/prokraft/redbus/internal/pkg/logger"
-
 	"github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
 type Repeater struct {
@@ -80,7 +79,7 @@ func (r *Repeater) Repeat(ctx context.Context) error {
 	wg.Add(len(groupedRepeat))
 	for _, consumerRepeatList := range groupedRepeat {
 		go func(list model.RepeatList) {
-			r.repeatConsumer(ctx, list)
+			r.repeatProcessor(ctx, list)
 			wg.Done()
 		}(consumerRepeatList)
 	}
@@ -107,13 +106,13 @@ func (r *Repeater) publishEventSource(ctx context.Context) {
 	})
 }
 
-func (r *Repeater) repeatConsumer(ctx context.Context, repeatList model.RepeatList) {
+func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatList) {
 	for _, repeat := range repeatList {
 		bag := r.connStore.FindBestConsumerBag(repeat.Topic, repeat.Group, repeat.ConsumerId)
 		if bag == nil {
 			continue
 		}
-		data, err := grpcapi.SendToConsumerAndWaitResponse(logger.App, bag.Consumer, bag.Srv, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
+		data, err := stream.New(bag.Server).SendToConsumerAndWaitResponse(logger.App, bag.Consumer, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
 		if err != nil {
 			logger.Error(ctx, "Error on repeat process message: %v", err)
 			continue

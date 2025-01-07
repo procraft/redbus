@@ -11,7 +11,7 @@ import (
 
 type ConsumerBag struct {
 	Consumer       model.IConsumer
-	Srv            pb.RedbusService_ConsumeServer
+	Server         pb.RedbusService_ConsumeServer
 	RepeatStrategy *model.RepeatStrategy
 }
 
@@ -36,16 +36,16 @@ func NewConsumerStore() *ConsumerStore {
 	}
 }
 
-func (s *ConsumerStore) add(topic, group, id string, repeatStrategy *model.RepeatStrategy, c model.IConsumer, srv pb.RedbusService_ConsumeServer) {
+func (s *ConsumerStore) add(c model.IConsumer, repeatStrategy *model.RepeatStrategy, srv pb.RedbusService_ConsumeServer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.store[s.getKey(topic, group, id)] = ConsumerBag{Consumer: c, Srv: srv, RepeatStrategy: repeatStrategy}
+	s.store[s.getKey(c)] = ConsumerBag{Consumer: c, Server: srv, RepeatStrategy: repeatStrategy}
 }
 
-func (s *ConsumerStore) remove(topic, group, id string) {
+func (s *ConsumerStore) remove(c model.IConsumer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.store, s.getKey(topic, group, id))
+	delete(s.store, s.getKey(c))
 }
 
 func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
@@ -63,8 +63,8 @@ func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
 	return ret
 }
 
-func (s *ConsumerStore) getKey(topic, group, id string) ConsumerKey {
-	return ConsumerKey{Topic: topic, Group: group, Id: id}
+func (s *ConsumerStore) getKey(c model.IConsumer) ConsumerKey {
+	return ConsumerKey{Topic: c.GetTopic(), Group: c.GetGroup(), Id: c.GetID()}
 }
 
 func (s *ConsumerStore) findBest(topic, group, id string) *ConsumerBag {
