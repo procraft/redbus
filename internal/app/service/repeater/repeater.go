@@ -30,7 +30,7 @@ type IRepository interface {
 
 type IConnStore interface {
 	GetConsumerTopicGroupList() model.TopicGroupList
-	FindBestConsumerBag(topic, group, id string) *connstore.ConsumerBag
+	FindBestConsumerBag(topic model.TopicName, group model.GroupName, id model.ConsumerId) *connstore.ConsumerBag
 }
 
 type IEventSource interface {
@@ -109,10 +109,10 @@ func (r *Repeater) publishEventSource(ctx context.Context) {
 func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatList) {
 	for _, repeat := range repeatList {
 		bag := r.connStore.FindBestConsumerBag(repeat.Topic, repeat.Group, repeat.ConsumerId)
-		if bag == nil {
+		if bag == nil || bag.Consumer.GetState() != model.ConsumerStateConnected {
 			continue
 		}
-		data, err := stream.New(bag.Server).SendToConsumerAndWaitResponse(logger.App, bag.Consumer, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
+		data, err := stream.New(bag.Server).ProcessMessageList(logger.App, bag.Consumer, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
 		if err != nil {
 			logger.Error(ctx, "Error on repeat process message: %v", err)
 			continue

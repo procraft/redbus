@@ -32,9 +32,9 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		ctx,
 		kafkaHost,
 		credential.FromConf(b.conf.Kafka.Credentials),
-		data.Connect.Topic,
-		data.Connect.Group,
-		data.Connect.Id,
+		model.TopicName(data.Connect.Topic),
+		model.GroupName(data.Connect.Group),
+		model.ConsumerId(data.Connect.Id),
 		int(data.Connect.BatchSize),
 	)
 	var connectResult *pb.ConsumeResponse_Connect
@@ -56,7 +56,7 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 	// Consume
 	handler := func(ctx context.Context, list model.MessageList) error {
 		logger.Consumer(ctx, c, "Receive %d messages (%s) from kafka and send", len(list), strings.Join(list.GetIdList(), ", "))
-		data, err := stream.New(server).SendToConsumerAndWaitResponse(ctx, c, list)
+		data, err := serverStream.ProcessMessageList(ctx, c, list)
 		if err != nil {
 			return fmt.Errorf("%w: %v", model.ErrHandler, err)
 		}

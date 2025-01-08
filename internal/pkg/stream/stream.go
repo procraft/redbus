@@ -42,7 +42,7 @@ func (s Stream) Recv(ctx context.Context, c model.IConsumer) (bool, *pb.ConsumeR
 	return true, rest, nil
 }
 
-func (s Stream) SendToConsumerAndWaitResponse(ctx context.Context, c model.IConsumer, list model.MessageList) (*pb.ConsumeRequest, error) {
+func (s Stream) ProcessMessageList(ctx context.Context, c model.IConsumer, list model.MessageList) (*pb.ConsumeRequest, error) {
 	// обработка должна быть последовательно, чтобы запрос / ответ работали правильно
 	c.Lock()
 	defer c.Unlock()

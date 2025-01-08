@@ -32,7 +32,7 @@ func (r *Repository) FindForRepeat(ctx context.Context, topicGroupList model.Top
 	}
 	sql := "SELECT " + repeatFields + " FROM repeat " +
 		"WHERE finished_at IS NULL AND started_at <= $2 AND (topic || '|' || \"group\") = any($1)"
-	rows, err := conn.Query(ctx, sql, topicGroupList.GetStrList("|"), runtime.Now())
+	rows, err := conn.Query(ctx, sql, topicGroupList.String("|"), runtime.Now())
 	if err != nil {
 		return nil, fmt.Errorf("Can't get repeat list from db: %w", err)
 	}

@@ -1,18 +1,27 @@
 package model
 
-type Topic struct {
-	Name          string      `json:"name"`
-	PartitionList []Partition `json:"partition_list"`
-	Group         string      `json:"group"`
-	Offset        int         `json:"offset"`
-	LastOffset    int         `json:"last_offset"`
-	ConsumerCount int         `json:"consumer_count"`
+type StatTopic struct {
+	Name          TopicName       `json:"name"`
+	PartitionList []StatPartition `json:"partitions"`
+	GroupList     []StatGroup     `json:"groups"`
 }
 
-type Partition struct {
-	N           int   `json:"n"`
-	FirstOffset int64 `json:"first_offset"`
-	LastOffset  int64 `json:"last_offset"`
+type StatPartition struct {
+	N           PartitionN `json:"n"`
+	FirstOffset Offset     `json:"first_offset"`
+	LastOffset  Offset     `json:"last_offset"`
 }
 
-type TopicList = []Topic
+type StatGroup struct {
+	Name          GroupName            `json:"name"`
+	PartitionList []StatGroupPartition `json:"partitions"`
+}
+
+type StatGroupPartition struct {
+	N             PartitionN `json:"n"`
+	Offset        Offset     `json:"offset"`
+	ConsumerId    ConsumerId `json:"consumer_id"`
+	ConsumerState string     `json:"consumer_state"`
+}
+
+type StatTopicList = []StatTopic

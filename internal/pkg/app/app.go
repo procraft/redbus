@@ -123,7 +123,7 @@ func (a *App) initDb(ctx context.Context) error {
 func (a *App) initService(_ context.Context) error {
 	a.eventSource = evtsrc.New()
 	kafkaCredentials := credential.FromConf(a.conf.Kafka.Credentials)
-	createProducerFn := func(ctx context.Context, topic string) (model.IProducer, error) {
+	createProducerFn := func(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
 		return producer.New(
 			ctx,
 			[]string{a.conf.Kafka.HostPort},

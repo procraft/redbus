@@ -29,11 +29,11 @@ type IEventSource interface {
 	Publish(fn func() model.Event)
 }
 
-func (s *ConnStore) GetProducer(ctx context.Context, topic string) (model.IProducer, error) {
+func (s *ConnStore) GetProducer(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
 	return s.producerStore.get(ctx, topic)
 }
 
-func (s *ConnStore) FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy {
+func (s *ConnStore) FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy {
 	c := s.consumerStore.findBest(topic, group, id)
 	if c == nil {
 		return nil
@@ -41,7 +41,7 @@ func (s *ConnStore) FindRepeatStrategy(topic, group, id string) *model.RepeatStr
 	return c.RepeatStrategy
 }
 
-func (s *ConnStore) FindBestConsumerBag(topic, group, id string) *ConsumerBag {
+func (s *ConnStore) FindBestConsumerBag(topic model.TopicName, group model.GroupName, id model.ConsumerId) *ConsumerBag {
 	return s.consumerStore.findBest(topic, group, id)
 }
 
@@ -68,9 +68,49 @@ func (s *ConnStore) GetConsumerCount() int {
 }
 
 func (s *ConnStore) GetConsumeTopicCount() int {
-	ret := make(map[string]struct{}, len(s.consumerStore.store))
+	ret := make(map[model.TopicName]struct{}, len(s.consumerStore.store))
 	for c := range s.consumerStore.store {
 		ret[c.Topic] = struct{}{}
 	}
 	return len(ret)
+}
+
+func (s *ConnStore) GetStatTopicGroupPartition() map[model.TopicName][]model.StatGroup {
+	type ConsumerOffsetMap = map[model.ConsumerId]model.PartitionOffsetMap
+	type PartitionOffsetMap = map[model.GroupName]ConsumerOffsetMap
+
+	offsetMap := s.consumerStore.getOffsetMap()
+	topicGroupMap := make(map[model.TopicName]PartitionOffsetMap, len(offsetMap))
+	for key, partitionList := range offsetMap {
+		if _, ok := topicGroupMap[key.Topic]; !ok {
+			topicGroupMap[key.Topic] = make(PartitionOffsetMap, len(partitionList))
+		}
+		if _, ok := topicGroupMap[key.Topic][key.Group]; !ok {
+			topicGroupMap[key.Topic][key.Group] = make(ConsumerOffsetMap, len(partitionList))
+		}
+		topicGroupMap[key.Topic][key.Group][key.Id] = partitionList
+	}
+	ret := make(map[model.TopicName][]model.StatGroup, len(offsetMap))
+	for topic, groupList := range topicGroupMap {
+		topicGroupList := make([]model.StatGroup, 0, len(groupList))
+		for group, partitionList := range groupList {
+			groupPartitionList := make([]model.StatGroupPartition, 0, len(partitionList))
+			for consumerId, partitionOffsetMap := range partitionList {
+				for partitionN, partitionOffset := range partitionOffsetMap {
+					groupPartitionList = append(groupPartitionList, model.StatGroupPartition{
+						N:             partitionN,
+						Offset:        partitionOffset,
+						ConsumerId:    consumerId,
+						ConsumerState: s.consumerStore.getState(consumerId).String(),
+					})
+				}
+			}
+			topicGroupList = append(topicGroupList, model.StatGroup{
+				Name:          group,
+				PartitionList: groupPartitionList,
+			})
+		}
+		ret[topic] = topicGroupList
+	}
+	return ret
 }

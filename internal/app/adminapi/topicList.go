@@ -6,7 +6,7 @@ import (
 )
 
 type topicListResponse struct {
-	List []model.Topic `json:"list"`
+	List []model.StatTopic `json:"list"`
 }
 
 func (a *AdminApi) topicListHandler(ctx context.Context, _ emptyRequest) (*topicListResponse, error) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	kpkg "github.com/prokraft/redbus/internal/app/model"
@@ -14,13 +15,16 @@ import (
 )
 
 type Consumer struct {
-	conf   conf
-	hosts  []string
-	id     string
-	topic  string
-	group  string
-	reader *kafka.Reader
-	mu     sync.Mutex
+	conf      conf
+	hosts     []string
+	id        kpkg.ConsumerId
+	topic     kpkg.TopicName
+	group     kpkg.GroupName
+	state     int32
+	offsetMap kpkg.PartitionOffsetMap
+	offsetMu  sync.RWMutex
+	reader    *kafka.Reader
+	mu        sync.Mutex
 }
 
 type conf struct {
@@ -29,13 +33,15 @@ type conf struct {
 	batchSize   int
 }
 
-func New(ctx context.Context, hosts []string, topic, group, id string, partition int, options ...Option) (*Consumer, error) {
+func New(ctx context.Context, hosts []string, topic kpkg.TopicName, group kpkg.GroupName, id kpkg.ConsumerId, options ...Option) (*Consumer, error) {
 	var c Consumer
 
 	c.hosts = hosts
 	c.id = id
 	c.topic = topic
 	c.group = group
+	c.state = int32(kpkg.ConsumerStateConnecting)
+	c.offsetMap = make(kpkg.PartitionOffsetMap)
 	c.conf = conf{
 		log:       false,
 		batchSize: 1,
@@ -45,12 +51,11 @@ func New(ctx context.Context, hosts []string, topic, group, id string, partition
 	}
 
 	readerConf := kafka.ReaderConfig{
-		Brokers:   hosts,
-		GroupID:   group,
-		Topic:     topic,
-		Partition: partition,
-		MinBytes:  1,    // 1B
-		MaxBytes:  10e6, // 10MB
+		Brokers:  hosts,
+		GroupID:  string(group),
+		Topic:    string(topic),
+		MinBytes: 1,    // 1B
+		MaxBytes: 10e6, // 10MB
 	}
 
 	if c.conf.credentials != nil {
@@ -77,16 +82,42 @@ func (c *Consumer) GetHosts() []string {
 	return c.hosts
 }
 
-func (c *Consumer) GetTopic() string {
+func (c *Consumer) GetTopic() kpkg.TopicName {
 	return c.topic
 }
 
-func (c *Consumer) GetGroup() string {
+func (c *Consumer) GetGroup() kpkg.GroupName {
 	return c.group
 }
 
-func (c *Consumer) GetID() string {
+func (c *Consumer) setOffset(messageList []kafka.Message) {
+	offsetMap := make(map[kpkg.PartitionN]kpkg.Offset, len(messageList))
+	for _, message := range messageList {
+		offsetMap[kpkg.PartitionN(message.Partition)] = kpkg.Offset(message.Offset)
+	}
+	c.offsetMu.Lock()
+	defer c.offsetMu.Unlock()
+	for partition, offset := range offsetMap {
+		c.offsetMap[partition] = offset
+	}
+}
+
+func (c *Consumer) GetOffsetMap() map[kpkg.PartitionN]kpkg.Offset {
+	c.offsetMu.RLock()
+	defer c.offsetMu.RUnlock()
+	return c.offsetMap
+}
+
+func (c *Consumer) GetID() kpkg.ConsumerId {
 	return c.id
+}
+
+func (c *Consumer) GetState() kpkg.ConsumerState {
+	return kpkg.ConsumerState(atomic.LoadInt32(&c.state))
+}
+
+func (c *Consumer) SetState(state kpkg.ConsumerState) {
+	atomic.StoreInt32(&c.state, int32(state))
 }
 
 func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Context, list kpkg.MessageList) error) error {
@@ -137,6 +168,8 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return nil
 		}
+
+		c.setOffset(mList)
 	}
 }
 
@@ -155,7 +188,7 @@ func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, 
 		}
 
 		if c.conf.log {
-			fmt.Printf("Receive %d kafka message at topic/partition/offset %v/%v/%v: %v\n", len(mList), topic, partition, offset, list)
+			fmt.Printf("Receive %d kafka message at topic/partition/offsetMap %v/%v/%v: %v\n", len(mList), topic, partition, offset, list)
 		}
 
 		if err := processor(ctx, list); err != nil {

@@ -27,11 +27,11 @@ func New(
 }
 
 type IDataBus interface {
-	CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic, group, id string, batchSize int) (model.IConsumer, error)
-	FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy
+	CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic model.TopicName, group model.GroupName, id model.ConsumerId, batchSize int) (model.IConsumer, error)
+	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
 	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
-	Produce(ctx context.Context, topic, key string, message []byte) error
+	Produce(ctx context.Context, topic model.TopicName, key string, message []byte) error
 }
 
 type IRepeater interface {

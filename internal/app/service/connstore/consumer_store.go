@@ -1,6 +1,7 @@
 package connstore
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -22,9 +23,13 @@ type ConsumerStore struct {
 }
 
 type ConsumerKey struct {
-	Topic string
-	Group string
-	Id    string
+	Topic model.TopicName
+	Group model.GroupName
+	Id    model.ConsumerId
+}
+
+func (k ConsumerKey) String() string {
+	return fmt.Sprintf("%s!%s", k.Topic, k.Group)
 }
 
 func NewConsumerStore() *ConsumerStore {
@@ -54,7 +59,7 @@ func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
 	ret := make(model.TopicGroupList, 0, len(s.store))
 	exists := make(map[string]struct{}, len(s.store))
 	for k := range s.store {
-		key := k.Topic + "!" + k.Group
+		key := k.String()
 		if _, ok := exists[key]; !ok {
 			exists[key] = struct{}{}
 			ret = append(ret, model.TopicGroup{Topic: k.Topic, Group: k.Group})
@@ -63,11 +68,32 @@ func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
 	return ret
 }
 
+func (s *ConsumerStore) getOffsetMap() map[ConsumerKey]model.PartitionOffsetMap {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ret := make(map[ConsumerKey]model.PartitionOffsetMap, len(s.store))
+	for k, v := range s.store {
+		ret[k] = v.Consumer.GetOffsetMap()
+	}
+	return ret
+}
+
 func (s *ConsumerStore) getKey(c model.IConsumer) ConsumerKey {
 	return ConsumerKey{Topic: c.GetTopic(), Group: c.GetGroup(), Id: c.GetID()}
 }
 
-func (s *ConsumerStore) findBest(topic, group, id string) *ConsumerBag {
+func (s *ConsumerStore) getState(consumerId model.ConsumerId) model.ConsumerState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for k, v := range s.store {
+		if k.Id == consumerId {
+			return v.Consumer.GetState()
+		}
+	}
+	return 0
+}
+
+func (s *ConsumerStore) findBest(topic model.TopicName, group model.GroupName, id model.ConsumerId) *ConsumerBag {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	list := make([]ConsumerBag, 0, len(s.store))

@@ -1,9 +1,9 @@
 package model
 
 type RepeatData struct {
-	Topic      string
-	Group      string
-	ConsumerId string
+	Topic      TopicName
+	Group      GroupName
+	ConsumerId ConsumerId
 	MessageId  string
 	Key        *[]byte
 	Message    []byte

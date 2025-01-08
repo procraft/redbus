@@ -31,12 +31,14 @@ func New(
 }
 
 type IConnStore interface {
-	GetProducer(ctx context.Context, topic string) (model.IProducer, error)
-	FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy
+	GetProducer(ctx context.Context, topic model.TopicName) (model.IProducer, error)
+	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
 	AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy)
 	RemoveConsumer(c model.IConsumer)
 	GetConsumerCount() int
 	GetConsumeTopicCount() int
+	GetConsumerTopicGroupList() model.TopicGroupList
+	GetStatTopicGroupPartition() map[model.TopicName][]model.StatGroup
 }
 
 type IRepeater interface {
@@ -45,5 +47,5 @@ type IRepeater interface {
 }
 
 type IKafkaProvider interface {
-	GetTopicList(ctx context.Context) ([]model.Topic, error)
+	GetTopicList(ctx context.Context) ([]model.StatTopic, error)
 }

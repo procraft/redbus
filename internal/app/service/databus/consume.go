@@ -16,7 +16,7 @@ import (
 
 var errHandler = errors.New("error in handler")
 
-func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic, group, id string, batchSize int) (model.IConsumer, error) {
+func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic model.TopicName, group model.GroupName, id model.ConsumerId, batchSize int) (model.IConsumer, error) {
 	options := []consumer.Option{}
 	if batchSize != 0 {
 		options = append(options, consumer.WithBatchSize(batchSize))
@@ -24,7 +24,7 @@ func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, creden
 	if credentials != nil {
 		options = append(options, consumer.WithCredentials(credentials))
 	}
-	c, err := consumer.New(ctx, kafkaHost, topic, group, id, 0, options...)
+	c, err := consumer.New(ctx, kafkaHost, topic, group, id, options...)
 	connMsg := fmt.Sprintf("%s with credentials %s", strings.Join(kafkaHost, ", "), credentials)
 	if err != nil {
 		logger.Consumer(ctx, c, "Failed connect to kafka %s: %v", connMsg, err)
@@ -34,7 +34,7 @@ func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, creden
 	return c, err
 }
 
-func (b *DataBus) FindRepeatStrategy(topic, group, id string) *model.RepeatStrategy {
+func (b *DataBus) FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy {
 	return b.connStore.FindRepeatStrategy(topic, group, id)
 }
 
@@ -86,7 +86,9 @@ func (b *DataBus) processConsumer(
 				time.Sleep(b.conf.Kafka.FailTimeout.Duration)
 			}
 			logger.Consumer(ctx, c, "Consume kafka starting...")
+			c.SetState(model.ConsumerStateConnected)
 			consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })
+			c.SetState(model.ConsumerStateReconnecting)
 			// handler error
 			if errors.Is(consumeErr, errHandler) {
 				cancel()

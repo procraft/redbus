@@ -1,14 +1,15 @@
 package model
 
 import (
+	"fmt"
 	"time"
 )
 
 type Repeat struct {
 	Id         int64
-	Topic      string
-	Group      string
-	ConsumerId string
+	Topic      TopicName
+	Group      GroupName
+	ConsumerId ConsumerId
 	MessageId  string
 	Key        *[]byte
 	Data       []byte
@@ -22,8 +23,8 @@ type Repeat struct {
 
 type RepeatList []*Repeat
 
-func (rl RepeatList) GroupByConsumerId() map[string]RepeatList {
-	ret := make(map[string]RepeatList, len(rl))
+func (rl RepeatList) GroupByConsumerId() map[ConsumerId]RepeatList {
+	ret := make(map[ConsumerId]RepeatList, len(rl))
 	for _, r := range rl {
 		if _, ok := ret[r.ConsumerId]; !ok {
 			ret[r.ConsumerId] = make(RepeatList, 0, len(rl))
@@ -34,8 +35,8 @@ func (rl RepeatList) GroupByConsumerId() map[string]RepeatList {
 }
 
 type TopicGroup struct {
-	Topic string
-	Group string
+	Topic TopicName
+	Group GroupName
 }
 
 func (r *Repeat) SetZeroAttempt(defaultStrategy *RepeatStrategy) {
@@ -63,10 +64,10 @@ func (r *Repeat) ApplyNextAttempt(defaultStrategy *RepeatStrategy) {
 
 type TopicGroupList []TopicGroup
 
-func (tg TopicGroupList) GetStrList(delimiter string) []string {
+func (tg TopicGroupList) String(delimiter string) []string {
 	ret := make([]string, 0, len(tg))
 	for _, item := range tg {
-		ret = append(ret, item.Topic+delimiter+item.Group)
+		ret = append(ret, fmt.Sprintf("%s%s%s", item.Topic, delimiter, item.Group))
 	}
 	return ret
 }

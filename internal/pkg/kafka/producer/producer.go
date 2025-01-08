@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"fmt"
+	"github.com/prokraft/redbus/internal/app/model"
 	"log"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 
 type Producer struct {
 	writer *kafka.Writer
-	topic  string
+	topic  model.TopicName
 	conf   conf
 }
 
@@ -29,7 +30,7 @@ type conf struct {
 	balancer    kafka.Balancer
 }
 
-func New(ctx context.Context, hosts []string, credentials *credential.Conf, topic string, options ...Option) (*Producer, error) {
+func New(ctx context.Context, hosts []string, credentials *credential.Conf, topic model.TopicName, options ...Option) (*Producer, error) {
 	p := Producer{
 		topic: topic,
 		conf: conf{
@@ -51,7 +52,7 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 
 	p.writer = &kafka.Writer{
 		Addr:         kafka.TCP(hosts...),
-		Topic:        topic,
+		Topic:        string(topic),
 		RequiredAcks: kafka.RequireOne,
 		Balancer:     p.conf.balancer,
 	}
@@ -132,7 +133,7 @@ func (p *Producer) createTopic(ctx context.Context, hosts []string, options Crea
 
 	topicConfigs := []kafka.TopicConfig{
 		{
-			Topic:             p.topic,
+			Topic:             string(p.topic),
 			NumPartitions:     options.NumPartitions,
 			ReplicationFactor: options.ReplicationFactor,
 		},
