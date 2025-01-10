@@ -67,9 +67,8 @@ export default defineComponent({
     return {
       stat,
       goToFailedRepeat: () => router.push({name: pages.FailedRepeat}),
-      goToTopics: () => router.push({name: pages.FailedRepeat}),
-      goToConsumers: () => router.push({name: pages.FailedRepeat}),
-
+      goToTopics: () => router.push({name: pages.TopicStat}),
+      goToConsumers: () => router.push({name: pages.TopicStat}),
     }
   }
 })

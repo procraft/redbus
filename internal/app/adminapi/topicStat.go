@@ -2,17 +2,18 @@ package adminapi
 
 import (
 	"context"
+
 	"github.com/prokraft/redbus/internal/app/model"
 )
 
-type topicListResponse struct {
+type topicStatResponse struct {
 	List []model.StatTopic `json:"list"`
 }
 
-func (a *AdminApi) topicListHandler(ctx context.Context, _ emptyRequest) (*topicListResponse, error) {
+func (a *AdminApi) topicStatHandler(ctx context.Context, _ emptyRequest) (*topicStatResponse, error) {
 	list, err := a.dataBus.GetTopicList(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &topicListResponse{List: list}, nil
+	return &topicStatResponse{List: list}, nil
 }

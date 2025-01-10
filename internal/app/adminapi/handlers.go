@@ -27,7 +27,7 @@ func (a *AdminApi) RegisterHandlers(
 	}
 	apiRoutes := []route{
 		{path: "/dashboard/stat", handler: h(a.dashboardStatHandler)},
-		{path: "/topic/list", handler: h(a.topicListHandler)},
+		{path: "/topic/stat", handler: h(a.topicStatHandler)},
 		{path: "/repeat/stat", handler: h(a.repeatStatHandler)},
 		{path: "/repeat/repeatTopicGroup", handler: h(a.repeatTopicGroupHandler)},
 	}

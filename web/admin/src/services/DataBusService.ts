@@ -5,6 +5,10 @@ class DataBusService {
         return http.post("/dashboard/stat", '{}').then(x => x.data);
     }
 
+    getTopicStat(): Promise<TopicStatResponse['list']> {
+        return http.post("/topic/stat", '{}').then(x => x.data.list);
+    }
+
     getRepeatStat(): Promise<RepeatStatResponse['list']> {
         return http.post("/repeat/stat", '{}').then(x => x.data.list);
     }
@@ -21,6 +25,26 @@ export type DashboardStatResponse = {
     consumeTopicCount: number
     repeatAllCount: number
     repeatFailedCount: number
+}
+
+export type TopicStatResponse = {
+    list: Array<{
+        name: string,
+        partitions: Array<{
+            n: number,
+            firstOffset: number,
+            lastOffset: number,
+        }>,
+        groups: Array<{
+            name: string,
+            partitions: Array<{
+                n: number,
+                offset: number,
+                consumerId: string,
+                consumerState: 'connecting' | 'connected' | 'reconnecting',
+            }>
+        }>,
+    }>
 }
 
 export type RepeatStatResponse = {

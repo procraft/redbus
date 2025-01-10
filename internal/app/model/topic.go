@@ -8,8 +8,8 @@ type StatTopic struct {
 
 type StatPartition struct {
 	N           PartitionN `json:"n"`
-	FirstOffset Offset     `json:"first_offset"`
-	LastOffset  Offset     `json:"last_offset"`
+	FirstOffset Offset     `json:"firstOffset"`
+	LastOffset  Offset     `json:"lastOffset"`
 }
 
 type StatGroup struct {
@@ -20,8 +20,8 @@ type StatGroup struct {
 type StatGroupPartition struct {
 	N             PartitionN `json:"n"`
 	Offset        Offset     `json:"offset"`
-	ConsumerId    ConsumerId `json:"consumer_id"`
-	ConsumerState string     `json:"consumer_state"`
+	ConsumerId    ConsumerId `json:"consumerId"`
+	ConsumerState string     `json:"consumerState"`
 }
 
 type StatTopicList = []StatTopic

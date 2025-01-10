@@ -1,11 +1,13 @@
 import {createWebHistory, createRouter} from "vue-router";
 import {RouteRecordRaw} from "vue-router";
-import Dashboard from "./pages/Dashboard.vue";
+import Dashboard from "@/pages/Dashboard.vue";
 import FailedRepeat from "@/pages/FailedRepeat.vue";
+import TopicStat from "@/pages/TopicStat.vue";
 
 export enum pages {
     Dashboard = 'Dashboard',
     FailedRepeat = 'FailedRepeat',
+    TopicStat = 'TopicStat',
 }
 
 const routes: Array<RouteRecordRaw> = [
@@ -14,6 +16,12 @@ const routes: Array<RouteRecordRaw> = [
         alias: "/dashboard",
         name: pages.Dashboard,
         component: Dashboard,
+    },
+    {
+        path: "/",
+        alias: "/topic-stat",
+        name: pages.TopicStat,
+        component: TopicStat,
     },
     {
         path: "/",
