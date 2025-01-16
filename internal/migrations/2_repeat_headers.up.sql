@@ -1,0 +1,1 @@
+alter table repeat add column headers jsonb not null default '{}'::jsonb;

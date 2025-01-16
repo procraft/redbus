@@ -7,5 +7,6 @@ type RepeatData struct {
 	MessageId  string
 	Key        *[]byte
 	Message    []byte
+	Headers    map[string]string
 	Strategy   *RepeatStrategy
 }

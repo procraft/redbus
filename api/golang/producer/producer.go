@@ -3,9 +3,11 @@ package producer
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/prokraft/redbus/api/golang/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"time"
 )
 
 type Producer struct {
@@ -26,7 +28,12 @@ func New(host string, port int) (*Producer, error) {
 }
 
 func (p *Producer) Produce(ctx context.Context, topic string, message []byte, options ...OptionFn) error {
-	req := pb.ProduceRequest{Topic: topic, Message: message}
+	req := pb.ProduceRequest{
+		Topic:          topic,
+		Message:        message,
+		IdempotencyKey: uuid.NewString(),
+		Timestamp:      time.Now().Format(time.RFC3339),
+	}
 	for _, o := range options {
 		o(&req)
 	}

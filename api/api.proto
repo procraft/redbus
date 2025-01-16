@@ -18,6 +18,8 @@ message ProduceRequest {
   string topic = 1;
   string key = 2;
   bytes message = 3;
+  string idempotencyKey = 4;
+  string timestamp = 5;
 }
 
 message ProduceResponse {
@@ -64,6 +66,8 @@ message ConsumeResponse {
   message Message {
     string id = 1;
     bytes data = 2;
+    string idempotencyKey = 3;
+    string timestamp = 4;
   }
 
   Connect connect = 1;

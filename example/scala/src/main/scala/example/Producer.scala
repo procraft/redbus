@@ -17,14 +17,16 @@ object Producer extends App {
 
   private val topic = args(0)
   private val message = args(1)
+  private val key = if (args.length > 2) args(2) else ""
 
   private val produceFuture = {
     println("Producer / start")
     val client = sergiusd.redbus.Client("localhost", 50005)
-    client.produce(
-      topic, message.getBytes,
-      redbus.producer.Option.WithKeyUUIDv4(),
-    ).map { ok =>
+    var options: Seq[redbus.producer.Option.Fn] = Nil
+    if (key.nonEmpty) {
+      options :+= redbus.producer.Option.WithKey(key)
+    }
+    client.produce(topic, message.getBytes, options: _*).map { ok =>
       client.close()
       println(s"Producer / finish: ${if (ok) "Ok" else "Fail"}")
     }

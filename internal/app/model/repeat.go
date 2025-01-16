@@ -13,6 +13,7 @@ type Repeat struct {
 	MessageId  string
 	Key        *[]byte
 	Data       []byte
+	Headers    map[string]string
 	Attempt    int
 	Strategy   *RepeatStrategy
 	Error      string

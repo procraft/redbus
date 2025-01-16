@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/prokraft/redbus/internal/app/model"
@@ -10,18 +9,16 @@ import (
 	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
-const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, attempt, repeat_strategy, error, created_at, started_at, finished_at`
+const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, created_at, started_at, finished_at`
 
 func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
-	b, _ := json.Marshal(repeat.Strategy)
-	fmt.Printf("%v\n", b)
 	conn := db.FromContext(ctx)
 	return conn.QueryRow(ctx, `INSERT INTO repeat 
-		(topic, "group", consumer_id, message_id, key, data, error, attempt, repeat_strategy, created_at, started_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		(topic, "group", consumer_id, message_id, key, data, headers, error, attempt, repeat_strategy, created_at, started_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id`,
-		repeat.Topic, repeat.Group, repeat.ConsumerId, repeat.MessageId, repeat.Key, repeat.Data, repeat.Error,
-		repeat.Attempt, repeat.Strategy, repeat.CreatedAt, repeat.StartedAt,
+		repeat.Topic, repeat.Group, repeat.ConsumerId, repeat.MessageId, repeat.Key, repeat.Data, repeat.Headers,
+		repeat.Error, repeat.Attempt, repeat.Strategy, repeat.CreatedAt, repeat.StartedAt,
 	).Scan(&repeat.Id)
 }
 

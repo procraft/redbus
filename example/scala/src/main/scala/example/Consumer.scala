@@ -6,6 +6,8 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.{Await, ExecutionContext, Future}
 import sun.misc.Signal
 import sergiusd.redbus
+
+import java.time.ZonedDateTime
 import scala.concurrent.duration.Duration
 
 object Consumer extends App {
@@ -27,8 +29,8 @@ object Consumer extends App {
     shutdown()
   })
 
-  private def processor(key: String, bytes: Array[Byte]): Future[Either[String, Unit]] = {
-    println(s"Consumer / message: $key / ${new String(bytes, StandardCharsets.UTF_8)}")
+  private def processor(id: String, idempotencyKey: String, bytes: Array[Byte], timestamp: ZonedDateTime): Future[Either[String, Unit]] = {
+    println(s"Consumer / message: $id / ${new String(bytes, StandardCharsets.UTF_8)}")
     Future.successful(Right(()))
   }
 

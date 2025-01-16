@@ -3,12 +3,18 @@ package sergiusd.redbus.consumer
 import sergiusd.redbus.api.ConsumeRequest
 import sergiusd.redbus.consumer.Option.EventKey
 
+import java.time.ZonedDateTime
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object Model {
 
-  type Processor = (String, Array[Byte]) => Future[Either[String, Unit]]
+  private type MessageId = String
+  type MessageIdempotencyKey = String
+  private type MessageData = Array[Byte]
+  type MessageTimestamp = ZonedDateTime
+
+  type Processor = (MessageId, MessageIdempotencyKey, MessageData, MessageTimestamp) => Future[Either[String, Unit]]
   type StopHook = (() => Future[_]) => Unit
 
   case class Listener(

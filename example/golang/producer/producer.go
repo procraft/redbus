@@ -24,7 +24,16 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	if err := p.Produce(context.Background(), topic, []byte(message), producer.WithKeyUUIDv4()); err != nil {
+	options := make([]producer.OptionFn, 0)
+	if key != "" {
+		options = append(options, producer.WithKey(key))
+	}
+	if err := p.Produce(
+		context.Background(),
+		topic,
+		[]byte(message),
+		options...,
+	); err != nil {
 		panic(err.Error())
 	}
 

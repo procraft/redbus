@@ -75,6 +75,7 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 					Key:        key,
 					Message:    m.Value,
 					MessageId:  m.Id,
+					Headers:    m.Headers,
 					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
 				}, result.Message); err != nil {
 					return fmt.Errorf("%w: %v", model.ErrHandler, err)

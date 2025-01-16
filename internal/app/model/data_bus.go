@@ -6,3 +6,6 @@ type Stat struct {
 	RepeatAllCount    int
 	RepeatFailedCount int
 }
+
+const IdempotencyKeyHeader = "idempotencyKey"
+const TimestampHeader = "timestamp"

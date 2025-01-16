@@ -55,6 +55,7 @@ func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg stri
 		Error:      errorMsg,
 		Key:        data.Key,
 		Data:       data.Message,
+		Headers:    data.Headers,
 		Strategy:   data.Strategy,
 		CreatedAt:  runtime.Now(),
 	}
@@ -112,7 +113,11 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 		if bag == nil || bag.Consumer.GetState() != model.ConsumerStateConnected {
 			continue
 		}
-		data, err := stream.New(bag.Server).ProcessMessageList(logger.App, bag.Consumer, model.MessageList{{Id: repeat.MessageId, Value: repeat.Data}})
+		data, err := stream.New(bag.Server).ProcessMessageList(
+			logger.App,
+			bag.Consumer,
+			model.MessageList{{Id: repeat.MessageId, Value: repeat.Data, Headers: repeat.Headers}},
+		)
 		if err != nil {
 			logger.Error(ctx, "Error on repeat process message: %v", err)
 			continue

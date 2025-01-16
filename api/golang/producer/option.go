@@ -1,15 +1,14 @@
 package producer
 
 import (
-	"github.com/google/uuid"
 	"github.com/prokraft/redbus/api/golang/pb"
 )
 
 type OptionFn = func(c *pb.ProduceRequest)
 
-func WithKeyUUIDv4() OptionFn {
+func WithIdempotencyKey(key string) OptionFn {
 	return func(r *pb.ProduceRequest) {
-		r.Key = uuid.New().String()
+		r.IdempotencyKey = key
 	}
 }
 

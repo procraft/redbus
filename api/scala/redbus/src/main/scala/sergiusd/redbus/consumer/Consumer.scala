@@ -7,6 +7,7 @@ import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
 import sergiusd.redbus
 
+import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
@@ -144,10 +145,17 @@ class Consumer(
   }
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
+    val zonedDateTime: ZonedDateTime = Try(ZonedDateTime.parse(message.timestamp)) match {
+      case Success(value) =>
+        value
+      case Failure(e: Throwable) =>
+        listener.logger(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
+        ZonedDateTime.now
+    }
     runWithTimeout(listener.consumeTimeout) {
       for {
         isProcessed <- listener.isEventProcessedFn match {
-          case Some (fn) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id))
+          case Some (fn) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.idempotencyKey, zonedDateTime))
           case _ => Future.successful(false)
         }
         result <- if (isProcessed) {
@@ -155,11 +163,11 @@ class Consumer(
           Future.successful(Right(()))
         } else {
           for {
-            result <- processor(message.id, message.data.toByteArray)
+            result <- processor(message.id, message.idempotencyKey, message.data.toByteArray, zonedDateTime)
               .map(_ => Right(()))
               .recover(e => Left(e))
             _ <- (result, listener.setEventProcessedFn) match {
-              case (Right(_), Some(fn)) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id))
+              case (Right(_), Some(fn)) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id, zonedDateTime))
               case _ => Future.unit
             }
           } yield result

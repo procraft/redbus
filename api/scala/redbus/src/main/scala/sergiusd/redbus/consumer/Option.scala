@@ -8,9 +8,10 @@ object Option {
   type Fn = Model.Listener => Model.Listener
 
   case class EventKey(
-     topic: String,
-     group: String,
-     key: String,
+    topic: String,
+    group: String,
+    idempotencyKey: Model.MessageIdempotencyKey,
+    timestamp: Model.MessageTimestamp,
   )
 
   def WithConsumeTimeout(consumeTimeout: FiniteDuration): Fn = {

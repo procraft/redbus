@@ -6,6 +6,7 @@ import (
 	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/config"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
+	"time"
 )
 
 type GrpcApi struct {
@@ -31,7 +32,7 @@ type IDataBus interface {
 	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
 	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
-	Produce(ctx context.Context, topic model.TopicName, key string, message []byte) error
+	Produce(ctx context.Context, topic model.TopicName, key string, message []byte, idempotencyKey string, timestamp *time.Time) error
 }
 
 type IRepeater interface {

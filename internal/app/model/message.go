@@ -1,11 +1,14 @@
 package model
 
-import "strings"
+import (
+	"strings"
+)
 
 type Message struct {
-	Id    string
-	Key   []byte
-	Value []byte
+	Id      string
+	Key     []byte
+	Value   []byte
+	Headers map[string]string
 }
 
 type MessageList []Message

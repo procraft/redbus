@@ -180,10 +180,15 @@ func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, 
 		offset := mList[len(mList)-1].Offset
 		list := make(kpkg.MessageList, 0, len(mList))
 		for _, m := range mList {
+			headers := make(map[string]string, len(m.Headers))
+			for _, h := range m.Headers {
+				headers[h.Key] = string(h.Value)
+			}
 			list = append(list, kpkg.Message{
-				Id:    fmt.Sprintf("%v/%v", partition, m.Offset),
-				Key:   m.Key,
-				Value: m.Value,
+				Id:      fmt.Sprintf("%v/%v", partition, m.Offset),
+				Key:     m.Key,
+				Value:   m.Value,
+				Headers: headers,
 			})
 		}
 

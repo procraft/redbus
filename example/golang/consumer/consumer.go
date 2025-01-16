@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/prokraft/redbus/api/golang/consumer"
@@ -34,7 +35,13 @@ func main() {
 		group,
 		func(_ context.Context, data []byte, id string) error {
 			time.Sleep(time.Second)
-			// panic("I'm panic in consumer")
+			str := string(data)
+			if strings.Contains(str, "error") {
+				return fmt.Errorf("Some error")
+			}
+			if strings.Contains(str, "panic") {
+				panic("I'm panic in consumer")
+			}
 			return nil
 		},
 		consumer.WithRepeatStrategyEven(3, 30),

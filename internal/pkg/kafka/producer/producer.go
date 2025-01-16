@@ -77,22 +77,17 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 	return &p, nil
 }
 
-func (p *Producer) Produce(ctx context.Context, keyAndMessage ...[]byte) error {
-	if len(keyAndMessage) == 0 {
-		return nil
+func (p *Producer) Produce(ctx context.Context, key string, message []byte, headers map[string]string) error {
+	kafkaHeaders := make([]kafka.Header, 0, len(headers))
+	for k, v := range headers {
+		kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: k, Value: []byte(v)})
 	}
-	if len(keyAndMessage)&1 != 0 {
-		return fmt.Errorf("keyAndMessage should be both pair values, given: %v", keyAndMessage)
-	}
-	kafkaMessages := make([]kafka.Message, 0, len(keyAndMessage)/2)
-	for i := 0; i < len(keyAndMessage); i += 2 {
-		kafkaMessages = append(kafkaMessages, kafka.Message{Key: keyAndMessage[i], Value: keyAndMessage[i+1]})
-	}
-	if err := p.writer.WriteMessages(ctx, kafkaMessages...); err != nil {
-		return fmt.Errorf("Failed to produce messages, messages: %v, topic: %v, err: %w\n", keyAndMessage, p.topic, err)
+	kafkaMessage := kafka.Message{Key: []byte(key), Value: message, Headers: kafkaHeaders}
+	if err := p.writer.WriteMessages(ctx, kafkaMessage); err != nil {
+		return fmt.Errorf("Failed to produce messages, messages: %v, topic: %v, err: %w\n", kafkaMessage, p.topic, err)
 	}
 	if p.conf.log {
-		log.Printf("Produce kafka message at topic %v: %#v\n", p.topic, keyAndMessage)
+		log.Printf("Produce kafka message at topic %v: %#v\n", p.topic, kafkaMessage)
 	}
 	return nil
 }
