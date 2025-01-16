@@ -33,7 +33,7 @@ func main() {
 		context.Background(),
 		topic,
 		group,
-		func(_ context.Context, data []byte, id string) error {
+		func(_ context.Context, data []byte) error {
 			time.Sleep(time.Second)
 			str := string(data)
 			if strings.Contains(str, "error") {

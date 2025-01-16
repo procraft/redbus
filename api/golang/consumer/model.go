@@ -32,7 +32,7 @@ type RepeatStrategyProgressive struct {
 	multiplier  float32
 }
 
-type ConsumeProcessor = func(ctx context.Context, data []byte, id string) error
+type ConsumeProcessor = func(ctx context.Context, data []byte) error
 
 type ProcessResult struct {
 	id  string

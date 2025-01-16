@@ -163,7 +163,7 @@ class Consumer(
           Future.successful(Right(()))
         } else {
           for {
-            result <- processor(message.id, message.idempotencyKey, message.data.toByteArray, zonedDateTime)
+            result <- processor(message.data.toByteArray)
               .map(_ => Right(()))
               .recover(e => Left(e))
             _ <- (result, listener.setEventProcessedFn) match {

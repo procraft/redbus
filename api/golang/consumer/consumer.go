@@ -195,7 +195,7 @@ func (c *Service) processMessage(
 				processErrCh <- fmt.Errorf("Recovered: %v", r)
 			}
 		}()
-		processErrCh <- processor(processCtx, message.Data, message.Id)
+		processErrCh <- processor(processCtx, message.Data)
 	}()
 	select {
 	case <-processCtx.Done():

@@ -9,12 +9,10 @@ import scala.concurrent.duration.FiniteDuration
 
 object Model {
 
-  private type MessageId = String
   type MessageIdempotencyKey = String
-  private type MessageData = Array[Byte]
   type MessageTimestamp = ZonedDateTime
 
-  type Processor = (MessageId, MessageIdempotencyKey, MessageData, MessageTimestamp) => Future[Either[String, Unit]]
+  type Processor = Array[Byte] => Future[Either[String, Unit]]
   type StopHook = (() => Future[_]) => Unit
 
   case class Listener(
