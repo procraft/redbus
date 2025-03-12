@@ -17,6 +17,6 @@ object Option {
   }
 
   def WithTimestamp(timestamp: ZonedDateTime): Fn = {
-    consumer => consumer.copy(timestamp = timestamp.toString)
+    consumer => consumer.copy(timestamp = timestamp.toOffsetDateTime.toString)
   }
 }

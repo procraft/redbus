@@ -20,7 +20,7 @@ object Producer {
       topic = topic,
       message = ByteString.copyFrom(message),
       idempotencyKey = UUID.randomUUID().toString,
-      timestamp = ZonedDateTime.now.toString,
+      timestamp = ZonedDateTime.now.toOffsetDateTime.toString,
     ))((x, fn) => fn(x))
     grpcClient.produce(req).map(_.ok)
   }

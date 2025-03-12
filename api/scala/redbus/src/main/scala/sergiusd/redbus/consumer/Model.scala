@@ -12,7 +12,7 @@ object Model {
   type MessageIdempotencyKey = String
   type MessageTimestamp = ZonedDateTime
 
-  type Processor = Array[Byte] => Future[Either[String, Unit]]
+  type Processor = Array[Byte] => Future[Unit]
   type StopHook = (() => Future[_]) => Unit
 
   case class Listener(
