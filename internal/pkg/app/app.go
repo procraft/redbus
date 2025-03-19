@@ -124,14 +124,19 @@ func (a *App) initService(_ context.Context) error {
 	a.eventSource = evtsrc.New()
 	kafkaCredentials := credential.FromConf(a.conf.Kafka.Credentials)
 	createProducerFn := func(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
+		options := []producer.Option{
+			producer.WithLog(),
+			producer.WithBalancer(&kafka.RoundRobin{}),
+		}
+		if a.conf.Kafka.CreateTopicIfNotExists {
+			options = append(options, producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor))
+		}
 		return producer.New(
 			ctx,
 			[]string{a.conf.Kafka.HostPort},
 			kafkaCredentials,
 			topic,
-			producer.WithCreateTopic(a.conf.Kafka.TopicNumPartitions, a.conf.Kafka.TopicReplicationFactor),
-			producer.WithLog(),
-			producer.WithBalancer(&kafka.RoundRobin{}),
+			options...,
 		)
 	}
 	connStoreService := connstore.New(createProducerFn, a.eventSource)

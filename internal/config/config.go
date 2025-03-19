@@ -29,6 +29,7 @@ type kafkaConfig struct {
 	HostPort               string                 `json:"hostPort" env:"REDBUS_KAFKA_HOST_PORT"`
 	Credentials            KafkaCredentialsConfig `json:"credentials"`
 	FailTimeout            model.Duration         `json:"failTimeout,string" env:"REDBUS_KAFKA_FAIL_TIMEOUT"`
+	CreateTopicIfNotExists bool                   `json:"createTopicIfNotExists" env:"REDBUS_KAFKA_CREATE_TOPIC"`
 	TopicNumPartitions     int                    `json:"topicNumPartitions" env:"REDBUS_KAFKA_TOPIC_NUM_PARTITIONS"`
 	TopicReplicationFactor int                    `json:"topicReplicationFactor" env:"REDBUS_KAFKA_TOPIC_REPLICATION_FACTOR"`
 }
