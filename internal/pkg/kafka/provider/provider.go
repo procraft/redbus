@@ -16,15 +16,17 @@ type Provider struct {
 func New(ctx context.Context, host string, credentials *credential.Conf) (*Provider, error) {
 	conn, err := kafka.Dial("tcp", host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Can't connect kafka.Dial: %w", err)
+	}
+	client := &kafka.Client{
+		Addr: kafka.TCP(host),
 	}
 	transport, err := credentials.GetTransport(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Can't get transport by kafka credentials: %w", err)
 	}
-	client := &kafka.Client{
-		Addr:      kafka.TCP(host),
-		Transport: transport,
+	if transport != nil {
+		client.Transport = transport
 	}
 	return &Provider{conn: conn, client: client}, err
 }

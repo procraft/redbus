@@ -42,7 +42,7 @@ func ServerMiddleware() func(next http.Handler) http.Handler {
 				statusCode:     200,
 			}
 			next.ServeHTTP(wrapper, r)
-			if wrapper.statusCode != 200 {
+			if wrapper.statusCode >= 400 {
 				logger.Error(r.Context(), "Error on handle HTTP %v: [%v] %v", r.URL.Path, wrapper.statusCode, string(wrapper.data))
 			}
 		})
