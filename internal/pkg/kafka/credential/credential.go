@@ -5,11 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"os"
-	"strings"
-
+	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/scram"
+	"os"
+	"strings"
 
 	"github.com/prokraft/redbus/internal/config"
 )
@@ -51,7 +51,7 @@ type Conf struct {
 	Cert     string
 }
 
-func (c Conf) GetSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, error) {
+func (c *Conf) getSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, error) {
 	algo := c.Algo.ToScamAlgo()
 	if algo == nil {
 		return nil, nil, fmt.Errorf("Unknown kafka auth algo: %v\n", c.Algo)
@@ -76,7 +76,39 @@ func (c Conf) GetSaslAndTls(ctx context.Context) (*sasl.Mechanism, *tls.Config, 
 	return &mechanism, tlsConfig, nil
 }
 
-func (c Conf) String() string {
+func (c *Conf) GetTransport(ctx context.Context) (*kafka.Transport, error) {
+	if c == nil {
+		return nil, nil
+	}
+	saslConfig, tlsConfig, err := c.getSaslAndTls(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if saslConfig == nil {
+		return nil, nil
+	}
+	return &kafka.Transport{
+		SASL: *saslConfig,
+		TLS:  tlsConfig,
+	}, nil
+}
+
+func (c *Conf) UpdateDialer(ctx context.Context, dialer *kafka.Dialer) error {
+	if c == nil {
+		return nil
+	}
+	saslConfig, tlsConfig, err := c.getSaslAndTls(ctx)
+	if err != nil {
+		return err
+	}
+	if saslConfig != nil {
+		dialer.SASLMechanism = *saslConfig
+		dialer.TLS = tlsConfig
+	}
+	return nil
+}
+
+func (c *Conf) String() string {
 	var s strings.Builder
 	s.WriteString(fmt.Sprintf(
 		"%s@%s:%s%s%s",

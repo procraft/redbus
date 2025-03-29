@@ -13,10 +13,18 @@ type Provider struct {
 	client *kafka.Client
 }
 
-func New(host string, credentials *credential.Conf) (*Provider, error) {
+func New(ctx context.Context, host string, credentials *credential.Conf) (*Provider, error) {
 	conn, err := kafka.Dial("tcp", host)
+	if err != nil {
+		return nil, err
+	}
+	transport, err := credentials.GetTransport(ctx)
+	if err != nil {
+		return nil, err
+	}
 	client := &kafka.Client{
-		Addr: kafka.TCP(host),
+		Addr:      kafka.TCP(host),
+		Transport: transport,
 	}
 	return &Provider{conn: conn, client: client}, err
 }

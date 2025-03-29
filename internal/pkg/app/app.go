@@ -120,7 +120,7 @@ func (a *App) initDb(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) initService(_ context.Context) error {
+func (a *App) initService(ctx context.Context) error {
 	a.eventSource = evtsrc.New()
 	kafkaCredentials := credential.FromConf(a.conf.Kafka.Credentials)
 	createProducerFn := func(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
@@ -146,7 +146,7 @@ func (a *App) initService(_ context.Context) error {
 		repository.New(),
 		a.eventSource,
 	)
-	kafkaProvider, err := provider.New(a.conf.Kafka.HostPort, kafkaCredentials)
+	kafkaProvider, err := provider.New(ctx, a.conf.Kafka.HostPort, kafkaCredentials)
 	if err != nil {
 		return err
 	}

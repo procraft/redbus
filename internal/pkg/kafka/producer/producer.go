@@ -59,17 +59,15 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 
 	auth := "noauth"
 	if p.conf.credentials != nil {
-		saslConfig, tlsConfig, err := p.conf.credentials.GetSaslAndTls(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if saslConfig != nil {
-			p.writer.Transport = &kafka.Transport{
-				SASL: *saslConfig,
-				TLS:  tlsConfig,
-			}
-		}
 		auth = p.conf.credentials.User
+	}
+
+	transport, err := p.conf.credentials.GetTransport(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if transport != nil {
+		p.writer.Transport = transport
 	}
 
 	log.Printf("Ready to produce kafka %v@%v '%v', %T\n", auth, hosts, p.topic, p.conf.balancer)
@@ -109,15 +107,8 @@ func (p *Producer) createTopic(ctx context.Context, hosts []string, options Crea
 		DualStack: true,
 	}
 
-	if p.conf.credentials != nil {
-		saslConfig, tlsConfig, err := (*p.conf.credentials).GetSaslAndTls(ctx)
-		if err != nil {
-			return err
-		}
-		if saslConfig != nil {
-			dialer.SASLMechanism = *saslConfig
-			dialer.TLS = tlsConfig
-		}
+	if err := p.conf.credentials.UpdateDialer(ctx, dialer); err != nil {
+		return err
 	}
 
 	conn, err := dialer.DialContext(ctx, "tcp", hosts[0])

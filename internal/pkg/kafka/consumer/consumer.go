@@ -58,19 +58,13 @@ func New(ctx context.Context, hosts []string, topic kpkg.TopicName, group kpkg.G
 		MaxBytes: 10e6, // 10MB
 	}
 
-	if c.conf.credentials != nil {
-		saslConfig, tlsConfig, err := (*c.conf.credentials).GetSaslAndTls(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if saslConfig != nil {
-			readerConf.Dialer = &kafka.Dialer{
-				Timeout:       10 * time.Second,
-				DualStack:     true,
-				SASLMechanism: *saslConfig,
-				TLS:           tlsConfig,
-			}
-		}
+	readerConf.Dialer = &kafka.Dialer{
+		Timeout:   10 * time.Second,
+		DualStack: true,
+	}
+
+	if err := c.conf.credentials.UpdateDialer(ctx, readerConf.Dialer); err != nil {
+		return nil, err
 	}
 
 	c.reader = kafka.NewReader(readerConf)
