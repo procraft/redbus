@@ -23,11 +23,17 @@ fmt: $(LOCAL_BIN) | $(GOIMPORTS)
 	$(GOIMPORTS) -l -w -local 'github.com/prokraft/redbus' $(PKGS)
 
 gen:
-	GOBIN=$(LOCAL_BIN) go get github.com/gogo/protobuf/protoc-gen-gofast
-	GOBIN=$(LOCAL_BIN) go install github.com/gogo/protobuf/protoc-gen-gofast
+	GOBIN=$(LOCAL_BIN) go get google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	GOBIN=$(LOCAL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	GOBIN=$(LOCAL_BIN) go get google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	GOBIN=$(LOCAL_BIN) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	protoc \
-		--plugin=protoc-gen-gofast=$(LOCAL_BIN)/protoc-gen-gofast \
-		--gofast_out=plugins=grpc:. \
+		--plugin=protoc-gen-go=$(LOCAL_BIN)/protoc-gen-go \
+		--plugin=protoc-gen-go-grpc=$(LOCAL_BIN)/protoc-gen-go-grpc \
+		--go_out=. \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=. \
+		--go-grpc_opt=paths=source_relative,require_unimplemented_servers=false \
 		api/*.proto
 
 build:

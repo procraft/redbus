@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.0.19"
+version := "0.1.2"
 
 ThisBuild / scalaVersion := "2.13.15"
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
@@ -10,13 +10,17 @@ Compile / PB.targets := Seq(
 )
 
 val akkaVersion = "2.6.21"
+val slickPgVersion = "0.22.2"
 
 libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream" % akkaVersion
+  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+  "com.github.tminglei" %% "slick-pg" % slickPgVersion,
+  "com.github.tminglei" %% "slick-pg_play-json" % slickPgVersion,
+  "com.typesafe.slick" %% "slick-hikaricp" % "3.5.2",
 )
 
 publishTo := Some(

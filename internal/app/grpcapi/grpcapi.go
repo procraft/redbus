@@ -13,6 +13,11 @@ type GrpcApi struct {
 	conf     *config.Config
 	dataBus  IDataBus
 	repeater IRepeater
+	pb.UnimplementedRedbusServiceServer
+}
+
+func (b *GrpcApi) mustEmbedUnimplementedRedbusServiceServer() {
+	panic("implement me")
 }
 
 func New(

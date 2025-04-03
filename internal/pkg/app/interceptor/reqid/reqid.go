@@ -11,7 +11,7 @@ import (
 
 	"github.com/prokraft/redbus/internal/pkg/logger"
 
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"google.golang.org/grpc"
 )
 

@@ -6,12 +6,12 @@ import akka.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
 import sergiusd.redbus
-
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
+import slick.jdbc.PostgresProfile.backend.Database
 
 class Consumer(
   grpcClient: RedbusServiceGrpc.RedbusServiceStub,
@@ -154,9 +154,11 @@ class Consumer(
     }
     runWithTimeout(listener.consumeTimeout) {
       for {
-        isProcessed <- listener.isEventProcessedFn match {
-          case Some (fn) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.idempotencyKey, zonedDateTime))
-          case _ => Future.successful(false)
+        isProcessed <- listener.checkEventProcessedDatabase match {
+          case Some (db) if message.id.nonEmpty =>
+            isEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, message.idempotencyKey, zonedDateTime))
+          case _ =>
+            Future.successful(false)
         }
         result <- if (isProcessed) {
           listener.logger(s"Skip already processed message $group / $topic / ${message.id}")
@@ -166,9 +168,11 @@ class Consumer(
             result <- processor(message.data.toByteArray)
               .map(_ => Right(()))
               .recover(e => Left(e))
-            _ <- (result, listener.setEventProcessedFn) match {
-              case (Right(_), Some(fn)) if message.id.nonEmpty => fn(redbus.consumer.Option.EventKey(topic, group, message.id, zonedDateTime))
-              case _ => Future.unit
+            _ <- (result, listener.checkEventProcessedDatabase) match {
+              case (Right(_), Some(db)) if message.id.nonEmpty =>
+                setEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, message.id, zonedDateTime))
+              case _ =>
+                Future.unit
             }
           } yield result
         }
@@ -190,6 +194,14 @@ class Consumer(
       Future.failed(new TimeoutException("Future timed out"))
     )
     Future.firstCompletedOf(Seq(f, timeoutFuture))
+  }
+
+  private def isEventProcessed(db: Database, eventKey: redbus.consumer.Option.EventKey): Future[Boolean] = {
+    db.run(IncomeMessages.isProcessed(eventKey.group, eventKey.topic, eventKey.idempotencyKey))
+  }
+
+  private def setEventProcessed(db: Database, eventKey: redbus.consumer.Option.EventKey): Future[_] = {
+    db.run(IncomeMessages.setProcessed(eventKey.group, eventKey.topic, eventKey.idempotencyKey))
   }
 
 }

@@ -1,6 +1,6 @@
 package sergiusd.redbus.consumer
 
-import scala.concurrent.Future
+import slick.jdbc.PostgresProfile.backend.Database
 import scala.concurrent.duration.FiniteDuration
 
 object Option {
@@ -45,13 +45,9 @@ object Option {
     consumer => consumer.copy(logger = logger)
   }
 
-  def WithOnlyOnceProcessor(
-    isEventProcessedFn: EventKey => Future[Boolean],
-    setEventProcessedFn: EventKey => Future[_],
-  ): Fn = {
+  def WithOnlyOnceProcessor(db: Database): Fn = {
     consumer => consumer.copy(
-      isEventProcessedFn = Some(isEventProcessedFn),
-      setEventProcessedFn = Some(setEventProcessedFn),
+      checkEventProcessedDatabase = Some(db),
     )
   }
 
