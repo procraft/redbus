@@ -7,12 +7,14 @@
 /config.local.json
 
 /api/scala/redbus/.idea
+/api/scala/redbus/.bsp
 /api/scala/redbus/target
 /api/scala/redbus/project/project
 /api/scala/redbus/project/target
 
+/example/scala/.idea
+/example/scala/.bsp
 /example/scala/target
 /example/scala/project/project
 /example/scala/project/target
-/example/scala/.idea
 /example/scala/.env
