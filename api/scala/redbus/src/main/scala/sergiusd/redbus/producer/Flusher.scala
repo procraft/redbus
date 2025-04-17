@@ -11,9 +11,10 @@ import scala.concurrent.{ExecutionContext, Future}
 private case class ProcessMessage(data: String)
 
 class FlusherActor(
-    db: slick.jdbc.PostgresProfile.backend.Database,
-    produce: api.ProduceRequest => Future[api.ProduceResponse],
-  ) extends Actor {
+  db: slick.jdbc.PostgresProfile.backend.Database,
+  produce: api.ProduceRequest => Future[api.ProduceResponse],
+  logger: String => Unit = _ => (),
+) extends Actor {
   import Flusher.ec
   private var inProgress = false
 
@@ -23,7 +24,7 @@ class FlusherActor(
         inProgress = true
         processMessages(data).andThen(_ => inProgress = false)
       }
-    case x => println(s"Unknown message $x")
+    case x => logger(s"Unknown message $x")
   }
 
   private def processMessages(data: String): Future[Unit] = {
@@ -37,8 +38,10 @@ class FlusherActor(
             ByteString.copyFrom(message.message),
             message.options.idempotencyKey.getOrElse(""),
             message.options.timestamp.getOrElse(""),
+            message.options.version.getOrElse(message.id),
           ))
           _ <- db.run(PublishingMessages.filter(_.id === message.id).delete)
+          _ = logger(s"Flushed message ${message.topic} / ${message.id}")
         } yield ()
       }
     } yield ()
@@ -59,8 +62,9 @@ object Flusher {
   def start(
     db: slick.jdbc.PostgresProfile.backend.Database,
     produce: api.ProduceRequest => Future[api.ProduceResponse],
+    logger: String => Unit = _ => (),
   )(implicit as: ActorSystem): Unit = {
-    val dispatcher = as.actorOf(Props(new FlusherActor(db, produce)), "redbusFlusherActor")
+    val dispatcher = as.actorOf(Props(new FlusherActor(db, produce, logger)), "redbusFlusherActor")
 
     PostgresListener.listen(db) { id => dispatcher ! ProcessMessage(id) }
   }

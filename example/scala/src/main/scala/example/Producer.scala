@@ -3,6 +3,7 @@ package example
 import akka.actor.ActorSystem
 import sergiusd.redbus
 
+import java.time.LocalDateTime
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -19,13 +20,16 @@ object Producer extends App {
   private val message = args(1)
   private val key = if (args.length > 2) args(2) else ""
 
+  println("Producer / start")
+  val client = sergiusd.redbus.Client("localhost", 50005, println(_))
+  var options: Seq[redbus.producer.Option.Fn] = Seq(
+    redbus.producer.Option.WithVersion(System.currentTimeMillis())
+  )
+  if (key.nonEmpty) {
+    options :+= redbus.producer.Option.WithKey(key)
+  }
+
   private val produceFuture = {
-    println("Producer / start")
-    val client = sergiusd.redbus.Client("localhost", 50005)
-    var options: Seq[redbus.producer.Option.Fn] = Nil
-    if (key.nonEmpty) {
-      options :+= redbus.producer.Option.WithKey(key)
-    }
     client.produce(topic, message.getBytes, options: _*).map { ok =>
       client.close()
       println(s"Producer / finish: ${if (ok) "Ok" else "Fail"}")

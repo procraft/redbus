@@ -34,6 +34,7 @@ object Producer {
       message,
       PublishingMessage.Options(
         if (req.key.nonEmpty) Some(req.key) else None,
+        if (req.version != 0) Some(req.version) else None,
         if (req.idempotencyKey.nonEmpty) Some(req.idempotencyKey) else None,
         if (req.timestamp.nonEmpty) Some(req.timestamp) else None,
       ),
@@ -51,12 +52,5 @@ object Producer {
       idempotencyKey = UUID.randomUUID().toString,
       timestamp = ZonedDateTime.now.toOffsetDateTime.toString,
     ))((x, fn) => fn(x))
-  }
-
-  def startDbaFlusher(
-    db: slick.jdbc.PostgresProfile.backend.Database,
-    grpcClient: RedbusServiceGrpc.RedbusServiceStub,
-  )(implicit as: ActorSystem): Unit = {
-    Flusher.start(db, grpcClient.produce)
   }
 }

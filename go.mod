@@ -48,3 +48,8 @@ require (
 )
 
 replace github.com/prokraft/redbus/api/scala => /dev/null
+
+tool (
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	google.golang.org/protobuf/cmd/protoc-gen-go
+)

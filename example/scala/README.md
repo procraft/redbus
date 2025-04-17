@@ -17,3 +17,7 @@ sbt "runMain example.Consumer topic-1 group-1"
 ```shell
 sbt "runMain example.Producer topic-1 \"Message text\""
 ```
+
+```shell
+sbt "runMain example.ProducerOutbox topic-1 \"Message text\""
+```

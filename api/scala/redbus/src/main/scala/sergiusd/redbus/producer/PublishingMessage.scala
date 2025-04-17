@@ -3,8 +3,10 @@ package sergiusd.redbus.producer
 import play.api.libs.json.{Json, OFormat}
 import slick.lifted.Tag
 
-import java.time.ZonedDateTime
-import sergiusd.redbus.producer.PostgresDriver.api._
+import java.time.Instant
+import sergiusd.redbus.PostgresDriver.api._
+
+import java.sql.Timestamp
 
 case class PublishingMessage(
   topic: String,
@@ -17,6 +19,7 @@ object PublishingMessage {
 
   case class Options(
     key: Option[String],
+    version: Option[Long],
     idempotencyKey: Option[String],
     timestamp: Option[String],
   )
@@ -24,6 +27,7 @@ object PublishingMessage {
   object Options {
     val empty: Options = Options(
       key = None,
+      version = None,
       idempotencyKey = None,
       timestamp = None,
     )
@@ -34,17 +38,16 @@ object PublishingMessage {
 }
 
 class PublishingMessages(tag: Tag) extends Table[PublishingMessage](tag, Some("public"), "redbus_outbox") {
-
   def topic = column[String]("topic")
   def message = column[Array[Byte]]("message")
   def options = column[PublishingMessage.Options]("options")
-  private def createdAt = column[ZonedDateTime]("created_at")
+  def createdAt = column[Timestamp]("created_at")
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
-  def * = (topic, message, options, createdAt).<>(
-    { case (t, m, o, _) => PublishingMessage(t, m, o) },
-    { pm: PublishingMessage => Some((pm.topic, pm.message, pm.options, ZonedDateTime.now)) },
-  )
+  def * = (topic, message, options, createdAt, id).<>(
+      { case (t: String, m: Array[Byte], o: PublishingMessage.Options, _, id: Long) => PublishingMessage(t, m, o, id) },
+      { pm: PublishingMessage => Some((pm.topic, pm.message, pm.options, Timestamp.from(Instant.now), pm.id)) },
+    )
 }
 
 object PublishingMessages extends TableQuery(new PublishingMessages(_))

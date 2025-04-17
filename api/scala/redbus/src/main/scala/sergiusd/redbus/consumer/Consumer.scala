@@ -6,6 +6,8 @@ import akka.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
 import sergiusd.redbus
+import sergiusd.redbus.consumer.Model.MessageMeta
+
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
@@ -164,8 +166,12 @@ class Consumer(
           listener.logger(s"Skip already processed message $group / $topic / ${message.id}")
           Future.successful(Right(()))
         } else {
+          val meta = MessageMeta(
+            version = if (message.version == 0) None else Some(message.version),
+            timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
+          )
           for {
-            result <- processor(message.data.toByteArray)
+            result <- processor(message.data.toByteArray, meta)
               .map(_ => Right(()))
               .recover(e => Left(e))
             _ <- (result, listener.checkEventProcessedDatabase) match {

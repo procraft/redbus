@@ -37,7 +37,7 @@ type IDataBus interface {
 	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
 	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
-	Produce(ctx context.Context, topic model.TopicName, key string, message []byte, idempotencyKey string, timestamp *time.Time) error
+	Produce(ctx context.Context, topic model.TopicName, key string, message []byte, version int64, idempotencyKey string, timestamp *time.Time) error
 }
 
 type IRepeater interface {

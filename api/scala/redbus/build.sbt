@@ -1,8 +1,8 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.1.2"
+version := "0.1.4"
 
-ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / scalaVersion := "2.13.16"
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
 Compile / PB.targets := Seq(

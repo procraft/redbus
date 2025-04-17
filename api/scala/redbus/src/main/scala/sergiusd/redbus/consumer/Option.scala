@@ -41,14 +41,13 @@ object Option {
     consumer => consumer.copy(batchSize = batchSize)
   }
 
-  def WithLogger(logger: String => Unit): Fn = {
-    consumer => consumer.copy(logger = logger)
-  }
-
   def WithOnlyOnceProcessor(db: Database): Fn = {
     consumer => consumer.copy(
       checkEventProcessedDatabase = Some(db),
     )
   }
 
+  private[redbus] def withLogger(logger: String => Unit): Fn = {
+    consumer => consumer.copy(logger = logger)
+  }
 }

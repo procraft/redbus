@@ -1,19 +1,21 @@
 package sergiusd.redbus.consumer
 
-import sergiusd.redbus.producer.PostgresDriver
+import sergiusd.redbus.PostgresDriver
 
-import java.time.ZonedDateTime
-import sergiusd.redbus.producer.PostgresDriver.api._
+import java.time.Instant
+import PostgresDriver.api._
 import slick.dbio.Effect
+
+import java.sql.Timestamp
 
 case class IncomeMessage(
   key: String,
-  createdAt: ZonedDateTime = ZonedDateTime.now,
+  createdAt: Timestamp = Timestamp.from(Instant.now),
 )
 
 class IncomeMessages(tag: Tag) extends Table[IncomeMessage](tag, Some("public"), "redbus_inbox") {
   def key = column[String]("key")
-  def createdAt = column[ZonedDateTime]("created_at")
+  def createdAt = column[Timestamp]("created_at")
 
   def * = (key, createdAt).<>((IncomeMessage.apply _).tupled, IncomeMessage.unapply)
 }

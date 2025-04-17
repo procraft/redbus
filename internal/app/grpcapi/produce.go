@@ -18,7 +18,7 @@ func (b *GrpcApi) Produce(ctx context.Context, req *pb.ProduceRequest) (*pb.Prod
 		}
 		timestamp = &t
 	}
-	if err := b.dataBus.Produce(ctx, model.TopicName(req.Topic), req.Key, req.Message, req.IdempotencyKey, timestamp); err != nil {
+	if err := b.dataBus.Produce(ctx, model.TopicName(req.Topic), req.Key, req.Message, req.Version, req.IdempotencyKey, timestamp); err != nil {
 		return nil, err
 	}
 	return &pb.ProduceResponse{Ok: true}, nil

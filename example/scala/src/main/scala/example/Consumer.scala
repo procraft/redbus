@@ -7,7 +7,6 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import sun.misc.Signal
 import sergiusd.redbus
 
-import java.time.ZonedDateTime
 import scala.concurrent.duration.Duration
 
 object Consumer extends App {
@@ -29,9 +28,14 @@ object Consumer extends App {
     shutdown()
   })
 
-  private def processor(bytes: Array[Byte]): Future[Either[String, Unit]] = {
-    println(s"Consumer / message: ${new String(bytes, StandardCharsets.UTF_8)}")
-    Future.successful(Right(()))
+  private def processor(bytes: Array[Byte], meta: redbus.consumer.Model.MessageMeta): Future[Unit] = {
+    val items = Seq(
+      Some(new String(bytes, StandardCharsets.UTF_8)),
+      meta.version.map(x => s"version: $x"),
+      meta.timestamp.map(x => s"timestamp: $x"),
+    ).flatten
+    println(s"Consumer / message: ${items.mkString(", ")}")
+    Future.unit
   }
 
   private def addStopHook(hook: () => Future[_]): Unit = {
@@ -47,7 +51,7 @@ object Consumer extends App {
   }
 
   println("Consumer / start")
-  private val client = redbus.Client("localhost", 50005)
+  private val client = redbus.Client("localhost", 50005, println(_))
   private val consumeFuture = client.consume(
     topic, group, processor, addStopHook,
     redbus.consumer.Option.WithBatchSize(3),

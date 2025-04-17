@@ -20,6 +20,7 @@ message ProduceRequest {
   bytes message = 3;
   string idempotencyKey = 4;
   string timestamp = 5;
+  int64 version = 6;
 }
 
 message ProduceResponse {
@@ -68,6 +69,7 @@ message ConsumeResponse {
     bytes data = 2;
     string idempotencyKey = 3;
     string timestamp = 4;
+    int64 version = 5;
   }
 
   Connect connect = 1;

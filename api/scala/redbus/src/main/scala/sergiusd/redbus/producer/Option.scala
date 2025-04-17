@@ -12,6 +12,10 @@ object Option {
     consumer => consumer.copy(key = key)
   }
 
+  def WithVersion(version: Long): Fn = {
+    consumer => consumer.copy(version = version)
+  }
+
   def WithIdempotencyKey(key: String): Fn = {
     consumer => consumer.copy(idempotencyKey = key)
   }

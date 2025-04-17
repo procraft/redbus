@@ -7,5 +7,6 @@ type Stat struct {
 	RepeatFailedCount int
 }
 
+const Version = "version"
 const IdempotencyKeyHeader = "idempotencyKey"
 const TimestampHeader = "timestamp"
