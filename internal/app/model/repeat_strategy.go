@@ -27,7 +27,7 @@ func (m *RepeatStrategy) getCalculator() IRepeatCalculator {
 	case RepeatKindEven:
 		return RepeatCalculatorEven{Interval: m.EvenConfig.Interval}
 	case RepeatKindProgressive:
-		return RepeatCalculatorProgressive{Interval: m.EvenConfig.Interval, Multiplier: m.ProgressiveConfig.Multiplier}
+		return RepeatCalculatorProgressive{Interval: m.ProgressiveConfig.Interval, Multiplier: m.ProgressiveConfig.Multiplier}
 	default:
 		panic("Unsupported repeat strategy " + m.Kind)
 	}

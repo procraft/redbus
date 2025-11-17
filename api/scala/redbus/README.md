@@ -2,7 +2,7 @@
 
 ### Compile
 
-Run to build (working in Java 8).
+Run to build.
 
 ```shell
 sbt compile

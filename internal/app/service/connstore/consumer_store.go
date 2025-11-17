@@ -96,18 +96,22 @@ func (s *ConsumerStore) getState(consumerId model.ConsumerId) model.ConsumerStat
 func (s *ConsumerStore) findBest(topic model.TopicName, group model.GroupName, id model.ConsumerId) *ConsumerBag {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	list := make([]ConsumerBag, 0, len(s.store))
-	if bag, ok := s.store[ConsumerKey{Topic: topic, Group: group, Id: id}]; ok {
+	
+	key := ConsumerKey{Topic: topic, Group: group, Id: id}
+	if bag, ok := s.store[key]; ok {
 		return &bag
 	}
+	
+	var candidates []ConsumerBag
 	for k, v := range s.store {
 		if k.Topic == topic && k.Group == group {
-			list = append(list, v)
+			candidates = append(candidates, v)
 		}
 	}
-	if len(list) != 0 {
-		bag := list[s.random.Intn(len(list))]
-		return &bag
+	
+	if len(candidates) > 0 {
+		selected := candidates[s.random.Intn(len(candidates))]
+		return &selected
 	}
 	return nil
 }

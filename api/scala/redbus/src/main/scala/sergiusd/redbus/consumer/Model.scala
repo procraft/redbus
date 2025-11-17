@@ -10,8 +10,8 @@ object Model {
 
   private type MessageData = Array[Byte]
   case class MessageMeta(
-      version: Option[MessageVersion] = None,
-      timestamp: Option[MessageTimestamp] = None,
+    version: Option[MessageVersion] = None,
+    timestamp: Option[MessageTimestamp] = None,
   )
 
   private type MessageVersion = Long
