@@ -82,9 +82,11 @@ func (c *Consumer) Reconnect(ctx context.Context) error {
 }
 
 func (c *Consumer) connect(ctx context.Context) error {
+	groupID := fmt.Sprintf("%s-%s", string(c.group), string(c.topic))
+
 	readerConf := kafka.ReaderConfig{
 		Brokers:  c.hosts,
-		GroupID:  string(c.group),
+		GroupID:  groupID,
 		Topic:    string(c.topic),
 		MinBytes: 1,    // 1B
 		MaxBytes: 10e6, // 10MB
