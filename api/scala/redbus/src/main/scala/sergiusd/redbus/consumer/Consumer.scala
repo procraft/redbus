@@ -147,13 +147,15 @@ class Consumer(
   }
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
-    val zonedDateTime: ZonedDateTime = Try(ZonedDateTime.parse(message.timestamp)) match {
-      case Success(value) =>
-        value
-      case Failure(e: Throwable) =>
-        listener.logger(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
-        ZonedDateTime.now
-    }
+    val zonedDateTime: ZonedDateTime = if (message.timestamp.nonEmpty) {
+      Try(ZonedDateTime.parse(message.timestamp)) match {
+        case Success(value) =>
+          value
+        case Failure(e: Throwable) =>
+          listener.logger(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
+          ZonedDateTime.now
+      }
+    } else ZonedDateTime.now
     runWithTimeout(listener.consumeTimeout) {
       for {
         isProcessed <- listener.checkEventProcessedDatabase match {
