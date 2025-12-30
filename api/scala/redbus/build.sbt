@@ -3,6 +3,7 @@ organization := "sergiusd"
 version := "0.1.5"
 
 ThisBuild / scalaVersion := "2.13.17"
+ThisBuild / versionScheme := Some("semver-spec")
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
 Compile / PB.targets := Seq(

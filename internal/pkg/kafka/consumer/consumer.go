@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,7 +34,14 @@ type conf struct {
 	batchSize   int
 }
 
-func New(ctx context.Context, hosts []string, topic kpkg.TopicName, group kpkg.GroupName, id kpkg.ConsumerId, options ...Option) (*Consumer, error) {
+func New(
+	ctx context.Context,
+	hosts []string,
+	topic kpkg.TopicName,
+	group kpkg.GroupName,
+	id kpkg.ConsumerId,
+	options ...Option,
+) (*Consumer, error) {
 	var c Consumer
 
 	c.hosts = hosts
@@ -50,10 +58,35 @@ func New(ctx context.Context, hosts []string, topic kpkg.TopicName, group kpkg.G
 		o(&c.conf)
 	}
 
+	if err := c.createReader(ctx); err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
+
+func (c *Consumer) Reconnect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.reader != nil {
+		if err := c.reader.Close(); err != nil {
+		}
+		c.reader = nil
+	}
+
+	if err := c.createReader(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Consumer) createReader(ctx context.Context) error {
 	readerConf := kafka.ReaderConfig{
-		Brokers:  hosts,
-		GroupID:  string(group),
-		Topic:    string(topic),
+		Brokers:  c.hosts,
+		GroupID:  string(c.group),
+		Topic:    string(c.topic),
 		MinBytes: 1,    // 1B
 		MaxBytes: 10e6, // 10MB
 	}
@@ -64,12 +97,11 @@ func New(ctx context.Context, hosts []string, topic kpkg.TopicName, group kpkg.G
 	}
 
 	if err := c.conf.credentials.UpdateDialer(ctx, readerConf.Dialer); err != nil {
-		return nil, err
+		return err
 	}
 
 	c.reader = kafka.NewReader(readerConf)
-
-	return &c, nil
+	return nil
 }
 
 func (c *Consumer) GetHosts() []string {
@@ -219,5 +251,36 @@ func (c *Consumer) Unlock() {
 }
 
 func (c *Consumer) Close() error {
+	if c.reader == nil {
+		return nil
+	}
 	return c.reader.Close()
+}
+
+func IsAuthorizationError(err error) bool {
+	// Проверяем, является ли ошибка типом kafka.Error
+	var kafkaErr kafka.Error
+	if errors.As(err, &kafkaErr) {
+		// Код 29 - TopicAuthorizationFailed
+		return int(kafkaErr) == 29
+	}
+	// Проверяем текст ошибки на случай, если это обернутая ошибка
+	errStr := err.Error()
+	return strings.Contains(errStr, "[29]") ||
+		strings.Contains(errStr, "Topic Authorization Failed") ||
+		strings.Contains(errStr, "not authorized to access")
+}
+
+func IsRebalanceError(err error) bool {
+	// Проверяем, является ли ошибка типом kafka.Error
+	var kafkaErr kafka.Error
+	if errors.As(err, &kafkaErr) {
+		// Код 27 - RebalanceInProgress
+		return int(kafkaErr) == 27
+	}
+	// Проверяем текст ошибки на случай, если это обернутая ошибка
+	errStr := err.Error()
+	return strings.Contains(errStr, "[27]") ||
+		strings.Contains(errStr, "Rebalance In Progress") ||
+		strings.Contains(errStr, "rebalancing the group")
 }

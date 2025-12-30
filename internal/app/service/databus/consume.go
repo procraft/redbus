@@ -85,6 +85,14 @@ func (b *DataBus) processConsumer(
 				logger.Consumer(ctx, c, "Consume kafka error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
 				time.Sleep(b.conf.Kafka.FailTimeout.Duration)
 			}
+			if attempt != 1 && (consumer.IsRebalanceError(consumeErr) || consumer.IsAuthorizationError(consumeErr)) {
+				logger.Consumer(ctx, c, "Reconnecting kafka consumer...")
+				if err := c.Reconnect(ctx); err != nil {
+					logger.Consumer(ctx, c, "Failed to reconnect kafka consumer: %v", err)
+					consumeErr = err
+					continue
+				}
+			}
 			logger.Consumer(ctx, c, "Consume kafka starting...")
 			c.SetState(model.ConsumerStateConnected)
 			consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })

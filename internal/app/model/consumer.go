@@ -45,4 +45,5 @@ type IConsumer interface {
 	Lock()
 	Unlock()
 	Close() error
+	Reconnect(ctx context.Context) error
 }
