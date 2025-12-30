@@ -44,6 +44,6 @@ type IConsumer interface {
 	Consume(ctx context.Context, processor func(ctx context.Context, list MessageList) error) error
 	Lock()
 	Unlock()
-	Close() error
+	Close() (bool, error)
 	Reconnect(ctx context.Context) error
 }

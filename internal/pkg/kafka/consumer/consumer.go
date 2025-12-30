@@ -58,7 +58,7 @@ func New(
 		o(&c.conf)
 	}
 
-	if err := c.createReader(ctx); err != nil {
+	if err := c.connect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -69,26 +69,36 @@ func (c *Consumer) Reconnect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.reader != nil {
-		if err := c.reader.Close(); err != nil {
-		}
-		c.reader = nil
+	if closed, _ := c.Close(); closed {
+		// Даем время для корректного выхода из группы
+		time.Sleep(2 * time.Second)
 	}
 
-	if err := c.createReader(ctx); err != nil {
+	if err := c.connect(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Consumer) createReader(ctx context.Context) error {
+func (c *Consumer) connect(ctx context.Context) error {
 	readerConf := kafka.ReaderConfig{
 		Brokers:  c.hosts,
 		GroupID:  string(c.group),
 		Topic:    string(c.topic),
 		MinBytes: 1,    // 1B
 		MaxBytes: 10e6, // 10MB
+		// Увеличиваем таймауты для предотвращения ребалансировок
+		// SessionTimeout - максимальное время между heartbeat'ами перед исключением из группы
+		// HeartbeatInterval - интервал отправки heartbeat'ов
+		// Эти значения должны быть настроены так, чтобы heartbeat отправлялся чаще, чем session timeout
+		// По умолчанию в kafka-go: SessionTimeout = 10s, HeartbeatInterval = 3s
+		// Увеличиваем для более стабильной работы при сетевых задержках
+		SessionTimeout:    30 * time.Second,
+		HeartbeatInterval: 10 * time.Second,
+		// CommitInterval - интервал автоматического коммита офсетов
+		// 0 означает, что коммит происходит вручную через CommitMessages
+		CommitInterval: 0,
 	}
 
 	readerConf.Dialer = &kafka.Dialer{
@@ -250,11 +260,13 @@ func (c *Consumer) Unlock() {
 	c.mu.Unlock()
 }
 
-func (c *Consumer) Close() error {
+func (c *Consumer) Close() (bool, error) {
 	if c.reader == nil {
-		return nil
+		return false, nil
 	}
-	return c.reader.Close()
+	err := c.reader.Close()
+	c.reader = nil
+	return true, err
 }
 
 func IsAuthorizationError(err error) bool {
