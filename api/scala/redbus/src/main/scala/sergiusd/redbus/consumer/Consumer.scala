@@ -157,10 +157,11 @@ class Consumer(
       }
     } else ZonedDateTime.now
     runWithTimeout(listener.consumeTimeout) {
+      val idempotencyKey = if (message.idempotencyKey.nonEmpty) message.idempotencyKey else message.id
       for {
         isProcessed <- listener.checkEventProcessedDatabase match {
-          case Some (db) if message.id.nonEmpty =>
-            isEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, message.idempotencyKey, zonedDateTime))
+          case Some(db) if message.id.nonEmpty =>
+            isEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
           case _ =>
             Future.successful(false)
         }
@@ -178,7 +179,7 @@ class Consumer(
               .recover(e => Left(e))
             _ <- (result, listener.checkEventProcessedDatabase) match {
               case (Right(_), Some(db)) if message.id.nonEmpty =>
-                setEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, message.id, zonedDateTime))
+                setEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
               case _ =>
                 Future.unit
             }
