@@ -36,7 +36,7 @@ gen:
 		api/*.proto
 
 build:
-	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/databus ./cmd/databus/databus.go
+	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/redbus ./cmd/redbus/main.go
 
 build-example:
 	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/consumer ./example/golang/consumer/consumer.go

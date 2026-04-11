@@ -39,7 +39,7 @@ RED Bus will do the rest for you.
 2. Start essential environment
 
    ```shell
-       docker-compose -f example/docker-compose.yml up   
+       docker compose -f example/docker-compose.yml up   
    ```
 
 3. Run data bus service

@@ -55,16 +55,20 @@ class Consumer(
     )
   )
 
+  private def log(msg: String): Unit = {
+    listener.logger(s"[$topic/$group] $msg")
+  }
+
   def consume(): Future[Unit] = {
 
-    listener.logger("Start consumer")
+    log("Start consumer")
     connectAndServe()
 
     addStopHook { () =>
       Future {
         isRunning = false
         promise.trySuccess(Done)
-        listener.logger("Consumer shutting down")
+        log("Consumer shutting down")
       }
     }
 
@@ -99,7 +103,7 @@ class Consumer(
       }
 
       override def onCompleted(): Unit = {
-        listener.logger("Stream completed")
+        log("Stream completed")
         promise.success(Done)
       }
     }
@@ -112,13 +116,13 @@ class Consumer(
   private def reconnect(error: String): Unit = {
     requestObserver = None
     attempt += 1
-    listener.logger(s"Connect to $hostPort error: $error, attempt $attempt, ${listener.unavailableTimeout} waiting...")
+    log(s"Connect to $hostPort error: $error, attempt $attempt, ${listener.unavailableTimeout} waiting...")
     runWithPause(listener.unavailableTimeout)(connectAndServe())
   }
 
   private def sendRequest(request: ConsumeRequest): Unit = {
     try {
-      listener.logger("Send connect request")
+      log("Send connect request")
       requestObserver.foreach(_.onNext(request))
     } catch {
       case e: Throwable => reconnect(e.getMessage)
@@ -129,7 +133,7 @@ class Consumer(
     if (response.ok) {
       attempt = 0
       isConnected = true
-      listener.logger(s"Connect to $hostPort, id = ${connectRequest.connect.map(_.id).getOrElse("?")}")
+      log(s"Connect to $hostPort, id = ${connectRequest.connect.map(_.id).getOrElse("?")}")
     } else {
       reconnect(response.message)
     }
@@ -152,7 +156,7 @@ class Consumer(
         case Success(value) =>
           value
         case Failure(e: Throwable) =>
-          listener.logger(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
+          log(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
           ZonedDateTime.now
       }
     } else ZonedDateTime.now
@@ -166,10 +170,11 @@ class Consumer(
             Future.successful(false)
         }
         result <- if (isProcessed) {
-          listener.logger(s"Skip already processed message $group / $topic / ${message.id}")
+          log(s"Skip already processed message $group / $topic / ${message.id}")
           Future.successful(Right(()))
         } else {
           val meta = MessageMeta(
+            id = if (message.id.isEmpty) None else Some(message.id),
             version = if (message.version == 0) None else Some(message.version),
             timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
           )
