@@ -60,9 +60,16 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		if err != nil {
 			return fmt.Errorf("%w: %v", model.ErrHandler, err)
 		}
+		if data == nil {
+			return fmt.Errorf("%w: consume stream closed without result", model.ErrHandler)
+		}
+		byID := list.IndexByID()
 		for i := range data.ResultList {
 			result := data.ResultList[i]
-			m := list.GetById(result.Id)
+			m, ok := byID[result.Id]
+			if !ok {
+				return fmt.Errorf("%w: result id %q not in batch, have [%s]", model.ErrHandler, result.Id, strings.Join(list.GetIdList(), ", "))
+			}
 			if !result.Ok {
 				var key *[]byte
 				if len(m.Key) != 0 {

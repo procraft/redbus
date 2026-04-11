@@ -10,7 +10,7 @@ import sergiusd.redbus.consumer.Model.MessageMeta
 
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 import slick.jdbc.PostgresProfile.backend.Database
@@ -80,14 +80,23 @@ class Consumer(
 
     val responseObserver = new StreamObserver[ConsumeResponse] {
 
-      override def onNext(response: ConsumeResponse): Unit = {
+      // Батч обрабатываем до sendRequest в этом же вызове onNext: иначе следующий onNext может
+      // прийти раньше, чем уйдёт ConsumeRequest с результатами, и сервер сопоставит чужие id.
+      override def onNext(response: ConsumeResponse): Unit = synchronized {
         if (!isConnected) {
           response.connect match {
             case Some(connect) => precessConnect(connect)
             case _ => reconnect(s"Connect response is empty on connect request: $response")
           }
         } else {
-          processMessageList(response.messageList).onComplete {
+          val perMsgMs = listener.consumeTimeout.toMillis
+          val batchCapMs = perMsgMs * math.max(1, response.messageList.size) + 5000L
+          Try(
+            Await.result(
+              processMessageList(response.messageList),
+              new FiniteDuration(batchCapMs, TimeUnit.MILLISECONDS),
+            )
+          ) match {
             case Success(_) => ()
             case Failure(e) => reconnect(s"Error on process message list: ${e.getMessage}")
           }
@@ -164,17 +173,16 @@ class Consumer(
       val idempotencyKey = if (message.idempotencyKey.nonEmpty) message.idempotencyKey else message.id
       for {
         isProcessed <- listener.checkEventProcessedDatabase match {
-          case Some(db) if message.id.nonEmpty =>
+          case Some(db) if idempotencyKey.nonEmpty =>
             isEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
           case _ =>
             Future.successful(false)
         }
         result <- if (isProcessed) {
-          log(s"Skip already processed message $group / $topic / ${message.id}")
+          log(s"Skip already processed message $group / $topic / $idempotencyKey")
           Future.successful(Right(()))
         } else {
           val meta = MessageMeta(
-            id = if (message.id.isEmpty) None else Some(message.id),
             version = if (message.version == 0) None else Some(message.version),
             timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
           )
@@ -183,7 +191,7 @@ class Consumer(
               .map(_ => Right(()))
               .recover(e => Left(e))
             _ <- (result, listener.checkEventProcessedDatabase) match {
-              case (Right(_), Some(db)) if message.id.nonEmpty =>
+              case (Right(_), Some(db)) if idempotencyKey.nonEmpty =>
                 setEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
               case _ =>
                 Future.unit

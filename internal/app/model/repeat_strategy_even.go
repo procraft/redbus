@@ -1,15 +1,16 @@
 package model
 
 import (
-	"github.com/prokraft/redbus/internal/pkg/runtime"
 	"time"
+
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 type RepeatCalculatorEven struct {
-	Interval time.Duration `json:"interval"`
+	Interval Duration `json:"interval"`
 }
 
-func NewRepeatStrategyEven(maxAttempts int, interval time.Duration) *RepeatStrategy {
+func NewRepeatStrategyEven(maxAttempts int, interval Duration) *RepeatStrategy {
 	return &RepeatStrategy{
 		Kind:        RepeatKindEven,
 		MaxAttempts: maxAttempts,
@@ -20,5 +21,5 @@ func NewRepeatStrategyEven(maxAttempts int, interval time.Duration) *RepeatStrat
 }
 
 func (c RepeatCalculatorEven) GetNextStartedAt(_ int) time.Time {
-	return runtime.Now().Add(c.Interval)
+	return runtime.Now().Add(c.Interval.Duration)
 }

@@ -17,8 +17,8 @@
     "interval": "10s",
     "defaultStrategy": {
       "kind": "even",
-      "max": 5,
-      "config": {
+      "maxAttempts": 5,
+      "evenConfig": {
         "interval": "5m"
       }
     }

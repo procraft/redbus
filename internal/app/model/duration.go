@@ -2,9 +2,14 @@ package model
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 )
+
+func NewDuration(t time.Duration) Duration {
+	return Duration{Duration: t}
+}
 
 type Duration struct {
 	time.Duration

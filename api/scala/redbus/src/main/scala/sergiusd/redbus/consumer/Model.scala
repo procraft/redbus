@@ -10,12 +10,10 @@ object Model {
 
   private type MessageData = Array[Byte]
   case class MessageMeta(
-    id: Option[MessageId] = None,
     version: Option[MessageVersion] = None,
     timestamp: Option[MessageTimestamp] = None,
   )
 
-  private type MessageId = String
   private type MessageVersion = Long
   type MessageIdempotencyKey = String
   type MessageTimestamp = ZonedDateTime

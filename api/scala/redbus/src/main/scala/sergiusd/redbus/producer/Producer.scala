@@ -1,6 +1,5 @@
 package sergiusd.redbus.producer
 
-import akka.actor.ActorSystem
 import com.google.protobuf.ByteString
 import sergiusd.redbus.api.{ProduceRequest, RedbusServiceGrpc}
 import sergiusd.redbus.producer

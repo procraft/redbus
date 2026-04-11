@@ -15,14 +15,14 @@ func fromPBRepeatStrategy(strategy *pb.ConsumeRequest_Connect_RepeatStrategy) *m
 	if strategy.EvenConfig != nil {
 		return model.NewRepeatStrategyEven(
 			int(strategy.MaxAttempts),
-			time.Second*time.Duration(strategy.EvenConfig.IntervalSec),
+			model.NewDuration(time.Second*time.Duration(strategy.EvenConfig.IntervalSec)),
 		)
 	}
 
 	if strategy.ProgressiveConfig != nil {
 		return model.NewRepeatStrategyStrategy(
 			int(strategy.MaxAttempts),
-			time.Second*time.Duration(strategy.ProgressiveConfig.IntervalSec),
+			model.NewDuration(time.Second*time.Duration(strategy.ProgressiveConfig.IntervalSec)),
 			strategy.ProgressiveConfig.Multiplier,
 		)
 	}
