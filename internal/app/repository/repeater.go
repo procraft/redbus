@@ -11,6 +11,13 @@ import (
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, created_at, started_at, finished_at`
 
+func repeatScanDest(r *model.Repeat) []interface{} {
+	return []interface{}{
+		&r.Id, &r.Topic, &r.Group, &r.ConsumerId, &r.MessageId, &r.Key, &r.Data,
+		&r.Headers, &r.Attempt, &r.Strategy, &r.Error, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
+	}
+}
+
 func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
 	conn := db.FromContext(ctx)
 	return conn.QueryRow(ctx, `INSERT INTO repeat 
@@ -38,10 +45,7 @@ func (r *Repository) FindForRepeat(ctx context.Context, topicGroupList model.Top
 	ret := make(model.RepeatList, 0)
 	for rows.Next() {
 		r := model.Repeat{}
-		err := rows.Scan(
-			&r.Id, &r.Topic, &r.Group, &r.ConsumerId, &r.MessageId, &r.Key, &r.Data,
-			&r.Attempt, &r.Strategy, &r.Error, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
-		)
+		err := rows.Scan(repeatScanDest(&r)...)
 		if err != nil {
 			return nil, fmt.Errorf("Can't scan on get repeat list from db: %w", err)
 		}

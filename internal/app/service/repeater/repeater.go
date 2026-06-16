@@ -122,6 +122,19 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 			logger.Error(ctx, "Error on repeat process message: %v", err)
 			continue
 		}
+		if len(data.ResultList) == 0 {
+			logger.Error(ctx, "Error on repeat process message: empty result list")
+			repeat.ApplyNextAttempt(r.defaultStrategy)
+			repeat.Error = "empty result list"
+			err = r.repo.UpdateAttempt(ctx, repeat)
+			if repeat.FinishedAt != nil {
+				r.publishEventSource(ctx)
+			}
+			if err != nil {
+				logger.Consumer(logger.App, bag.Consumer, "Failed save to repo after processed: %v", err)
+			}
+			continue
+		}
 		if data.ResultList[0].Ok {
 			err = r.repo.Delete(ctx, repeat.Id)
 			r.publishEventSource(ctx)

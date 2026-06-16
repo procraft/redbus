@@ -30,6 +30,7 @@ class Consumer(
 
   private var isConnected = false
   private var isRunning = true
+  private var streamEpoch = 0L
 
   private val promise = Promise[Done]()
   private var attempt = 0
@@ -42,7 +43,7 @@ class Consumer(
     )
     options.foldLeft(init)((x, fn) => fn(x))
   }
-  private var requestObserver: Option[StreamObserver[ConsumeRequest]] = None
+  private var requestObserver: Option[(Long, StreamObserver[ConsumeRequest])] = None
   private val connectRequest = ConsumeRequest(
     connect = Some(
       ConsumeRequest.Connect(
@@ -77,6 +78,8 @@ class Consumer(
 
   private def connectAndServe(): Unit = {
     if (!isRunning) return
+    streamEpoch += 1
+    val currentEpoch = streamEpoch
 
     val responseObserver = new StreamObserver[ConsumeResponse] {
 
@@ -85,7 +88,7 @@ class Consumer(
       override def onNext(response: ConsumeResponse): Unit = synchronized {
         if (!isConnected) {
           response.connect match {
-            case Some(connect) => precessConnect(connect)
+            case Some(connect) => precessConnect(connect, currentEpoch)
             case _ => reconnect(s"Connect response is empty on connect request: $response")
           }
         } else {
@@ -93,7 +96,7 @@ class Consumer(
           val batchCapMs = perMsgMs * math.max(1, response.messageList.size) + 5000L
           Try(
             Await.result(
-              processMessageList(response.messageList),
+              processMessageList(response.messageList, currentEpoch),
               new FiniteDuration(batchCapMs, TimeUnit.MILLISECONDS),
             )
           ) match {
@@ -107,38 +110,48 @@ class Consumer(
         if (isRunning) {
           reconnect(e.getMessage)
         } else {
-          promise.failure(e)
+          promise.tryFailure(e)
         }
       }
 
       override def onCompleted(): Unit = {
         log("Stream completed")
-        promise.success(Done)
+        promise.trySuccess(Done)
       }
     }
 
-    requestObserver = Some(grpcClient.consume(responseObserver))
+    requestObserver = Some(currentEpoch -> grpcClient.consume(responseObserver))
 
-    sendRequest(connectRequest)
+    sendRequest(connectRequest, currentEpoch)
   }
 
   private def reconnect(error: String): Unit = {
+    isConnected = false
     requestObserver = None
     attempt += 1
     log(s"Connect to $hostPort error: $error, attempt $attempt, ${listener.unavailableTimeout} waiting...")
     runWithPause(listener.unavailableTimeout)(connectAndServe())
   }
 
-  private def sendRequest(request: ConsumeRequest): Unit = {
+  private def sendRequest(request: ConsumeRequest, epoch: Long): Unit = {
     try {
       log("Send connect request")
-      requestObserver.foreach(_.onNext(request))
+      requestObserver.foreach {
+        case (activeEpoch, observer) if activeEpoch == epoch =>
+          observer.onNext(request)
+        case _ =>
+          log(s"Skip stale request for old stream epoch=$epoch")
+      }
     } catch {
       case e: Throwable => reconnect(e.getMessage)
     }
   }
 
-  private def precessConnect(response: ConsumeResponse.Connect): Unit = {
+  private def precessConnect(response: ConsumeResponse.Connect, epoch: Long): Unit = {
+    if (epoch != streamEpoch) {
+      log(s"Skip stale connect response for old stream epoch=$epoch")
+      return
+    }
     if (response.ok) {
       attempt = 0
       isConnected = true
@@ -148,14 +161,14 @@ class Consumer(
     }
   }
 
-  private def processMessageList(messageList: Seq[ConsumeResponse.Message]): Future[Unit] = {
+  private def processMessageList(messageList: Seq[ConsumeResponse.Message], epoch: Long): Future[Unit] = {
     for {
       results <- Future.sequence(messageList.map(processMessage))
       resultResponse = messageList.zip(results).map {
         case (x, Right(_)) => ConsumeRequest.Result(ok = true, id = x.id)
         case (x, Left(e)) => ConsumeRequest.Result(ok = false, message = e.getMessage, id = x.id)
       }
-      _ = sendRequest(ConsumeRequest(resultList = resultResponse))
+      _ = sendRequest(ConsumeRequest(resultList = resultResponse), epoch)
     } yield ()
   }
 
