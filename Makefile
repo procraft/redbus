@@ -46,3 +46,9 @@ build-all: build build-example
 
 export-env:
 	export $(shell sed 's/=.*//' .env)
+
+agent-adapters:
+	.agents/scripts/sync-agent-adapters.sh
+
+agent-adapters-check:
+	.agents/scripts/sync-agent-adapters.sh --check

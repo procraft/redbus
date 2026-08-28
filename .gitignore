@@ -18,3 +18,9 @@
 /example/scala/project/project
 /example/scala/project/target
 /example/scala/.env
+
+###> agents ###
+/.agents/proposals/*
+!/.agents/proposals/.gitkeep
+/.claude/settings.local.json
+###< agents ###
