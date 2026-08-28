@@ -11,8 +11,8 @@ import (
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, created_at, started_at, finished_at`
 
-func repeatScanDest(r *model.Repeat) []interface{} {
-	return []interface{}{
+func repeatScanDest(r *model.Repeat) []any {
+	return []any{
 		&r.Id, &r.Topic, &r.Group, &r.ConsumerId, &r.MessageId, &r.Key, &r.Data,
 		&r.Headers, &r.Attempt, &r.Strategy, &r.Error, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
 	}
@@ -20,7 +20,7 @@ func repeatScanDest(r *model.Repeat) []interface{} {
 
 func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
 	conn := db.FromContext(ctx)
-	return conn.QueryRow(ctx, `INSERT INTO repeat 
+	return conn.QueryRow(ctx, `INSERT INTO repeat
 		(topic, "group", consumer_id, message_id, key, data, headers, error, attempt, repeat_strategy, created_at, started_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id`,
@@ -64,7 +64,7 @@ func (r *Repository) Delete(ctx context.Context, repeatId int64) error {
 
 func (r *Repository) UpdateAttempt(ctx context.Context, repeat *model.Repeat) error {
 	conn := db.FromContext(ctx)
-	_, err := conn.Exec(ctx, `UPDATE repeat 
+	_, err := conn.Exec(ctx, `UPDATE repeat
 		SET started_at = $1, attempt = $2, error = $3, finished_at = $4
 		WHERE id = $5`,
 		repeat.StartedAt, repeat.Attempt, repeat.Error, repeat.FinishedAt, repeat.Id)
@@ -74,7 +74,7 @@ func (r *Repository) UpdateAttempt(ctx context.Context, repeat *model.Repeat) er
 func (r *Repository) GetCount(ctx context.Context) (int, int, error) {
 	conn := db.FromContext(ctx)
 	allCount, failedCount := 0, 0
-	sql := `SELECT 
+	sql := `SELECT
     	COUNT(*) as all_count,
 		COALESCE(SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END), 0) AS failed_count
 	FROM repeat`
@@ -93,7 +93,7 @@ func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 			(first_value(error) OVER (PARTITION BY topic, "group" ORDER BY started_at DESC))::text AS last_error
 		FROM repeat
 	)
-	SELECT 
+	SELECT
 		topic, "group", last_error,
 		COUNT(id) AS all_count,
 		SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END) AS failed_count
@@ -119,7 +119,7 @@ func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 
 func (r *Repository) RestartFailed(ctx context.Context, topic, group string) error {
 	conn := db.FromContext(ctx)
-	_, err := conn.Exec(ctx, `UPDATE repeat 
+	_, err := conn.Exec(ctx, `UPDATE repeat
 		SET started_at = $1, attempt = 0, error = '', finished_at = null
 		WHERE finished_at IS NOT NULL AND topic = $2 AND "group" = $3`, runtime.Now(), topic, group)
 	return err
