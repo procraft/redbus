@@ -47,5 +47,5 @@ type IRepeater interface {
 }
 
 type IKafkaProvider interface {
-	GetTopicList(ctx context.Context) ([]model.StatTopic, error)
+	GetTopicList(ctx context.Context, topicGroups model.TopicGroupList) ([]model.StatTopic, error)
 }

@@ -293,6 +293,10 @@ type Group struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Partitions    []*GroupPartition      `protobuf:"bytes,2,rep,name=partitions,proto3" json:"partitions,omitempty"`
+	Consumers     []*Consumer            `protobuf:"bytes,3,rep,name=consumers,proto3" json:"consumers,omitempty"`
+	KafkaGroupId  string                 `protobuf:"bytes,4,opt,name=kafka_group_id,json=kafkaGroupId,proto3" json:"kafka_group_id,omitempty"`
+	State         string                 `protobuf:"bytes,5,opt,name=state,proto3" json:"state,omitempty"`
+	Error         string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -341,19 +345,275 @@ func (x *Group) GetPartitions() []*GroupPartition {
 	return nil
 }
 
+func (x *Group) GetConsumers() []*Consumer {
+	if x != nil {
+		return x.Consumers
+	}
+	return nil
+}
+
+func (x *Group) GetKafkaGroupId() string {
+	if x != nil {
+		return x.KafkaGroupId
+	}
+	return ""
+}
+
+func (x *Group) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *Group) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type Consumer struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	State               string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Topic               string                 `protobuf:"bytes,3,opt,name=topic,proto3" json:"topic,omitempty"`
+	Group               string                 `protobuf:"bytes,4,opt,name=group,proto3" json:"group,omitempty"`
+	ConnectedAtUnixMs   int64                  `protobuf:"varint,5,opt,name=connected_at_unix_ms,json=connectedAtUnixMs,proto3" json:"connected_at_unix_ms,omitempty"`
+	StateSinceUnixMs    int64                  `protobuf:"varint,6,opt,name=state_since_unix_ms,json=stateSinceUnixMs,proto3" json:"state_since_unix_ms,omitempty"`
+	LastMessageAtUnixMs int64                  `protobuf:"varint,7,opt,name=last_message_at_unix_ms,json=lastMessageAtUnixMs,proto3" json:"last_message_at_unix_ms,omitempty"`
+	MessagesProcessed   uint64                 `protobuf:"varint,8,opt,name=messages_processed,json=messagesProcessed,proto3" json:"messages_processed,omitempty"`
+	ReconnectCount      uint64                 `protobuf:"varint,9,opt,name=reconnect_count,json=reconnectCount,proto3" json:"reconnect_count,omitempty"`
+	LastError           string                 `protobuf:"bytes,10,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	RepeatStrategy      string                 `protobuf:"bytes,11,opt,name=repeat_strategy,json=repeatStrategy,proto3" json:"repeat_strategy,omitempty"`
+	KafkaMemberId       string                 `protobuf:"bytes,12,opt,name=kafka_member_id,json=kafkaMemberId,proto3" json:"kafka_member_id,omitempty"`
+	ClientHost          string                 `protobuf:"bytes,13,opt,name=client_host,json=clientHost,proto3" json:"client_host,omitempty"`
+	Partitions          []*ConsumerPartition   `protobuf:"bytes,14,rep,name=partitions,proto3" json:"partitions,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *Consumer) Reset() {
+	*x = Consumer{}
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Consumer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Consumer) ProtoMessage() {}
+
+func (x *Consumer) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Consumer.ProtoReflect.Descriptor instead.
+func (*Consumer) Descriptor() ([]byte, []int) {
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Consumer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Consumer) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *Consumer) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *Consumer) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *Consumer) GetConnectedAtUnixMs() int64 {
+	if x != nil {
+		return x.ConnectedAtUnixMs
+	}
+	return 0
+}
+
+func (x *Consumer) GetStateSinceUnixMs() int64 {
+	if x != nil {
+		return x.StateSinceUnixMs
+	}
+	return 0
+}
+
+func (x *Consumer) GetLastMessageAtUnixMs() int64 {
+	if x != nil {
+		return x.LastMessageAtUnixMs
+	}
+	return 0
+}
+
+func (x *Consumer) GetMessagesProcessed() uint64 {
+	if x != nil {
+		return x.MessagesProcessed
+	}
+	return 0
+}
+
+func (x *Consumer) GetReconnectCount() uint64 {
+	if x != nil {
+		return x.ReconnectCount
+	}
+	return 0
+}
+
+func (x *Consumer) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *Consumer) GetRepeatStrategy() string {
+	if x != nil {
+		return x.RepeatStrategy
+	}
+	return ""
+}
+
+func (x *Consumer) GetKafkaMemberId() string {
+	if x != nil {
+		return x.KafkaMemberId
+	}
+	return ""
+}
+
+func (x *Consumer) GetClientHost() string {
+	if x != nil {
+		return x.ClientHost
+	}
+	return ""
+}
+
+func (x *Consumer) GetPartitions() []*ConsumerPartition {
+	if x != nil {
+		return x.Partitions
+	}
+	return nil
+}
+
+type ConsumerPartition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Number        int32                  `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
+	GroupOffset   int64                  `protobuf:"varint,2,opt,name=group_offset,json=groupOffset,proto3" json:"group_offset,omitempty"`
+	LastOffset    int64                  `protobuf:"varint,3,opt,name=last_offset,json=lastOffset,proto3" json:"last_offset,omitempty"`
+	Lag           int64                  `protobuf:"varint,4,opt,name=lag,proto3" json:"lag,omitempty"`
+	Committed     bool                   `protobuf:"varint,5,opt,name=committed,proto3" json:"committed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsumerPartition) Reset() {
+	*x = ConsumerPartition{}
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsumerPartition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsumerPartition) ProtoMessage() {}
+
+func (x *ConsumerPartition) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsumerPartition.ProtoReflect.Descriptor instead.
+func (*ConsumerPartition) Descriptor() ([]byte, []int) {
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ConsumerPartition) GetNumber() int32 {
+	if x != nil {
+		return x.Number
+	}
+	return 0
+}
+
+func (x *ConsumerPartition) GetGroupOffset() int64 {
+	if x != nil {
+		return x.GroupOffset
+	}
+	return 0
+}
+
+func (x *ConsumerPartition) GetLastOffset() int64 {
+	if x != nil {
+		return x.LastOffset
+	}
+	return 0
+}
+
+func (x *ConsumerPartition) GetLag() int64 {
+	if x != nil {
+		return x.Lag
+	}
+	return 0
+}
+
+func (x *ConsumerPartition) GetCommitted() bool {
+	if x != nil {
+		return x.Committed
+	}
+	return false
+}
+
 type GroupPartition struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Number        int32                  `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
 	Offset        int64                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
 	ConsumerId    string                 `protobuf:"bytes,3,opt,name=consumer_id,json=consumerId,proto3" json:"consumer_id,omitempty"`
 	ConsumerState string                 `protobuf:"bytes,4,opt,name=consumer_state,json=consumerState,proto3" json:"consumer_state,omitempty"`
+	FirstOffset   int64                  `protobuf:"varint,5,opt,name=first_offset,json=firstOffset,proto3" json:"first_offset,omitempty"`
+	LastOffset    int64                  `protobuf:"varint,6,opt,name=last_offset,json=lastOffset,proto3" json:"last_offset,omitempty"`
+	Lag           int64                  `protobuf:"varint,7,opt,name=lag,proto3" json:"lag,omitempty"`
+	Committed     bool                   `protobuf:"varint,8,opt,name=committed,proto3" json:"committed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GroupPartition) Reset() {
 	*x = GroupPartition{}
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[6]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +625,7 @@ func (x *GroupPartition) String() string {
 func (*GroupPartition) ProtoMessage() {}
 
 func (x *GroupPartition) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[6]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +638,7 @@ func (x *GroupPartition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupPartition.ProtoReflect.Descriptor instead.
 func (*GroupPartition) Descriptor() ([]byte, []int) {
-	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{6}
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GroupPartition) GetNumber() int32 {
@@ -409,6 +669,34 @@ func (x *GroupPartition) GetConsumerState() string {
 	return ""
 }
 
+func (x *GroupPartition) GetFirstOffset() int64 {
+	if x != nil {
+		return x.FirstOffset
+	}
+	return 0
+}
+
+func (x *GroupPartition) GetLastOffset() int64 {
+	if x != nil {
+		return x.LastOffset
+	}
+	return 0
+}
+
+func (x *GroupPartition) GetLag() int64 {
+	if x != nil {
+		return x.Lag
+	}
+	return 0
+}
+
+func (x *GroupPartition) GetCommitted() bool {
+	if x != nil {
+		return x.Committed
+	}
+	return false
+}
+
 type RetryStats struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	List          []*RetryStat           `protobuf:"bytes,1,rep,name=list,proto3" json:"list,omitempty"`
@@ -418,7 +706,7 @@ type RetryStats struct {
 
 func (x *RetryStats) Reset() {
 	*x = RetryStats{}
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[7]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +718,7 @@ func (x *RetryStats) String() string {
 func (*RetryStats) ProtoMessage() {}
 
 func (x *RetryStats) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[7]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +731,7 @@ func (x *RetryStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryStats.ProtoReflect.Descriptor instead.
 func (*RetryStats) Descriptor() ([]byte, []int) {
-	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{7}
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RetryStats) GetList() []*RetryStat {
@@ -466,7 +754,7 @@ type RetryStat struct {
 
 func (x *RetryStat) Reset() {
 	*x = RetryStat{}
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[8]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -478,7 +766,7 @@ func (x *RetryStat) String() string {
 func (*RetryStat) ProtoMessage() {}
 
 func (x *RetryStat) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[8]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -491,7 +779,7 @@ func (x *RetryStat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryStat.ProtoReflect.Descriptor instead.
 func (*RetryStat) Descriptor() ([]byte, []int) {
-	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{8}
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RetryStat) GetTopic() string {
@@ -539,7 +827,7 @@ type RestartFailedRequest struct {
 
 func (x *RestartFailedRequest) Reset() {
 	*x = RestartFailedRequest{}
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[9]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -551,7 +839,7 @@ func (x *RestartFailedRequest) String() string {
 func (*RestartFailedRequest) ProtoMessage() {}
 
 func (x *RestartFailedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[9]
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -564,7 +852,7 @@ func (x *RestartFailedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartFailedRequest.ProtoReflect.Descriptor instead.
 func (*RestartFailedRequest) Descriptor() ([]byte, []int) {
-	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{9}
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RestartFailedRequest) GetTopic() string {
@@ -605,18 +893,54 @@ const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12!\n" +
 	"\ffirst_offset\x18\x02 \x01(\x03R\vfirstOffset\x12\x1f\n" +
 	"\vlast_offset\x18\x03 \x01(\x03R\n" +
-	"lastOffset\"c\n" +
+	"lastOffset\"\xf5\x01\n" +
 	"\x05Group\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12F\n" +
 	"\n" +
 	"partitions\x18\x02 \x03(\v2&.redbus.admincontrol.v1.GroupPartitionR\n" +
-	"partitions\"\x88\x01\n" +
+	"partitions\x12>\n" +
+	"\tconsumers\x18\x03 \x03(\v2 .redbus.admincontrol.v1.ConsumerR\tconsumers\x12$\n" +
+	"\x0ekafka_group_id\x18\x04 \x01(\tR\fkafkaGroupId\x12\x14\n" +
+	"\x05state\x18\x05 \x01(\tR\x05state\x12\x14\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\"\xa6\x04\n" +
+	"\bConsumer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\x12\x14\n" +
+	"\x05topic\x18\x03 \x01(\tR\x05topic\x12\x14\n" +
+	"\x05group\x18\x04 \x01(\tR\x05group\x12/\n" +
+	"\x14connected_at_unix_ms\x18\x05 \x01(\x03R\x11connectedAtUnixMs\x12-\n" +
+	"\x13state_since_unix_ms\x18\x06 \x01(\x03R\x10stateSinceUnixMs\x124\n" +
+	"\x17last_message_at_unix_ms\x18\a \x01(\x03R\x13lastMessageAtUnixMs\x12-\n" +
+	"\x12messages_processed\x18\b \x01(\x04R\x11messagesProcessed\x12'\n" +
+	"\x0freconnect_count\x18\t \x01(\x04R\x0ereconnectCount\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\n" +
+	" \x01(\tR\tlastError\x12'\n" +
+	"\x0frepeat_strategy\x18\v \x01(\tR\x0erepeatStrategy\x12&\n" +
+	"\x0fkafka_member_id\x18\f \x01(\tR\rkafkaMemberId\x12\x1f\n" +
+	"\vclient_host\x18\r \x01(\tR\n" +
+	"clientHost\x12I\n" +
+	"\n" +
+	"partitions\x18\x0e \x03(\v2).redbus.admincontrol.v1.ConsumerPartitionR\n" +
+	"partitions\"\x9f\x01\n" +
+	"\x11ConsumerPartition\x12\x16\n" +
+	"\x06number\x18\x01 \x01(\x05R\x06number\x12!\n" +
+	"\fgroup_offset\x18\x02 \x01(\x03R\vgroupOffset\x12\x1f\n" +
+	"\vlast_offset\x18\x03 \x01(\x03R\n" +
+	"lastOffset\x12\x10\n" +
+	"\x03lag\x18\x04 \x01(\x03R\x03lag\x12\x1c\n" +
+	"\tcommitted\x18\x05 \x01(\bR\tcommitted\"\xfc\x01\n" +
 	"\x0eGroupPartition\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x03R\x06offset\x12\x1f\n" +
 	"\vconsumer_id\x18\x03 \x01(\tR\n" +
 	"consumerId\x12%\n" +
-	"\x0econsumer_state\x18\x04 \x01(\tR\rconsumerState\"C\n" +
+	"\x0econsumer_state\x18\x04 \x01(\tR\rconsumerState\x12!\n" +
+	"\ffirst_offset\x18\x05 \x01(\x03R\vfirstOffset\x12\x1f\n" +
+	"\vlast_offset\x18\x06 \x01(\x03R\n" +
+	"lastOffset\x12\x10\n" +
+	"\x03lag\x18\a \x01(\x03R\x03lag\x12\x1c\n" +
+	"\tcommitted\x18\b \x01(\bR\tcommitted\"C\n" +
 	"\n" +
 	"RetryStats\x125\n" +
 	"\x04list\x18\x01 \x03(\v2!.redbus.admincontrol.v1.RetryStatR\x04list\"\x96\x01\n" +
@@ -648,7 +972,7 @@ func file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP() []byte {
 	return file_internal_api_admincontrol_admincontrol_proto_rawDescData
 }
 
-var file_internal_api_admincontrol_admincontrol_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_internal_api_admincontrol_admincontrol_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_internal_api_admincontrol_admincontrol_proto_goTypes = []any{
 	(*Empty)(nil),                // 0: redbus.admincontrol.v1.Empty
 	(*StateSnapshot)(nil),        // 1: redbus.admincontrol.v1.StateSnapshot
@@ -656,30 +980,34 @@ var file_internal_api_admincontrol_admincontrol_proto_goTypes = []any{
 	(*Topic)(nil),                // 3: redbus.admincontrol.v1.Topic
 	(*Partition)(nil),            // 4: redbus.admincontrol.v1.Partition
 	(*Group)(nil),                // 5: redbus.admincontrol.v1.Group
-	(*GroupPartition)(nil),       // 6: redbus.admincontrol.v1.GroupPartition
-	(*RetryStats)(nil),           // 7: redbus.admincontrol.v1.RetryStats
-	(*RetryStat)(nil),            // 8: redbus.admincontrol.v1.RetryStat
-	(*RestartFailedRequest)(nil), // 9: redbus.admincontrol.v1.RestartFailedRequest
+	(*Consumer)(nil),             // 6: redbus.admincontrol.v1.Consumer
+	(*ConsumerPartition)(nil),    // 7: redbus.admincontrol.v1.ConsumerPartition
+	(*GroupPartition)(nil),       // 8: redbus.admincontrol.v1.GroupPartition
+	(*RetryStats)(nil),           // 9: redbus.admincontrol.v1.RetryStats
+	(*RetryStat)(nil),            // 10: redbus.admincontrol.v1.RetryStat
+	(*RestartFailedRequest)(nil), // 11: redbus.admincontrol.v1.RestartFailedRequest
 }
 var file_internal_api_admincontrol_admincontrol_proto_depIdxs = []int32{
-	3, // 0: redbus.admincontrol.v1.TopicStats.list:type_name -> redbus.admincontrol.v1.Topic
-	4, // 1: redbus.admincontrol.v1.Topic.partitions:type_name -> redbus.admincontrol.v1.Partition
-	5, // 2: redbus.admincontrol.v1.Topic.groups:type_name -> redbus.admincontrol.v1.Group
-	6, // 3: redbus.admincontrol.v1.Group.partitions:type_name -> redbus.admincontrol.v1.GroupPartition
-	8, // 4: redbus.admincontrol.v1.RetryStats.list:type_name -> redbus.admincontrol.v1.RetryStat
-	0, // 5: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:input_type -> redbus.admincontrol.v1.Empty
-	0, // 6: redbus.admincontrol.v1.AdminControlService.GetTopicStats:input_type -> redbus.admincontrol.v1.Empty
-	0, // 7: redbus.admincontrol.v1.AdminControlService.GetRetryStats:input_type -> redbus.admincontrol.v1.Empty
-	9, // 8: redbus.admincontrol.v1.AdminControlService.RestartFailed:input_type -> redbus.admincontrol.v1.RestartFailedRequest
-	1, // 9: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:output_type -> redbus.admincontrol.v1.StateSnapshot
-	2, // 10: redbus.admincontrol.v1.AdminControlService.GetTopicStats:output_type -> redbus.admincontrol.v1.TopicStats
-	7, // 11: redbus.admincontrol.v1.AdminControlService.GetRetryStats:output_type -> redbus.admincontrol.v1.RetryStats
-	0, // 12: redbus.admincontrol.v1.AdminControlService.RestartFailed:output_type -> redbus.admincontrol.v1.Empty
-	9, // [9:13] is the sub-list for method output_type
-	5, // [5:9] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3,  // 0: redbus.admincontrol.v1.TopicStats.list:type_name -> redbus.admincontrol.v1.Topic
+	4,  // 1: redbus.admincontrol.v1.Topic.partitions:type_name -> redbus.admincontrol.v1.Partition
+	5,  // 2: redbus.admincontrol.v1.Topic.groups:type_name -> redbus.admincontrol.v1.Group
+	8,  // 3: redbus.admincontrol.v1.Group.partitions:type_name -> redbus.admincontrol.v1.GroupPartition
+	6,  // 4: redbus.admincontrol.v1.Group.consumers:type_name -> redbus.admincontrol.v1.Consumer
+	7,  // 5: redbus.admincontrol.v1.Consumer.partitions:type_name -> redbus.admincontrol.v1.ConsumerPartition
+	10, // 6: redbus.admincontrol.v1.RetryStats.list:type_name -> redbus.admincontrol.v1.RetryStat
+	0,  // 7: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:input_type -> redbus.admincontrol.v1.Empty
+	0,  // 8: redbus.admincontrol.v1.AdminControlService.GetTopicStats:input_type -> redbus.admincontrol.v1.Empty
+	0,  // 9: redbus.admincontrol.v1.AdminControlService.GetRetryStats:input_type -> redbus.admincontrol.v1.Empty
+	11, // 10: redbus.admincontrol.v1.AdminControlService.RestartFailed:input_type -> redbus.admincontrol.v1.RestartFailedRequest
+	1,  // 11: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:output_type -> redbus.admincontrol.v1.StateSnapshot
+	2,  // 12: redbus.admincontrol.v1.AdminControlService.GetTopicStats:output_type -> redbus.admincontrol.v1.TopicStats
+	9,  // 13: redbus.admincontrol.v1.AdminControlService.GetRetryStats:output_type -> redbus.admincontrol.v1.RetryStats
+	0,  // 14: redbus.admincontrol.v1.AdminControlService.RestartFailed:output_type -> redbus.admincontrol.v1.Empty
+	11, // [11:15] is the sub-list for method output_type
+	7,  // [7:11] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_internal_api_admincontrol_admincontrol_proto_init() }
@@ -693,7 +1021,7 @@ func file_internal_api_admincontrol_admincontrol_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_api_admincontrol_admincontrol_proto_rawDesc), len(file_internal_api_admincontrol_admincontrol_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

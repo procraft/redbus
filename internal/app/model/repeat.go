@@ -40,6 +40,10 @@ type TopicGroup struct {
 	Group GroupName
 }
 
+func (tg TopicGroup) KafkaGroupId() string {
+	return fmt.Sprintf("%s-%s", tg.Group, tg.Topic)
+}
+
 func (r *Repeat) SetZeroAttempt(defaultStrategy *RepeatStrategy) {
 	var strategy = defaultStrategy
 	if r.Strategy != nil {

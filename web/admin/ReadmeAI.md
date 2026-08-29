@@ -15,12 +15,15 @@
 - [`src/App.tsx`](src/App.tsx) содержит AppShell и маршруты; страницы находятся в `src/pages`, таблицы
   и live-карточки — в `src/components`, HTTP-клиент и DTO — в `src/api`.
 - Используется `HashRouter`: это позволяет одинаково работать через Go `http.FileServer` и nginx без
-  отдельного SPA fallback для `/topics` и `/failed-repeats`.
+  отдельного SPA fallback для `/topics`, `/consumers` и `/failed-repeats`.
+- Страницы загружаются через route-level `lazy`/`Suspense`, чтобы таблицы статистики не попадали целиком
+  в начальный JavaScript bundle dashboard.
 
 Маршруты:
 
 - `#/` — dashboard;
-- `#/topics` — offsets и состояния consumer groups;
+- `#/topics` — полный список Kafka topics, offsets и состояния consumer groups;
+- `#/consumers` — подключённые Redbus consumers, назначения партиций, lag и runtime-состояние;
 - `#/failed-repeats` — статистика retry и ручной restart.
 
 ## HTTP и SSE
@@ -29,8 +32,21 @@
 
 - `/dashboard/stat`;
 - `/topic/stat`;
+- `/consumer/stat`;
 - `/repeat/stat`;
 - `/repeat/repeatTopicGroup`.
+
+`/topic/stat` возвращает все пользовательские Kafka topics, включая те, для которых нет подключённых
+Redbus consumers. Для каждой партиции Kafka `lastOffset` означает high watermark, то есть offset следующего
+сообщения. Для подключённых topic/group backend дополнительно получает состояние Kafka consumer group,
+committed offsets и назначения партиций. Lag считается как `lastOffset - committedOffset`; если offset ещё
+не был committed, начальной точкой считается `firstOffset`, а `committed` остаётся `false`.
+
+`/consumer/stat` — плоский consumer-разрез того же снимка. Он объединяет назначения и offsets из Kafka с
+runtime-метриками Redbus: состоянием соединения, временем подключения и последнего сообщения, количеством
+обработанных сообщений, reconnects, retry strategy и последней ошибкой. Runtime-метрики живут в памяти
+процесса Redbus и сбрасываются после его перезапуска. Kafka `ClientID` consumer задаётся равным Redbus
+consumer id, чтобы назначение партиции можно было связать с конкретным подключением.
 
 HTTP-клиент передаёт `Authorization: Token <token>`. `REDBUS_API_HOST` и `REDBUS_API_TOKEN` подставляются
 Rspack во время сборки, поэтому токен оказывается в browser bundle и не является секретом. Для настоящей
@@ -88,6 +104,9 @@ Rspack может предупреждать о raw-размере общего 
   без публичных source maps.
 - Go-сервер отдаёт `./web/admin/dist`; отдельный образ [`deploy/admin/Dockerfile`](../../deploy/admin/Dockerfile)
   собирает тот же dist через Node 24 + `yarn install --immutable` и публикует его через nginx.
+- DTO статистики проходят через внутренний protobuf-контракт `internal/api/admincontrol/admincontrol.proto`.
+  При изменении полей Topics/Consumers пересобирай и выкатывай Redbus и admin backend согласованно;
+  обновление только одного из процессов может потерять новые поля на внутренней gRPC-границе.
 - Build arguments `apiHost` и `apiToken` должны быть адресом и токеном, доступными браузеру пользователя,
   а не только контейнеру. Значения для make-задачи задаются через `ADMIN_API_HOST` и `ADMIN_API_TOKEN`.
 

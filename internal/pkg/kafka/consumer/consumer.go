@@ -11,6 +11,7 @@ import (
 
 	kpkg "github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
+	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -24,6 +25,8 @@ type Consumer struct {
 	state     int32
 	offsetMap kpkg.PartitionOffsetMap
 	offsetMu  sync.RWMutex
+	metrics   kpkg.ConsumerMetrics
+	metricsMu sync.RWMutex
 	reader    *kafka.Reader
 	mu        sync.Mutex
 }
@@ -61,6 +64,9 @@ func New(
 	if err := c.connect(ctx); err != nil {
 		return nil, err
 	}
+	now := redbusruntime.Now()
+	c.metrics.ConnectedAt = now
+	c.metrics.StateSince = now
 
 	return &c, nil
 }
@@ -68,6 +74,9 @@ func New(
 func (c *Consumer) Reconnect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.metricsMu.Lock()
+	c.metrics.ReconnectCount++
+	c.metricsMu.Unlock()
 
 	if closed, _ := c.Close(); closed {
 		// Даем время для корректного выхода из группы
@@ -75,6 +84,7 @@ func (c *Consumer) Reconnect(ctx context.Context) error {
 	}
 
 	if err := c.connect(ctx); err != nil {
+		c.setLastError(err)
 		return err
 	}
 
@@ -82,7 +92,7 @@ func (c *Consumer) Reconnect(ctx context.Context) error {
 }
 
 func (c *Consumer) connect(ctx context.Context) error {
-	groupID := fmt.Sprintf("%s-%s", string(c.group), string(c.topic))
+	groupID := kpkg.TopicGroup{Topic: c.topic, Group: c.group}.KafkaGroupId()
 
 	readerConf := kafka.ReaderConfig{
 		Brokers:  c.hosts,
@@ -111,6 +121,7 @@ func (c *Consumer) connect(ctx context.Context) error {
 	if err := c.conf.credentials.UpdateDialer(ctx, readerConf.Dialer); err != nil {
 		return err
 	}
+	readerConf.Dialer.ClientID = string(c.id)
 
 	c.reader = kafka.NewReader(readerConf)
 	return nil
@@ -131,19 +142,28 @@ func (c *Consumer) GetGroup() kpkg.GroupName {
 func (c *Consumer) setOffset(messageList []kafka.Message) {
 	offsetMap := make(map[kpkg.PartitionN]kpkg.Offset, len(messageList))
 	for _, message := range messageList {
-		offsetMap[kpkg.PartitionN(message.Partition)] = kpkg.Offset(message.Offset)
+		// A committed Kafka group offset points to the next message to consume.
+		offsetMap[kpkg.PartitionN(message.Partition)] = kpkg.Offset(message.Offset + 1)
 	}
 	c.offsetMu.Lock()
 	defer c.offsetMu.Unlock()
 	for partition, offset := range offsetMap {
 		c.offsetMap[partition] = offset
 	}
+	c.metricsMu.Lock()
+	c.metrics.LastMessageAt = redbusruntime.Now()
+	c.metrics.MessagesProcessed += uint64(len(messageList))
+	c.metricsMu.Unlock()
 }
 
 func (c *Consumer) GetOffsetMap() map[kpkg.PartitionN]kpkg.Offset {
 	c.offsetMu.RLock()
 	defer c.offsetMu.RUnlock()
-	return c.offsetMap
+	offsetMap := make(map[kpkg.PartitionN]kpkg.Offset, len(c.offsetMap))
+	for partition, offset := range c.offsetMap {
+		offsetMap[partition] = offset
+	}
+	return offsetMap
 }
 
 func (c *Consumer) GetID() kpkg.ConsumerId {
@@ -155,7 +175,27 @@ func (c *Consumer) GetState() kpkg.ConsumerState {
 }
 
 func (c *Consumer) SetState(state kpkg.ConsumerState) {
-	atomic.StoreInt32(&c.state, int32(state))
+	previous := kpkg.ConsumerState(atomic.SwapInt32(&c.state, int32(state)))
+	if previous != state {
+		c.metricsMu.Lock()
+		c.metrics.StateSince = redbusruntime.Now()
+		c.metricsMu.Unlock()
+	}
+}
+
+func (c *Consumer) GetMetrics() kpkg.ConsumerMetrics {
+	c.metricsMu.RLock()
+	defer c.metricsMu.RUnlock()
+	return c.metrics
+}
+
+func (c *Consumer) setLastError(err error) {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
+	c.metricsMu.Lock()
+	c.metrics.LastError = err.Error()
+	c.metricsMu.Unlock()
 }
 
 func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Context, list kpkg.MessageList) error) error {
@@ -193,10 +233,13 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("Failed to read kafka message: %w\n", err)
+			consumeErr := fmt.Errorf("Failed to read kafka message: %w", err)
+			c.setLastError(consumeErr)
+			return consumeErr
 		}
 
 		if err := c.processAndCommit(ctx, mList, processor); err != nil {
+			c.setLastError(err)
 			return err
 		}
 

@@ -1,5 +1,5 @@
 import httpClient from '@/api/httpClient';
-import type { DashboardStat, RepeatStat, TopicStat } from '@/api/types';
+import type { ConsumerStat, DashboardStat, RepeatStat, TopicStat } from '@/api/types';
 
 const dataBus = {
   async getDashboardStat(): Promise<DashboardStat> {
@@ -9,6 +9,11 @@ const dataBus = {
 
   async getTopicStat(): Promise<TopicStat[]> {
     const { data } = await httpClient.post<{ list: TopicStat[] | null }>('/topic/stat', {});
+    return data.list ?? [];
+  },
+
+  async getConsumerStat(): Promise<ConsumerStat[]> {
+    const { data } = await httpClient.post<{ list: ConsumerStat[] | null }>('/consumer/stat', {});
     return data.list ?? [];
   },
 

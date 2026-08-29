@@ -2,6 +2,7 @@ package controlapi
 
 import (
 	"context"
+	"time"
 
 	"github.com/prokraft/redbus/internal/api/admincontrol"
 	"github.com/prokraft/redbus/internal/app/model"
@@ -61,6 +62,39 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 
 		groups := make([]*admincontrol.Group, 0, len(topic.GroupList))
 		for _, group := range topic.GroupList {
+			consumers := make([]*admincontrol.Consumer, 0, len(group.ConsumerList))
+			for _, consumer := range group.ConsumerList {
+				consumerPartitions := make([]*admincontrol.ConsumerPartition, 0, len(consumer.PartitionList))
+				for _, partition := range consumer.PartitionList {
+					consumerPartitions = append(consumerPartitions, &admincontrol.ConsumerPartition{
+						Number:      int32(partition.N),
+						GroupOffset: int64(partition.GroupOffset),
+						LastOffset:  int64(partition.LastOffset),
+						Lag:         int64(partition.Lag),
+						Committed:   partition.Committed,
+					})
+				}
+				lastMessageAt := int64(0)
+				if consumer.LastMessageAt != nil {
+					lastMessageAt = consumer.LastMessageAt.UnixMilli()
+				}
+				consumers = append(consumers, &admincontrol.Consumer{
+					Id:                  string(consumer.Id),
+					State:               consumer.State,
+					Topic:               string(consumer.Topic),
+					Group:               string(consumer.Group),
+					ConnectedAtUnixMs:   unixMilli(consumer.ConnectedAt),
+					StateSinceUnixMs:    unixMilli(consumer.StateSince),
+					LastMessageAtUnixMs: lastMessageAt,
+					MessagesProcessed:   consumer.MessagesProcessed,
+					ReconnectCount:      consumer.ReconnectCount,
+					LastError:           consumer.LastError,
+					RepeatStrategy:      consumer.RepeatStrategy,
+					KafkaMemberId:       consumer.KafkaMemberId,
+					ClientHost:          consumer.ClientHost,
+					Partitions:          consumerPartitions,
+				})
+			}
 			groupPartitions := make([]*admincontrol.GroupPartition, 0, len(group.PartitionList))
 			for _, partition := range group.PartitionList {
 				groupPartitions = append(groupPartitions, &admincontrol.GroupPartition{
@@ -68,11 +102,19 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 					Offset:        int64(partition.Offset),
 					ConsumerId:    string(partition.ConsumerId),
 					ConsumerState: partition.ConsumerState,
+					FirstOffset:   int64(partition.FirstOffset),
+					LastOffset:    int64(partition.LastOffset),
+					Lag:           int64(partition.Lag),
+					Committed:     partition.Committed,
 				})
 			}
 			groups = append(groups, &admincontrol.Group{
-				Name:       string(group.Name),
-				Partitions: groupPartitions,
+				Name:         string(group.Name),
+				Partitions:   groupPartitions,
+				Consumers:    consumers,
+				KafkaGroupId: group.KafkaGroupId,
+				State:        group.State,
+				Error:        group.Error,
 			})
 		}
 
@@ -83,6 +125,13 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 		})
 	}
 	return &admincontrol.TopicStats{List: result}, nil
+}
+
+func unixMilli(value time.Time) int64 {
+	if value.IsZero() {
+		return 0
+	}
+	return value.UnixMilli()
 }
 
 func (a *ControlApi) GetRetryStats(ctx context.Context, _ *admincontrol.Empty) (*admincontrol.RetryStats, error) {

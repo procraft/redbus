@@ -64,7 +64,7 @@ export function DashboardStats() {
       value: numberFormatter.format(stat.consumerCount),
       icon: Cable,
       color: 'teal',
-      path: '/topics',
+      path: '/consumers',
     },
     {
       label: 'Failed repeat',

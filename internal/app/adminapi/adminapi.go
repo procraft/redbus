@@ -9,6 +9,7 @@ type IService interface {
 	Health(ctx context.Context) error
 	GetStateSnapshot(ctx context.Context) (model.Stat, error)
 	GetTopicStats(ctx context.Context) (model.StatTopicList, error)
+	GetConsumerStats(ctx context.Context) (model.StatConsumerList, error)
 	GetRetryStats(ctx context.Context) (model.RepeatStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
 }

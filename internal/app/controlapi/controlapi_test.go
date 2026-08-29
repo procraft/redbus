@@ -3,6 +3,7 @@ package controlapi
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/prokraft/redbus/internal/api/admincontrol"
 	"github.com/prokraft/redbus/internal/app/model"
@@ -49,9 +50,18 @@ func TestControlApi(t *testing.T) {
 			Name:          "orders",
 			PartitionList: []model.StatPartition{{N: 1, FirstOffset: 10, LastOffset: 20}},
 			GroupList: []model.StatGroup{{
-				Name: "billing",
+				Name: "billing", KafkaGroupId: "billing-orders", State: "Stable",
+				ConsumerList: []model.StatConsumer{{
+					Id: "worker-1", Topic: "orders", Group: "billing", State: "connected",
+					ConnectedAt:       time.Date(2026, 8, 29, 10, 0, 0, 0, time.UTC),
+					MessagesProcessed: 42,
+					PartitionList: []model.StatConsumerPartition{{
+						N: 1, GroupOffset: 15, LastOffset: 20, Lag: 5, Committed: true,
+					}},
+				}},
 				PartitionList: []model.StatGroupPartition{{
-					N: 1, Offset: 15, ConsumerId: "worker-1", ConsumerState: "connected",
+					N: 1, Offset: 15, FirstOffset: 10, LastOffset: 20, Lag: 5, Committed: true,
+					ConsumerId: "worker-1", ConsumerState: "connected",
 				}},
 			}},
 		}},
@@ -65,6 +75,9 @@ func TestControlApi(t *testing.T) {
 	topics, err := api.GetTopicStats(context.Background(), &admincontrol.Empty{})
 	require.NoError(t, err)
 	require.Equal(t, "worker-1", topics.GetList()[0].GetGroups()[0].GetPartitions()[0].GetConsumerId())
+	require.Equal(t, "connected", topics.GetList()[0].GetGroups()[0].GetConsumers()[0].GetState())
+	require.Equal(t, int64(5), topics.GetList()[0].GetGroups()[0].GetPartitions()[0].GetLag())
+	require.Equal(t, uint64(42), topics.GetList()[0].GetGroups()[0].GetConsumers()[0].GetMessagesProcessed())
 
 	retries, err := api.GetRetryStats(context.Background(), &admincontrol.Empty{})
 	require.NoError(t, err)

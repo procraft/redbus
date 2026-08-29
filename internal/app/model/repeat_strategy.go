@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -9,6 +10,25 @@ type RepeatStrategy struct {
 	MaxAttempts       int                          `json:"maxAttempts"`
 	EvenConfig        *RepeatCalculatorEven        `json:"evenConfig,omitempty"`
 	ProgressiveConfig *RepeatCalculatorProgressive `json:"progressiveConfig,omitempty"`
+}
+
+func (m *RepeatStrategy) String() string {
+	if m == nil {
+		return "default"
+	}
+	switch m.Kind {
+	case RepeatKindEven:
+		return fmt.Sprintf("even · %d attempts · every %s", m.MaxAttempts, m.EvenConfig.Interval)
+	case RepeatKindProgressive:
+		return fmt.Sprintf(
+			"progressive · %d attempts · every %s × %.2g",
+			m.MaxAttempts,
+			m.ProgressiveConfig.Interval,
+			m.ProgressiveConfig.Multiplier,
+		)
+	default:
+		return string(m.Kind)
+	}
 }
 
 type RepeatKind string

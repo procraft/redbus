@@ -3,8 +3,10 @@ import {
   AppShell,
   Burger,
   Button,
+  Center,
   Container,
   Group,
+  Loader,
   Stack,
   Text,
   ThemeIcon,
@@ -12,16 +14,27 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { BusFront, Layers3, LayoutDashboard, Moon, Sun, TriangleAlert } from 'lucide-react';
+import { BusFront, Cable, Layers3, LayoutDashboard, Moon, Sun, TriangleAlert } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 
-import { DashboardPage } from '@/pages/DashboardPage';
-import { FailedRepeatsPage } from '@/pages/FailedRepeatsPage';
-import { TopicsPage } from '@/pages/TopicsPage';
+const DashboardPage = lazy(() =>
+  import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
+);
+const ConsumersPage = lazy(() =>
+  import('@/pages/ConsumersPage').then((module) => ({ default: module.ConsumersPage })),
+);
+const FailedRepeatsPage = lazy(() =>
+  import('@/pages/FailedRepeatsPage').then((module) => ({ default: module.FailedRepeatsPage })),
+);
+const TopicsPage = lazy(() =>
+  import('@/pages/TopicsPage').then((module) => ({ default: module.TopicsPage })),
+);
 
 const navigation = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard },
   { label: 'Topics', path: '/topics', icon: Layers3 },
+  { label: 'Consumers', path: '/consumers', icon: Cable },
   { label: 'Failed repeats', path: '/failed-repeats', icon: TriangleAlert },
 ] as const;
 
@@ -102,12 +115,21 @@ export default function App() {
 
       <AppShell.Main>
         <Container size="xl">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/topics" element={<TopicsPage />} />
-            <Route path="/failed-repeats" element={<FailedRepeatsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense
+            fallback={
+              <Center py="xl">
+                <Loader />
+              </Center>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/topics" element={<TopicsPage />} />
+              <Route path="/consumers" element={<ConsumersPage />} />
+              <Route path="/failed-repeats" element={<FailedRepeatsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Container>
       </AppShell.Main>
     </AppShell>

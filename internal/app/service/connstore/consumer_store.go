@@ -28,6 +28,13 @@ type ConsumerKey struct {
 	Id    model.ConsumerId
 }
 
+type consumerStatSnapshot struct {
+	offsetMap      model.PartitionOffsetMap
+	state          model.ConsumerState
+	metrics        model.ConsumerMetrics
+	repeatStrategy *model.RepeatStrategy
+}
+
 func (k ConsumerKey) String() string {
 	return fmt.Sprintf("%s!%s", k.Topic, k.Group)
 }
@@ -53,6 +60,22 @@ func (s *ConsumerStore) remove(c model.IConsumer) {
 	delete(s.store, s.getKey(c))
 }
 
+func (s *ConsumerStore) count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.store)
+}
+
+func (s *ConsumerStore) consumeTopicCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	topics := make(map[model.TopicName]struct{}, len(s.store))
+	for consumer := range s.store {
+		topics[consumer.Topic] = struct{}{}
+	}
+	return len(topics)
+}
+
 func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -68,12 +91,17 @@ func (s *ConsumerStore) getTopicGroupList() model.TopicGroupList {
 	return ret
 }
 
-func (s *ConsumerStore) getOffsetMap() map[ConsumerKey]model.PartitionOffsetMap {
+func (s *ConsumerStore) getStatSnapshot() map[ConsumerKey]consumerStatSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	ret := make(map[ConsumerKey]model.PartitionOffsetMap, len(s.store))
+	ret := make(map[ConsumerKey]consumerStatSnapshot, len(s.store))
 	for k, v := range s.store {
-		ret[k] = v.Consumer.GetOffsetMap()
+		ret[k] = consumerStatSnapshot{
+			offsetMap:      v.Consumer.GetOffsetMap(),
+			state:          v.Consumer.GetState(),
+			metrics:        v.Consumer.GetMetrics(),
+			repeatStrategy: v.RepeatStrategy,
+		}
 	}
 	return ret
 }
@@ -82,33 +110,22 @@ func (s *ConsumerStore) getKey(c model.IConsumer) ConsumerKey {
 	return ConsumerKey{Topic: c.GetTopic(), Group: c.GetGroup(), Id: c.GetID()}
 }
 
-func (s *ConsumerStore) getState(consumerId model.ConsumerId) model.ConsumerState {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for k, v := range s.store {
-		if k.Id == consumerId {
-			return v.Consumer.GetState()
-		}
-	}
-	return 0
-}
-
 func (s *ConsumerStore) findBest(topic model.TopicName, group model.GroupName, id model.ConsumerId) *ConsumerBag {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	key := ConsumerKey{Topic: topic, Group: group, Id: id}
 	if bag, ok := s.store[key]; ok {
 		return &bag
 	}
-	
+
 	var candidates []ConsumerBag
 	for k, v := range s.store {
 		if k.Topic == topic && k.Group == group {
 			candidates = append(candidates, v)
 		}
 	}
-	
+
 	if len(candidates) > 0 {
 		selected := candidates[s.random.Intn(len(candidates))]
 		return &selected

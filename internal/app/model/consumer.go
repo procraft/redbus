@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"time"
 )
 
 type TopicName string
@@ -11,6 +12,15 @@ type PartitionN int
 type Offset int64
 
 type PartitionOffsetMap = map[PartitionN]Offset
+
+type ConsumerMetrics struct {
+	ConnectedAt       time.Time
+	StateSince        time.Time
+	LastMessageAt     time.Time
+	MessagesProcessed uint64
+	ReconnectCount    uint64
+	LastError         string
+}
 
 type ConsumerState int32
 
@@ -41,6 +51,7 @@ type IConsumer interface {
 	GetState() ConsumerState
 	SetState(state ConsumerState)
 	GetOffsetMap() PartitionOffsetMap
+	GetMetrics() ConsumerMetrics
 	Consume(ctx context.Context, processor func(ctx context.Context, list MessageList) error) error
 	Lock()
 	Unlock()

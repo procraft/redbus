@@ -79,6 +79,10 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 
 		groups := make([]model.StatGroup, 0, len(topic.GetGroups()))
 		for _, group := range topic.GetGroups() {
+			consumers := make([]model.StatConsumer, 0, len(group.GetConsumers()))
+			for _, consumer := range group.GetConsumers() {
+				consumers = append(consumers, consumerFromProto(consumer))
+			}
 			groupPartitions := make([]model.StatGroupPartition, 0, len(group.GetPartitions()))
 			for _, partition := range group.GetPartitions() {
 				groupPartitions = append(groupPartitions, model.StatGroupPartition{
@@ -86,11 +90,19 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 					Offset:        model.Offset(partition.GetOffset()),
 					ConsumerId:    model.ConsumerId(partition.GetConsumerId()),
 					ConsumerState: partition.GetConsumerState(),
+					FirstOffset:   model.Offset(partition.GetFirstOffset()),
+					LastOffset:    model.Offset(partition.GetLastOffset()),
+					Lag:           model.Offset(partition.GetLag()),
+					Committed:     partition.GetCommitted(),
 				})
 			}
 			groups = append(groups, model.StatGroup{
 				Name:          model.GroupName(group.GetName()),
+				KafkaGroupId:  group.GetKafkaGroupId(),
+				State:         group.GetState(),
+				Error:         group.GetError(),
 				PartitionList: groupPartitions,
+				ConsumerList:  consumers,
 			})
 		}
 
@@ -101,6 +113,61 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 		})
 	}
 	return result, nil
+}
+
+func (c *Client) GetConsumerStats(ctx context.Context) (model.StatConsumerList, error) {
+	topics, err := c.GetTopicStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	consumers := make(model.StatConsumerList, 0)
+	for _, topic := range topics {
+		for _, group := range topic.GroupList {
+			consumers = append(consumers, group.ConsumerList...)
+		}
+	}
+	return consumers, nil
+}
+
+func consumerFromProto(consumer *controlpb.Consumer) model.StatConsumer {
+	partitions := make([]model.StatConsumerPartition, 0, len(consumer.GetPartitions()))
+	for _, partition := range consumer.GetPartitions() {
+		partitions = append(partitions, model.StatConsumerPartition{
+			N:           model.PartitionN(partition.GetNumber()),
+			GroupOffset: model.Offset(partition.GetGroupOffset()),
+			LastOffset:  model.Offset(partition.GetLastOffset()),
+			Lag:         model.Offset(partition.GetLag()),
+			Committed:   partition.GetCommitted(),
+		})
+	}
+	var lastMessageAt *time.Time
+	if consumer.GetLastMessageAtUnixMs() > 0 {
+		value := time.UnixMilli(consumer.GetLastMessageAtUnixMs())
+		lastMessageAt = &value
+	}
+	return model.StatConsumer{
+		Id:                model.ConsumerId(consumer.GetId()),
+		Topic:             model.TopicName(consumer.GetTopic()),
+		Group:             model.GroupName(consumer.GetGroup()),
+		State:             consumer.GetState(),
+		ConnectedAt:       timeFromUnixMilli(consumer.GetConnectedAtUnixMs()),
+		StateSince:        timeFromUnixMilli(consumer.GetStateSinceUnixMs()),
+		LastMessageAt:     lastMessageAt,
+		MessagesProcessed: consumer.GetMessagesProcessed(),
+		ReconnectCount:    consumer.GetReconnectCount(),
+		LastError:         consumer.GetLastError(),
+		RepeatStrategy:    consumer.GetRepeatStrategy(),
+		KafkaMemberId:     consumer.GetKafkaMemberId(),
+		ClientHost:        consumer.GetClientHost(),
+		PartitionList:     partitions,
+	}
+}
+
+func timeFromUnixMilli(value int64) time.Time {
+	if value == 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(value)
 }
 
 func (c *Client) GetRetryStats(ctx context.Context) (model.RepeatStat, error) {
