@@ -15,7 +15,6 @@ type Repeater struct {
 	defaultStrategy *model.RepeatStrategy
 	connStore       IConnStore
 	repo            IRepository
-	eventSource     IEventSource
 }
 
 type IRepository interface {
@@ -33,16 +32,11 @@ type IConnStore interface {
 	FindBestConsumerBag(topic model.TopicName, group model.GroupName, id model.ConsumerId) *connstore.ConsumerBag
 }
 
-type IEventSource interface {
-	Publish(fn func() model.Event)
-}
-
-func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepository, eventSource IEventSource) *Repeater {
+func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepository) *Repeater {
 	return &Repeater{
 		defaultStrategy: defaultStrategy,
 		connStore:       connStore,
 		repo:            repo,
-		eventSource:     eventSource,
 	}
 }
 
@@ -60,9 +54,7 @@ func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg stri
 		CreatedAt:  runtime.Now(),
 	}
 	repeat.SetZeroAttempt(r.defaultStrategy)
-	err := r.repo.Insert(ctx, repeat)
-	r.publishEventSource(ctx)
-	return err
+	return r.repo.Insert(ctx, repeat)
 }
 
 func (r *Repeater) Repeat(ctx context.Context) error {
@@ -100,13 +92,6 @@ func (r *Repeater) RestartFailed(ctx context.Context, topic, group string) error
 	return r.repo.RestartFailed(ctx, topic, group)
 }
 
-func (r *Repeater) publishEventSource(ctx context.Context) {
-	r.eventSource.Publish(func() model.Event {
-		allCount, failedCount, _ := r.GetCount(ctx)
-		return model.EventRepeater{AllCount: allCount, FailedCount: failedCount}
-	})
-}
-
 func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatList) {
 	for _, repeat := range repeatList {
 		bag := r.connStore.FindBestConsumerBag(repeat.Topic, repeat.Group, repeat.ConsumerId)
@@ -127,9 +112,6 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 			repeat.ApplyNextAttempt(r.defaultStrategy)
 			repeat.Error = "empty result list"
 			err = r.repo.UpdateAttempt(ctx, repeat)
-			if repeat.FinishedAt != nil {
-				r.publishEventSource(ctx)
-			}
 			if err != nil {
 				logger.Consumer(logger.App, bag.Consumer, "Failed save to repo after processed: %v", err)
 			}
@@ -137,14 +119,10 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 		}
 		if data.ResultList[0].Ok {
 			err = r.repo.Delete(ctx, repeat.Id)
-			r.publishEventSource(ctx)
 		} else {
 			repeat.ApplyNextAttempt(r.defaultStrategy)
 			repeat.Error = data.ResultList[0].Message
 			err = r.repo.UpdateAttempt(ctx, repeat)
-			if repeat.FinishedAt != nil {
-				r.publishEventSource(ctx)
-			}
 		}
 		if err != nil {
 			logger.Consumer(logger.App, bag.Consumer, "Failed save to repo after processed: %v", err)

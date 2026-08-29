@@ -6,6 +6,7 @@ import config from '@/config';
 type EventHandlers = {
   onConsumers: (data: ConsumersEvent) => void;
   onRepeater: (data: RepeaterEvent) => void;
+  onOpen: () => void;
 };
 
 type LegacyRepeaterEvent = Omit<RepeaterEvent, 'failedCount'> & {
@@ -13,9 +14,11 @@ type LegacyRepeaterEvent = Omit<RepeaterEvent, 'failedCount'> & {
   failedount?: number;
 };
 
-export function useServerEvents({ onConsumers, onRepeater }: EventHandlers): void {
+export function useServerEvents({ onConsumers, onRepeater, onOpen }: EventHandlers): void {
   useEffect(() => {
     const eventSource = new EventSource(`${config.apiBaseUrl}/events`);
+
+    eventSource.addEventListener('open', onOpen);
 
     const consumersHandler = (event: MessageEvent<string>) => {
       try {
@@ -40,6 +43,9 @@ export function useServerEvents({ onConsumers, onRepeater }: EventHandlers): voi
     eventSource.addEventListener('consumers', consumersHandler);
     eventSource.addEventListener('repeater', repeaterHandler);
 
-    return () => eventSource.close();
-  }, [onConsumers, onRepeater]);
+    return () => {
+      eventSource.removeEventListener('open', onOpen);
+      eventSource.close();
+    };
+  }, [onConsumers, onOpen, onRepeater]);
 }

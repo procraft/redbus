@@ -58,6 +58,7 @@ func (a *AdminApi) RegisterHandlers(
 			}
 		},
 	)
+	a.eventConsumersCount = es.ConsumersCount
 	mux.Handle(baseBaseUrl+"/events", es)
 	var eventID atomic.Uint64
 	a.eventSource.Handler(func(event model.Event) {

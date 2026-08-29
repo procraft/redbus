@@ -18,13 +18,19 @@ type IEventSource interface {
 }
 
 type AdminApi struct {
-	service     IService
-	eventSource IEventSource
+	service             IService
+	eventSource         IEventSource
+	eventConsumersCount func() int
 }
 
 func New(service IService, eventSource IEventSource) *AdminApi {
 	return &AdminApi{
-		service:     service,
-		eventSource: eventSource,
+		service:             service,
+		eventSource:         eventSource,
+		eventConsumersCount: func() int { return 0 },
 	}
+}
+
+func (a *AdminApi) EventConsumersCount() int {
+	return a.eventConsumersCount()
 }

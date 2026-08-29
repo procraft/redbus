@@ -23,7 +23,6 @@ import (
 	bgpkg "github.com/prokraft/redbus/internal/pkg/background"
 	"github.com/prokraft/redbus/internal/pkg/db"
 	dbmw "github.com/prokraft/redbus/internal/pkg/db/interceptor"
-	"github.com/prokraft/redbus/internal/pkg/evtsrc"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"github.com/prokraft/redbus/internal/pkg/kafka/producer"
 	"github.com/prokraft/redbus/internal/pkg/kafka/provider"
@@ -41,7 +40,6 @@ import (
 
 type App struct {
 	conf                  *config.Config
-	eventSource           *evtsrc.EventSource
 	dataBusService        *databus.DataBus
 	repeaterService       *repeater.Repeater
 	grpcServer            *grpc.Server
@@ -120,7 +118,6 @@ func (a *App) initDb(ctx context.Context) error {
 }
 
 func (a *App) initService(ctx context.Context) error {
-	a.eventSource = evtsrc.New()
 	kafkaCredentials := credential.FromConf(a.conf.Kafka.Credentials)
 	createProducerFn := func(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
 		options := []producer.Option{
@@ -138,12 +135,11 @@ func (a *App) initService(ctx context.Context) error {
 			options...,
 		)
 	}
-	connStoreService := connstore.New(createProducerFn, a.eventSource)
+	connStoreService := connstore.New(createProducerFn)
 	repeaterService := repeater.New(
 		a.conf.Repeat.DefaultStrategy,
 		connStoreService,
 		repository.New(),
-		a.eventSource,
 	)
 	kafkaProvider, err := provider.New(ctx, a.conf.Kafka.HostPort, kafkaCredentials)
 	if err != nil {

@@ -9,24 +9,15 @@ import (
 )
 
 type ConnStore struct {
-	eventSource   IEventSource
 	producerStore *ProducerStore
 	consumerStore *ConsumerStore
 }
 
-func New(
-	createProducerFn CreateProducerFn,
-	eventSource IEventSource,
-) *ConnStore {
+func New(createProducerFn CreateProducerFn) *ConnStore {
 	return &ConnStore{
-		eventSource:   eventSource,
 		producerStore: NewProducerStore(createProducerFn),
 		consumerStore: NewConsumerStore(),
 	}
-}
-
-type IEventSource interface {
-	Publish(fn func() model.Event)
 }
 
 func (s *ConnStore) GetProducer(ctx context.Context, topic model.TopicName) (model.IProducer, error) {
@@ -51,16 +42,10 @@ func (s *ConnStore) GetConsumerTopicGroupList() model.TopicGroupList {
 
 func (s *ConnStore) AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy) {
 	s.consumerStore.add(c, repeatStrategy, srv)
-	s.eventSource.Publish(func() model.Event {
-		return model.EventConsumers{ConsumerCount: s.GetConsumerCount(), ConsumeTopicCount: s.GetConsumeTopicCount()}
-	})
 }
 
 func (s *ConnStore) RemoveConsumer(c model.IConsumer) {
 	s.consumerStore.remove(c)
-	s.eventSource.Publish(func() model.Event {
-		return model.EventConsumers{ConsumerCount: s.GetConsumerCount(), ConsumeTopicCount: s.GetConsumeTopicCount()}
-	})
 }
 
 func (s *ConnStore) GetConsumerCount() int {

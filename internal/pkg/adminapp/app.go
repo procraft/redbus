@@ -27,11 +27,13 @@ import (
 const shutdownTimeout = 10 * time.Second
 
 type App struct {
-	conf        *config.Config
-	client      *admincontrol.Client
-	eventSource *evtsrc.EventSource
-	httpServer  *http.Server
-	cancelSSE   context.CancelFunc
+	conf                *config.Config
+	client              *admincontrol.Client
+	getStateSnapshot    func(context.Context) (model.Stat, error)
+	eventConsumersCount func() int
+	eventSource         *evtsrc.EventSource
+	httpServer          *http.Server
+	cancelSSE           context.CancelFunc
 }
 
 func New(conf *config.Config) (*App, error) {
@@ -57,10 +59,12 @@ func New(conf *config.Config) (*App, error) {
 	mux.Handle("/", spaHandler(conf.Admin.StaticDir))
 
 	return &App{
-		conf:        conf,
-		client:      client,
-		eventSource: eventSource,
-		cancelSSE:   cancelSSE,
+		conf:                conf,
+		client:              client,
+		getStateSnapshot:    client.GetStateSnapshot,
+		eventConsumersCount: api.EventConsumersCount,
+		eventSource:         eventSource,
+		cancelSSE:           cancelSSE,
 		httpServer: &http.Server{
 			Addr:              fmt.Sprintf(":%d", conf.Admin.ServerPort),
 			Handler:           mux,
@@ -118,7 +122,12 @@ func (a *App) getStatPoller(ctx context.Context) func() error {
 		var previous model.Stat
 		var initialized bool
 		poll := func() {
-			stat, err := a.client.GetStateSnapshot(ctx)
+			if a.eventConsumersCount() == 0 {
+				initialized = false
+				return
+			}
+
+			stat, err := a.getStateSnapshot(ctx)
 			if err != nil {
 				logger.Error(logger.App, "Poll admin state: %v", err)
 				return

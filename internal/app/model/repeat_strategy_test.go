@@ -2,23 +2,26 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 func TestRepeatStrategy(t *testing.T) {
 	runtime.SetStatic("2020-01-01T10:00:00Z")
+	t.Cleanup(runtime.ResetNowFn)
+
 	cs := []struct {
+		name     string
 		conf     string
 		expected []string
 	}{
 		{
-			conf: fmt.Sprintf(`{"kind": "%s", "max": 5, "config": {"interval": %d}}`, RepeatKindEven, 5*time.Second),
+			name: "even",
+			conf: `{"kind":"even","maxAttempts":5,"evenConfig":{"interval":"5s"}}`,
 			expected: []string{
 				"2020-01-01T10:00:05Z",
 				"2020-01-01T10:00:05Z",
@@ -26,7 +29,8 @@ func TestRepeatStrategy(t *testing.T) {
 			},
 		},
 		{
-			conf: fmt.Sprintf(`{"kind": "%s", "max": 5, "config": {"interval": %d}}`, RepeatKindProgressive, 5*time.Second),
+			name: "progressive with default multiplier",
+			conf: `{"kind":"progressive","maxAttempts":5,"progressiveConfig":{"interval":"5s"}}`,
 			expected: []string{
 				"2020-01-01T10:00:05Z",
 				"2020-01-01T10:00:10Z",
@@ -35,7 +39,8 @@ func TestRepeatStrategy(t *testing.T) {
 			},
 		},
 		{
-			conf: fmt.Sprintf(`{"kind": "%s", "max": 5, "config": {"interval": %d, "multiplier": 2}}`, RepeatKindProgressive, 5*time.Second),
+			name: "progressive with multiplier",
+			conf: `{"kind":"progressive","maxAttempts":5,"progressiveConfig":{"interval":"5s","multiplier":2}}`,
 			expected: []string{
 				"2020-01-01T10:00:05Z",
 				"2020-01-01T10:00:15Z",
@@ -46,13 +51,16 @@ func TestRepeatStrategy(t *testing.T) {
 		},
 	}
 	for _, c := range cs {
-		var strategy RepeatStrategy
-		err := json.Unmarshal([]byte(c.conf), &strategy)
-		assert.Nil(t, err)
-		for i, expected := range c.expected {
-			attempt := i + 1
-			actual := strategy.GetNextStartedAt(attempt).Format(time.RFC3339)
-			assert.Equal(t, expected, actual, "conf: %s, attempt: %d", c.conf, attempt)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			var strategy RepeatStrategy
+			require.NoError(t, json.Unmarshal([]byte(c.conf), &strategy))
+			require.Equal(t, 5, strategy.MaxAttempts)
+
+			for i, expected := range c.expected {
+				attempt := i + 1
+				actual := strategy.GetNextStartedAt(attempt).Format(time.RFC3339)
+				require.Equal(t, expected, actual, "attempt: %d", attempt)
+			}
+		})
 	}
 }

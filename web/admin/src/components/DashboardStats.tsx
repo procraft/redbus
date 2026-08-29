@@ -31,9 +31,11 @@ export function DashboardStats() {
   const [stat, setStat] = useState(initialStat);
   const { execute, isLoading } = useRequest();
 
-  useEffect(() => {
+  const loadStat = useCallback(() => {
     void execute(dataBus.getDashboardStat, setStat);
   }, [execute]);
+
+  useEffect(loadStat, [loadStat]);
 
   const updateConsumers = useCallback((data: Pick<DashboardStat, 'consumerCount' | 'consumeTopicCount'>) => {
     setStat((current) => ({ ...current, ...data }));
@@ -47,7 +49,7 @@ export function DashboardStats() {
     }));
   }, []);
 
-  useServerEvents({ onConsumers: updateConsumers, onRepeater: updateRepeater });
+  useServerEvents({ onConsumers: updateConsumers, onRepeater: updateRepeater, onOpen: loadStat });
 
   const cards = [
     {
