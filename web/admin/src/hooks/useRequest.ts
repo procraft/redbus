@@ -1,13 +1,42 @@
-import {useNotification} from "@kyvg/vue3-notification";
+import { notifications } from '@mantine/notifications';
+import { useCallback, useState } from 'react';
 
-export function useRequest<R>(sendRequest: () => Promise<R>, onSuccess: (resp: R) => void): void {
-    const notification = useNotification()
+import { getRequestErrorMessage } from '@/api/httpClient';
 
-    sendRequest().then(onSuccess).catch((e: Error) => {
-        console.error(e)
-        notification.notify({
-            type: 'error',
-            text: e.message,
-        })
-    })
+export function useRequest() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const execute = useCallback(
+    async <Response,>(
+      request: () => Promise<Response>,
+      onSuccess?: (response: Response) => void,
+      successMessage?: string,
+    ): Promise<boolean> => {
+      setIsLoading(true);
+
+      try {
+        const response = await request();
+        onSuccess?.(response);
+
+        if (successMessage) {
+          notifications.show({ color: 'teal', message: successMessage });
+        }
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        notifications.show({
+          color: 'red',
+          title: 'Request failed',
+          message: getRequestErrorMessage(error),
+        });
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
+
+  return { execute, isLoading };
 }

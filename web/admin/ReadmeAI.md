@@ -1,0 +1,98 @@
+# Admin UI — контекст модуля
+
+## Назначение
+
+`web/admin` — статическая React-админка для просмотра состояния consumers, Kafka topics и retry-очереди,
+а также ручного перезапуска окончательно упавших сообщений. Она использует отдельные HTTP/SSE-контракты
+из `internal/app/adminapi` и собирается в `web/admin/dist`.
+
+## Стек и структура
+
+- React + TypeScript, сборка через Rspack и встроенный SWC loader; точные версии зафиксированы в
+  [`package.json`](package.json) и [`yarn.lock`](yarn.lock).
+- UI строится на Mantine, иконки — только из `lucide-react`. Не возвращай Bootstrap, jQuery или
+  локальные SVG для стандартных действий без отдельной причины.
+- [`src/App.tsx`](src/App.tsx) содержит AppShell и маршруты; страницы находятся в `src/pages`, таблицы
+  и live-карточки — в `src/components`, HTTP-клиент и DTO — в `src/api`.
+- Используется `HashRouter`: это позволяет одинаково работать через Go `http.FileServer` и nginx без
+  отдельного SPA fallback для `/topics` и `/failed-repeats`.
+
+Маршруты:
+
+- `#/` — dashboard;
+- `#/topics` — offsets и состояния consumer groups;
+- `#/failed-repeats` — статистика retry и ручной restart.
+
+## HTTP и SSE
+
+Все HTTP-методы админки — `POST` относительно `/api`:
+
+- `/dashboard/stat`;
+- `/topic/stat`;
+- `/repeat/stat`;
+- `/repeat/repeatTopicGroup`.
+
+HTTP-клиент передаёт `Authorization: Token <token>`. `REDBUS_API_HOST` и `REDBUS_API_TOKEN` подставляются
+Rspack во время сборки, поэтому токен оказывается в browser bundle и не является секретом. Для настоящей
+защиты нужна серверная аутентификация или reverse proxy, а не попытка скрыть build argument.
+
+Live-статистика приходит из `/api/events` через native `EventSource`:
+
+- событие `consumers`: `consumerCount`, `consumeTopicCount`;
+- событие `repeater`: `allCount`, `failedCount`.
+
+Исторически Vue-клиент слушал ошибочное имя `customers`, а сервер отправлял поле `failedount`. Серверный
+контракт исправлен в `internal/app/model/event.go`; React-клиент пока принимает и `failedount` для плавного
+обновления старых инсталляций. Не удаляй этот fallback без решения о прекращении обратной совместимости.
+
+Обычный `EventSource` не умеет задавать `Authorization` header, поэтому SSE route сейчас публичный. Если
+на `/api/events` будет добавлена авторизация, одновременно потребуется cookie/session, signed URL или другой
+совместимый с EventSource механизм.
+
+API списка конкретных failed messages отсутствует. В старой Vue-админке кнопка «Failed list» ошибочно
+вызывала restart; в React UI оставлено только реально поддерживаемое действие restart.
+
+## Локальный запуск и проверки
+
+Проект использует Yarn 4 через Corepack и требует Node.js `>=22.22`; для разработки принят Node.js 24:
+
+```shell
+nvm install 24       # один раз
+nvm use 24           # в новой shell-сессии
+corepack enable      # один раз для установленного Node
+yarn install --immutable
+yarn dev
+```
+
+Если запускается глобальный Yarn 1.22 из Homebrew, значит он раньше Corepack shim в `PATH`. После
+`nvm use 24` команды `which node`, `which yarn` должны указывать в один каталог NVM, а `yarn --version` —
+показывать версию из поля `packageManager`.
+
+В `.yarnrc.yml` точечно разрешены версии, которые на момент фиксации были новее стандартного суточного
+Yarn age gate и были проверены по registry. Не отключай age gate глобально и не расширяй исключения без
+необходимости.
+
+Основная проверка:
+
+```shell
+yarn check
+yarn npm audit --all --recursive
+```
+
+Rspack может предупреждать о raw-размере общего Mantine bundle; это не ошибка сборки. Перед добавлением
+крупных UI-зависимостей оцени gzip-размер и необходимость route-level code splitting.
+
+## Сборка и деплой
+
+- [`rspack.config.mjs`](rspack.config.mjs) читает `.env`, копирует favicon и генерирует production assets
+  без публичных source maps.
+- Go-сервер отдаёт `./web/admin/dist`; отдельный образ [`deploy/admin/Dockerfile`](../../deploy/admin/Dockerfile)
+  собирает тот же dist через Node 24 + `yarn install --immutable` и публикует его через nginx.
+- Build arguments `apiHost` и `apiToken` должны быть адресом и токеном, доступными браузеру пользователя,
+  а не только контейнеру. Значения для make-задачи задаются через `ADMIN_API_HOST` и `ADMIN_API_TOKEN`.
+
+## Связанные визуальные assets
+
+Основной Modern Badge хранится в `doc/logo.png` и сейчас используется только корневым `README.md`.
+Админка продолжает использовать отдельный `public/favicon.ico`; не считай его автоматически синхронизированным
+с основным логотипом.

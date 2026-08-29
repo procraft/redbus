@@ -1,0 +1,35 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 8% 0%, light-dark(rgba(250, 82, 82, 0.08), rgba(250, 82, 82, 0.12)), transparent 28rem),
+    var(--mantine-color-body);
+}
+
+.stat-card-button {
+  width: 100%;
+  border-radius: var(--mantine-radius-lg);
+}
+
+.stat-card {
+  height: 100%;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.stat-card-button:hover .stat-card {
+  transform: translateY(-2px);
+  border-color: var(--mantine-primary-color-5);
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.stat-card-button:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 3px;
+}

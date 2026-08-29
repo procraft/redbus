@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/prokraft/redbus/blob/master/LICENSE)
 
-<img src="./doc/logo.jpeg" height="347"/>
+<img src="./doc/logo.png" height="347" alt="RED Bus logo"/>
 
 RED Bus allows you to publish messages and process them with control over the result. You can set a retry
 strategy for each consumer and the number of retries after which a message will be marked as failed.
@@ -45,10 +45,27 @@ RED Bus will do the rest for you.
 3. Run data bus service
 
    ```shell
-       ./bin/databus
+       ./bin/redbus
    ```
 
-4. Try consumer and producer
+4. Start the admin panel
+
+   ```shell
+       cd web/admin
+       nvm install 24
+       nvm use 24
+       corepack enable
+       yarn install --immutable
+       yarn dev
+   ```
+
+   `nvm install 24` and `corepack enable` only need to be run once. Use `nvm use 24` when opening a new shell before
+   running the admin panel.
+
+   Open <http://localhost:8081> in your browser. By default, the admin panel connects to the RED Bus admin API at
+   `http://localhost:50006` using the settings from `web/admin/.env`.
+
+5. Try consumer and producer
 
    - [GoLang client](./example/golang/README.md)
    - [Scala client](./example/scala/README.md)

@@ -1,37 +1,40 @@
 {
   "name": "redbus-admin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.18.0",
+  "engines": {
+    "node": ">=22.22.0"
+  },
   "scripts": {
-    "serve": "vue-cli-service serve --watch",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "dev": "rspack serve",
+    "serve": "yarn dev",
+    "build": "rspack build",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src rspack.config.mjs",
+    "check": "yarn typecheck && yarn lint && yarn build"
   },
   "dependencies": {
-    "@kyvg/vue3-notification": "^2.9.1",
-    "axios": "^1.4.0",
-    "bootstrap": "^4.6.0",
-    "core-js": "^3.6.5",
-    "jquery": "^3.6.0",
-    "popper.js": "^1.16.1",
-    "vue": "^3.0.0",
-    "vue-router": "^4.0.6"
+    "@mantine/core": "9.5.2",
+    "@mantine/hooks": "9.5.2",
+    "@mantine/notifications": "9.5.2",
+    "axios": "1.20.0",
+    "lucide-react": "1.35.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-router": "8.3.1"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^4.18.0",
-    "@typescript-eslint/parser": "^4.18.0",
-    "@vue/cli-plugin-babel": "~4.5.0",
-    "@vue/cli-plugin-eslint": "~4.5.0",
-    "@vue/cli-plugin-typescript": "~4.5.0",
-    "@vue/cli-service": "~4.5.0",
-    "@vue/compiler-sfc": "^3.0.0",
-    "@vue/eslint-config-prettier": "^6.0.0",
-    "@vue/eslint-config-typescript": "^7.0.0",
-    "@vueuse/core": "^10.1.2",
-    "eslint": "^6.7.2",
-    "eslint-plugin-prettier": "^3.3.1",
-    "eslint-plugin-vue": "^7.0.0",
-    "prettier": "^2.2.1",
-    "typescript": "~4.9.5"
+    "@rspack/cli": "2.2.1",
+    "@rspack/core": "2.2.1",
+    "@rspack/dev-server": "2.2.1",
+    "@rspack/plugin-react-refresh": "2.0.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "dotenv": "17.4.2",
+    "oxlint": "1.80.0",
+    "react-refresh": "0.18.0",
+    "typescript": "7.0.2"
   }
 }

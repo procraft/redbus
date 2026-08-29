@@ -1,6 +1,9 @@
-const config = {
-    apiHost: process.env.VUE_APP_REDBUS_API_HOST,
-    apiToken: process.env.VUE_APP_REDBUS_API_TOKEN,
-}
+const apiHost = __REDBUS_API_HOST__.replace(/\/$/, '');
 
-export default config
+const config = {
+  apiHost,
+  apiToken: __REDBUS_API_TOKEN__,
+  apiBaseUrl: `${apiHost}/api`,
+} as const;
+
+export default config;

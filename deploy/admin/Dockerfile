@@ -1,16 +1,19 @@
-FROM node:fermium AS builder
+FROM node:24-alpine AS builder
 
 ARG apiHost
 ARG apiToken
-ARG CACHE_BUST=1
-ENV VUE_APP_REDBUS_API_HOST=$apiHost
-ENV VUE_APP_REDBUS_API_TOKEN=$apiToken
+ENV REDBUS_API_HOST=$apiHost
+ENV REDBUS_API_TOKEN=$apiToken
+
 WORKDIR /app
+RUN corepack enable
+COPY ./web/admin/package.json ./web/admin/yarn.lock ./web/admin/.yarnrc.yml ./
+RUN yarn install --immutable
 COPY ./web/admin .
-RUN yarn && yarn build
+RUN yarn build
 
 
-FROM nginx
+FROM nginx:1.31.4-alpine
 EXPOSE 80
 WORKDIR /usr/share/nginx/html
 

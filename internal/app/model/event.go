@@ -1,6 +1,6 @@
 package model
 
-import "strconv"
+import "encoding/json"
 
 type Event interface {
 	GetName() string
@@ -8,21 +8,23 @@ type Event interface {
 }
 
 type EventConsumers struct {
-	ConsumerCount     int
-	ConsumeTopicCount int
+	ConsumerCount     int `json:"consumerCount"`
+	ConsumeTopicCount int `json:"consumeTopicCount"`
 }
 
 func (e EventConsumers) GetName() string { return "consumers" }
 func (e EventConsumers) GetData() string {
-	return `{"consumerCount": ` + strconv.Itoa(e.ConsumerCount) + `, "consumeTopicCount": ` + strconv.Itoa(e.ConsumeTopicCount) + "}"
+	data, _ := json.Marshal(e)
+	return string(data)
 }
 
 type EventRepeater struct {
-	AllCount   int
-	Failedount int
+	AllCount    int `json:"allCount"`
+	FailedCount int `json:"failedCount"`
 }
 
 func (e EventRepeater) GetName() string { return "repeater" }
 func (e EventRepeater) GetData() string {
-	return `{"allCount": ` + strconv.Itoa(e.AllCount) + `, "failedount": ` + strconv.Itoa(e.Failedount) + "}"
+	data, _ := json.Marshal(e)
+	return string(data)
 }

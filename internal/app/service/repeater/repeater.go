@@ -103,7 +103,7 @@ func (r *Repeater) RestartFailed(ctx context.Context, topic, group string) error
 func (r *Repeater) publishEventSource(ctx context.Context) {
 	r.eventSource.Publish(func() model.Event {
 		allCount, failedCount, _ := r.GetCount(ctx)
-		return model.EventRepeater{AllCount: allCount, Failedount: failedCount}
+		return model.EventRepeater{AllCount: allCount, FailedCount: failedCount}
 	})
 }
 

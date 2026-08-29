@@ -1,35 +1,47 @@
 # RED Bus admin panel
 
-## Project setup
+React + TypeScript admin panel built with Rspack and Mantine.
 
-```
-yarn
-```
+## Requirements
 
-### Compiles and hot-reloads for development
+- Node.js 22.22 or newer (Node.js 24 is used in Docker)
+- Corepack with Yarn 4.18.0
 
-```
-yarn serve
-```
+When using NVM, install and activate Node.js 24, then enable Corepack:
 
-### Compiles and minifies for production
-
-```
-yarn build
+```shell
+nvm install 24
+nvm use 24
+corepack enable
 ```
 
-### Run your tests
+`nvm install 24` and `corepack enable` only need to be run once. Use `nvm use 24` for each new shell.
 
-```
-yarn test
-```
+## Development
 
-### Lints and fixes files
+Install the exact dependency tree from `yarn.lock`:
 
-```
-yarn lint
+```shell
+yarn install --immutable
 ```
 
-### Customize configuration
+Start the development server on <http://localhost:8081>:
 
-See [Configuration Reference](https://cli.vuejs.org/config/).
+```shell
+yarn dev
+```
+
+The API connection is configured in `.env`:
+
+```dotenv
+REDBUS_API_HOST=http://localhost:50006
+REDBUS_API_TOKEN=changeme
+```
+
+## Checks and production build
+
+```shell
+yarn check
+```
+
+The command runs TypeScript type checking, Oxlint, and the Rspack production build. Build artifacts are written to `dist/`.

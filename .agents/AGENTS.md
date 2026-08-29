@@ -30,7 +30,7 @@
 Redbus — сервис над Kafka для гарантированной обработки сообщений. Продюсеры публикуют сообщения
 через gRPC, consumers возвращают результат обработки по двунаправленному stream. Неуспешные
 сообщения сохраняются в PostgreSQL и повторяются по настраиваемой стратегии; HTTP admin API и
-Vue-интерфейс показывают статистику и позволяют перезапускать окончательно упавшие сообщения.
+React-интерфейс показывают статистику и позволяют перезапускать окончательно упавшие сообщения.
 
 ## Команды
 
@@ -45,7 +45,7 @@ Vue-интерфейс показывают статистику и позвол
 - `make gen` — заново сгенерировать Go protobuf/gRPC-код из `api/api.proto` в `api/golang/pb/`.
 - `docker compose -f example/docker-compose.yml up` — поднять Kafka и PostgreSQL для локального
   запуска; сервер читает `config.json`, затем необязательный `config.local.json`, затем env.
-- В `web/admin/`: `npm ci`, `npm run serve`, `npm run build`, `npm run lint`.
+- В `web/admin/`: `yarn install --immutable`, `yarn dev`, `yarn build`, `yarn lint`, `yarn check`.
 - В `api/scala/redbus/`: `sbt test`; ScalaPB генерируется средствами sbt.
 
 ## Архитектура
@@ -64,7 +64,7 @@ Vue-интерфейс показывают статистику и позвол
 - `internal/app/model` — доменные типы, retry-стратегии и интерфейсы Kafka-клиентов. Реализации
   инфраструктуры находятся в `internal/pkg/`.
 - `api/api.proto` — источник gRPC-контракта. Go-клиент лежит в `api/golang`, Scala-клиент — в
-  `api/scala/redbus`; Vue admin в `web/admin` работает с отдельным HTTP/SSE API.
+  `api/scala/redbus`; React admin в `web/admin` работает с отдельным HTTP/SSE API.
 - Серверные изменения схемы PostgreSQL идут в `internal/migrations/`. `api/inbox.sql` и
   `api/outbox.sql` — схемы интеграции клиентских приложений, а не миграции серверной retry-таблицы.
 
