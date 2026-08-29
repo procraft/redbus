@@ -5,13 +5,11 @@ import (
 	"github.com/prokraft/redbus/internal/app/model"
 )
 
-type IDataBusService interface {
-	GetStat(ctx context.Context) (model.Stat, error)
-	GetTopicList(ctx context.Context) (model.StatTopicList, error)
-}
-
-type IRepeater interface {
-	GetStat(ctx context.Context) (model.RepeatStat, error)
+type IService interface {
+	Health(ctx context.Context) error
+	GetStateSnapshot(ctx context.Context) (model.Stat, error)
+	GetTopicStats(ctx context.Context) (model.StatTopicList, error)
+	GetRetryStats(ctx context.Context) (model.RepeatStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
 }
 
@@ -20,15 +18,13 @@ type IEventSource interface {
 }
 
 type AdminApi struct {
-	dataBus     IDataBusService
-	repeater    IRepeater
+	service     IService
 	eventSource IEventSource
 }
 
-func New(dataBus IDataBusService, repeater IRepeater, eventSource IEventSource) *AdminApi {
+func New(service IService, eventSource IEventSource) *AdminApi {
 	return &AdminApi{
-		dataBus:     dataBus,
-		repeater:    repeater,
+		service:     service,
 		eventSource: eventSource,
 	}
 }

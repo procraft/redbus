@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package redbus.admincontrol.v1;
+
+option go_package = "github.com/prokraft/redbus/internal/api/admincontrol";
+
+service AdminControlService {
+  rpc GetStateSnapshot(Empty) returns (StateSnapshot) {}
+  rpc GetTopicStats(Empty) returns (TopicStats) {}
+  rpc GetRetryStats(Empty) returns (RetryStats) {}
+  rpc RestartFailed(RestartFailedRequest) returns (Empty) {}
+}
+
+message Empty {}
+
+message StateSnapshot {
+  int32 consume_topic_count = 1;
+  int32 consumer_count = 2;
+  int32 repeat_all_count = 3;
+  int32 repeat_failed_count = 4;
+}
+
+message TopicStats {
+  repeated Topic list = 1;
+}
+
+message Topic {
+  string name = 1;
+  repeated Partition partitions = 2;
+  repeated Group groups = 3;
+}
+
+message Partition {
+  int32 number = 1;
+  int64 first_offset = 2;
+  int64 last_offset = 3;
+}
+
+message Group {
+  string name = 1;
+  repeated GroupPartition partitions = 2;
+}
+
+message GroupPartition {
+  int32 number = 1;
+  int64 offset = 2;
+  string consumer_id = 3;
+  string consumer_state = 4;
+}
+
+message RetryStats {
+  repeated RetryStat list = 1;
+}
+
+message RetryStat {
+  string topic = 1;
+  string group = 2;
+  int32 all_count = 3;
+  int32 failed_count = 4;
+  string last_error = 5;
+}
+
+message RestartFailedRequest {
+  string topic = 1;
+  string group = 2;
+}

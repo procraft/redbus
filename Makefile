@@ -34,9 +34,22 @@ gen:
 		--go-grpc_opt=paths=source_relative,require_unimplemented_servers=false \
 		--proto_path=api \
 		api/*.proto
+	protoc \
+		--plugin=protoc-gen-go=$(LOCAL_BIN)/protoc-gen-go \
+		--plugin=protoc-gen-go-grpc=$(LOCAL_BIN)/protoc-gen-go-grpc \
+		--go_out=. \
+		--go_opt=module=github.com/prokraft/redbus \
+		--go-grpc_out=. \
+		--go-grpc_opt=module=github.com/prokraft/redbus,require_unimplemented_servers=false \
+		internal/api/admincontrol/admincontrol.proto
 
-build:
+build: build-redbus build-redbus-admin
+
+build-redbus:
 	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/redbus ./cmd/redbus/main.go
+
+build-redbus-admin:
+	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/redbus-admin ./cmd/redbus-admin/main.go
 
 build-example:
 	$(BUILD_ENVPARMS) go build $(BUILD_ARGS) -ldflags="$(BUILD_LDFLAGS)" -o $(LOCAL_BIN)/consumer ./example/golang/consumer/consumer.go

@@ -10,5 +10,5 @@ type repeatTopicGroupRequest struct {
 }
 
 func (a *AdminApi) repeatTopicGroupHandler(ctx context.Context, req repeatTopicGroupRequest) (*emptyResponse, error) {
-	return &emptyResponse{}, a.repeater.RestartFailed(ctx, req.Topic, req.Group)
+	return &emptyResponse{}, a.service.RestartFailed(ctx, req.Topic, req.Group)
 }

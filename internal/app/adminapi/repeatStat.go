@@ -15,7 +15,7 @@ type repeatStatItemResponse struct {
 }
 
 func (a *AdminApi) repeatStatHandler(ctx context.Context, _ emptyRequest) (*repeatStatResponse, error) {
-	stat, err := a.repeater.GetStat(ctx)
+	stat, err := a.service.GetRetryStats(ctx)
 	if err != nil {
 		return nil, err
 	}

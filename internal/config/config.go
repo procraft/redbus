@@ -9,20 +9,29 @@ import (
 )
 
 type Config struct {
-	Grpc   grpcConfig   `json:"grpc"`
-	Admin  adminConfig  `json:"admin"`
-	Kafka  kafkaConfig  `json:"kafka"`
-	Repeat repeatConfig `json:"repeat"`
-	DB     dbConfig     `json:"db"`
+	Grpc    grpcConfig    `json:"grpc"`
+	Control controlConfig `json:"control"`
+	Admin   adminConfig   `json:"admin"`
+	Kafka   kafkaConfig   `json:"kafka"`
+	Repeat  repeatConfig  `json:"repeat"`
+	DB      dbConfig      `json:"db"`
 }
 
 type grpcConfig struct {
 	ServerPort int `json:"serverPort" env:"REDBUS_GRPC_SERVER_PORT"`
 }
 
+type controlConfig struct {
+	ServerPort int `json:"serverPort" env:"REDBUS_CONTROL_SERVER_PORT"`
+}
+
 type adminConfig struct {
-	ServerPort int    `json:"serverPort" env:"REDBUS_ADMIN_SERVER_PORT"`
-	Token      string `json:"Token" env:"REDBUS_ADMIN_TOKEN"`
+	ServerPort     int            `json:"serverPort" env:"REDBUS_ADMIN_SERVER_PORT"`
+	Token          string         `json:"token" env:"REDBUS_ADMIN_TOKEN"`
+	ControlAddress string         `json:"controlAddress" env:"REDBUS_ADMIN_CONTROL_ADDRESS"`
+	PollInterval   model.Duration `json:"pollInterval,string" env:"REDBUS_ADMIN_POLL_INTERVAL"`
+	RequestTimeout model.Duration `json:"requestTimeout,string" env:"REDBUS_ADMIN_REQUEST_TIMEOUT"`
+	StaticDir      string         `json:"staticDir" env:"REDBUS_ADMIN_STATIC_DIR"`
 }
 
 type kafkaConfig struct {

@@ -4,13 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/prokraft/redbus/internal/app/model"
-	"gopkg.in/antage/eventsource.v1"
 	"io"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
+
+	"github.com/prokraft/redbus/internal/app/model"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type route struct {
@@ -19,11 +24,14 @@ type route struct {
 }
 
 func (a *AdminApi) RegisterHandlers(
+	mux *http.ServeMux,
 	authMiddleware func(next http.Handler) http.Handler,
 	m ...func(next http.Handler) http.Handler,
 ) context.CancelFunc {
 	publicRoutes := []route{
 		{path: "/health", handler: h(a.healthHandler, http.MethodGet)},
+		{path: "/health/live", handler: h(a.liveHandler, http.MethodGet)},
+		{path: "/health/ready", handler: h(a.healthHandler, http.MethodGet)},
 	}
 	apiRoutes := []route{
 		{path: "/dashboard/stat", handler: h(a.dashboardStatHandler)},
@@ -32,13 +40,13 @@ func (a *AdminApi) RegisterHandlers(
 		{path: "/repeat/repeatTopicGroup", handler: h(a.repeatTopicGroupHandler)},
 	}
 	for _, r := range publicRoutes {
-		http.Handle(r.path, middlewareChain(r.handler, m...))
+		mux.Handle(r.path, middlewareChain(r.handler, m...))
 	}
 	baseBaseUrl := "/api"
 	mWithAuth := []func(next http.Handler) http.Handler{authMiddleware}
 	mWithAuth = append(mWithAuth, m...)
 	for _, r := range apiRoutes {
-		http.Handle(baseBaseUrl+r.path, middlewareChain(r.handler, mWithAuth...))
+		mux.Handle(baseBaseUrl+r.path, middlewareChain(r.handler, mWithAuth...))
 	}
 
 	es := eventsource.New(
@@ -50,11 +58,10 @@ func (a *AdminApi) RegisterHandlers(
 			}
 		},
 	)
-	http.Handle(baseBaseUrl+"/events", es)
-	i := 0
+	mux.Handle(baseBaseUrl+"/events", es)
+	var eventID atomic.Uint64
 	a.eventSource.Handler(func(event model.Event) {
-		es.SendEventMessage(event.GetData(), event.GetName(), strconv.Itoa(i))
-		i++
+		es.SendEventMessage(event.GetData(), event.GetName(), strconv.FormatUint(eventID.Add(1), 10))
 	})
 
 	return func() {
@@ -103,7 +110,7 @@ func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error), 
 
 		resp, err := fn(r.Context(), req)
 		if err != nil {
-			sendErrorResponse(w, err, http.StatusInternalServerError)
+			sendErrorResponse(w, err, responseStatus(err))
 			return
 		}
 
@@ -119,6 +126,17 @@ func h[REQ any, RESP any](fn func(ctx context.Context, req REQ) (*RESP, error), 
 			sendErrorResponse(w, err, http.StatusInternalServerError)
 			return
 		}
+	}
+}
+
+func responseStatus(err error) int {
+	switch status.Code(err) {
+	case codes.InvalidArgument:
+		return http.StatusBadRequest
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusInternalServerError
 	}
 }
 

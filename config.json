@@ -2,9 +2,16 @@
   "grpc": {
     "serverPort": 50005
   },
+  "control": {
+    "serverPort": 50007
+  },
   "admin": {
     "serverPort": 50006,
-    "token": "changeme"
+    "token": "changeme",
+    "controlAddress": "localhost:50007",
+    "pollInterval": "5s",
+    "requestTimeout": "5s",
+    "staticDir": "./web/admin/dist"
   },
   "kafka": {
     "hostPort": "127.0.0.1:29092",

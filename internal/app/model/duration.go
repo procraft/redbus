@@ -15,6 +15,15 @@ type Duration struct {
 	time.Duration
 }
 
+func (d *Duration) UnmarshalText(text []byte) error {
+	duration, err := time.ParseDuration(string(text))
+	if err != nil {
+		return err
+	}
+	d.Duration = duration
+	return nil
+}
+
 func (d *Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
 }

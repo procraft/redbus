@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24-alpine AS web-builder
 
 ARG apiHost
 ARG apiToken
@@ -12,9 +12,25 @@ RUN yarn install --immutable
 COPY ./web/admin .
 RUN yarn build
 
+FROM golang:1.24-alpine3.20 AS go-builder
 
-FROM nginx:1.31.4-alpine
-EXPOSE 80
-WORKDIR /usr/share/nginx/html
+WORKDIR /app
+COPY ./go.mod ./go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags '-w -extldflags "-static"' -o redbus-admin ./cmd/redbus-admin/main.go
 
-COPY --from=builder /app/dist .
+
+FROM alpine:3.20
+RUN adduser -D -H -h /app redbus && \
+    mkdir -p /app/web/admin/dist && \
+    chown -R redbus:redbus /app
+WORKDIR /app
+USER redbus
+
+COPY --chown=redbus --from=go-builder /app/redbus-admin /app/redbus-admin
+COPY --chown=redbus --from=go-builder /app/config.json /app/config.json
+COPY --chown=redbus --from=web-builder /app/dist /app/web/admin/dist
+
+EXPOSE 8080
+CMD ["/app/redbus-admin"]

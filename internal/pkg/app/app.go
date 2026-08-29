@@ -2,32 +2,31 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/prokraft/redbus/internal/app/adminapi"
-	"github.com/prokraft/redbus/internal/config"
-	"github.com/prokraft/redbus/internal/pkg/app/interceptor/log"
-	"github.com/prokraft/redbus/internal/pkg/app/interceptor/recovery"
-	"github.com/prokraft/redbus/internal/pkg/evtsrc"
-	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
-	"github.com/prokraft/redbus/internal/pkg/kafka/provider"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/prokraft/redbus/internal/api/admincontrol"
+	"github.com/prokraft/redbus/internal/app/controlapi"
 	"github.com/prokraft/redbus/internal/app/grpcapi"
 	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/app/repository"
 	"github.com/prokraft/redbus/internal/app/service/connstore"
 	"github.com/prokraft/redbus/internal/app/service/databus"
 	"github.com/prokraft/redbus/internal/app/service/repeater"
+	"github.com/prokraft/redbus/internal/config"
 	"github.com/prokraft/redbus/internal/pkg/app/interceptor/reqid"
 	bgpkg "github.com/prokraft/redbus/internal/pkg/background"
 	"github.com/prokraft/redbus/internal/pkg/db"
 	dbmw "github.com/prokraft/redbus/internal/pkg/db/interceptor"
+	"github.com/prokraft/redbus/internal/pkg/evtsrc"
+	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"github.com/prokraft/redbus/internal/pkg/kafka/producer"
+	"github.com/prokraft/redbus/internal/pkg/kafka/provider"
 	"github.com/prokraft/redbus/internal/pkg/logger"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -36,6 +35,8 @@ import (
 	"github.com/segmentio/kafka-go"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 type App struct {
@@ -44,10 +45,10 @@ type App struct {
 	dataBusService        *databus.DataBus
 	repeaterService       *repeater.Repeater
 	grpcServer            *grpc.Server
+	controlServer         *grpc.Server
 	dbClient              db.IClient
 	grpcUnaryInterceptor  []grpc.UnaryServerInterceptor
 	grpcStreamInterceptor []grpc.StreamServerInterceptor
-	adminHttpMiddleware   []func(next http.Handler) http.Handler
 	background            *bgpkg.Background
 }
 
@@ -69,8 +70,8 @@ func (a *App) Run(ctx context.Context) error {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(a.getTerminateWatcher(egCtx, cancel))
-	eg.Go(a.getGrpcApiListener(egCtx))
-	eg.Go(a.getAdminListener(egCtx))
+	eg.Go(a.getGrpcListener(egCtx, "public", a.conf.Grpc.ServerPort, a.grpcServer))
+	eg.Go(a.getGrpcListener(egCtx, "control", a.conf.Control.ServerPort, a.controlServer))
 	for _, fn := range a.getBackgroundExecutorList(egCtx) {
 		eg.Go(fn)
 	}
@@ -84,7 +85,6 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initService,
 		a.initBackground,
 		a.initGrpcApi,
-		a.initAdminApi,
 	}
 
 	for _, fn := range inits {
@@ -116,7 +116,6 @@ func (a *App) initDb(ctx context.Context) error {
 	}
 	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, dbmw.UnaryServerInterceptor(dbFn))
 	a.grpcStreamInterceptor = append(a.grpcStreamInterceptor, dbmw.StreamServerInterceptor(dbFn))
-	a.adminHttpMiddleware = append(a.adminHttpMiddleware, dbmw.ServerMiddleware(dbFn))
 	return nil
 }
 
@@ -182,17 +181,31 @@ func (a *App) initGrpcApi(_ context.Context) error {
 		grpc_ctxtags.StreamServerInterceptor(),
 		grpc_recovery.StreamServerInterceptor(recoveryFn),
 	)
-	a.grpcServer = grpc.NewServer(
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(a.grpcStreamInterceptor...)),
-	)
+	a.grpcServer = a.newGrpcServer()
 	pb.RegisterRedbusServiceServer(a.grpcServer, grpcapi.New(a.conf, a.dataBusService, a.repeaterService))
+	registerHealthServer(a.grpcServer)
+
+	a.controlServer = a.newGrpcServer()
+	admincontrol.RegisterAdminControlServiceServer(
+		a.controlServer,
+		controlapi.New(a.dataBusService, a.repeaterService),
+	)
+	registerHealthServer(a.controlServer)
 
 	return nil
 }
 
-func (a *App) initAdminApi(_ context.Context) error {
-	return nil
+func (a *App) newGrpcServer() *grpc.Server {
+	return grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(a.grpcStreamInterceptor...)),
+	)
+}
+
+func registerHealthServer(server *grpc.Server) {
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(server, healthServer)
 }
 
 func (a *App) getTerminateWatcher(ctx context.Context, cancel context.CancelFunc) func() error {
@@ -210,51 +223,26 @@ func (a *App) getTerminateWatcher(ctx context.Context, cancel context.CancelFunc
 	}
 }
 
-func (a *App) getGrpcApiListener(ctx context.Context) func() error {
+func (a *App) getGrpcListener(ctx context.Context, name string, port int, server *grpc.Server) func() error {
 	return func() error {
-		logger.Info(logger.App, "Start GRPC server on port %d", a.conf.Grpc.ServerPort)
-		errCh := make(chan error)
-		go func() {
-			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", a.conf.Grpc.ServerPort))
-			if err != nil {
-				errCh <- fmt.Errorf("Failed to listen: %w", err)
-				return
-			}
-			err = a.grpcServer.Serve(listener)
-			errCh <- fmt.Errorf("Failed to serve: %w", err)
-		}()
-		select {
-		case err := <-errCh:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
+		logger.Info(logger.App, "Start %s GRPC server on port %d", name, port)
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s GRPC port: %w", name, err)
 		}
-	}
-}
 
-func (a *App) getAdminListener(ctx context.Context) func() error {
-	return func() error {
-		logger.Info(logger.App, "Start Admin server on port %d", a.conf.Admin.ServerPort)
-		errCh := make(chan error)
-		adminApi := adminapi.New(a.dataBusService, a.repeaterService, a.eventSource)
-
-		a.adminHttpMiddleware = append(a.adminHttpMiddleware,
-			log.ServerMiddleware(),
-			reqid.ServerMiddleware("admin"),
-			recovery.ServerMiddleware,
-		)
-		cancel := adminApi.RegisterHandlers(adminapi.AuthMiddleware(a.conf.Admin.Token), a.adminHttpMiddleware...)
-		defer cancel()
-		http.Handle("/", http.FileServer(http.Dir("./web/admin/dist")))
-
+		errCh := make(chan error, 1)
 		go func() {
-			err := http.ListenAndServe(fmt.Sprintf(":%d", a.conf.Admin.ServerPort), nil)
-			errCh <- fmt.Errorf("Failed to serve: %w", err)
+			errCh <- server.Serve(listener)
 		}()
 		select {
 		case err := <-errCh:
-			return err
+			if errors.Is(err, grpc.ErrServerStopped) {
+				return nil
+			}
+			return fmt.Errorf("failed to serve %s GRPC: %w", name, err)
 		case <-ctx.Done():
+			server.Stop()
 			return ctx.Err()
 		}
 	}

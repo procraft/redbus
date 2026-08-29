@@ -11,7 +11,7 @@ type topicStatResponse struct {
 }
 
 func (a *AdminApi) topicStatHandler(ctx context.Context, _ emptyRequest) (*topicStatResponse, error) {
-	list, err := a.dataBus.GetTopicList(ctx)
+	list, err := a.service.GetTopicStats(ctx)
 	if err != nil {
 		return nil, err
 	}

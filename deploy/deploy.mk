@@ -10,4 +10,4 @@ docker-build-admin:
 		--build-arg apiToken=$(ADMIN_API_TOKEN) ./
 
 docker-run-admin: docker-build-admin
-	docker run -d -p 8080:80 --name lms-redbus-admin lms-redbus-admin:latest
+	docker run -d -p 8080:8080 --name lms-redbus-admin lms-redbus-admin:latest

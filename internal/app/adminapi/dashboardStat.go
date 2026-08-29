@@ -12,7 +12,7 @@ type dashboardStatResponse struct {
 }
 
 func (a *AdminApi) dashboardStatHandler(ctx context.Context, _ emptyRequest) (*dashboardStatResponse, error) {
-	stat, err := a.dataBus.GetStat(ctx)
+	stat, err := a.service.GetStateSnapshot(ctx)
 	if err != nil {
 		return nil, err
 	}
