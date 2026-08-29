@@ -201,6 +201,8 @@ export function ConsumerList() {
                 const partitions = [...(consumer.partitions ?? [])].sort((left, right) => left.n - right.n);
                 const totalLag = partitions.reduce((total, partition) => total + partition.lag, 0);
                 const maxLag = partitions.length > 0 ? Math.max(...partitions.map((partition) => partition.lag)) : 0;
+                const stateAge = formatAge(consumer.stateSince);
+                const connectedAge = formatAge(consumer.connectedAt);
                 return (
                   <Table.Tr key={`${consumer.topic}:${consumer.group}:${consumer.id}:${consumer.kafkaMemberId}`}>
                     <Table.Td>
@@ -211,12 +213,12 @@ export function ConsumerList() {
                         {consumer.topic} / {consumer.group}
                       </Text>
                       <Group gap="xs" wrap="nowrap">
-                        <Badge color="gray" size="xs" variant="light">
-                          Retry: {consumer.repeatStrategy || 'default'}
-                        </Badge>
                         <Text c="dimmed" size="xs" style={{ whiteSpace: 'nowrap' }}>
                           {consumer.clientHost || 'Host unknown'}
                         </Text>
+                        <Badge color="gray" size="xs" variant="light">
+                          Retry: {consumer.repeatStrategy || 'default'}
+                        </Badge>
                       </Group>
                     </Table.Td>
                     <Table.Td>
@@ -225,14 +227,16 @@ export function ConsumerList() {
                           {consumer.state}
                         </Badge>
                         <Text c="dimmed" size="xs">
-                          {formatAge(consumer.stateSince)}
+                          {stateAge}
                         </Text>
                       </Group>
-                      <Tooltip label={formatDate(consumer.connectedAt)}>
-                        <Text size="sm" mt={4}>
-                          Connected: {formatAge(consumer.connectedAt)}
-                        </Text>
-                      </Tooltip>
+                      {connectedAge !== stateAge && (
+                        <Tooltip label={formatDate(consumer.connectedAt)}>
+                          <Text size="sm" mt={4}>
+                            Connected: {connectedAge}
+                          </Text>
+                        </Tooltip>
+                      )}
                       <Text
                         c={consumer.reconnectCount > 0 ? 'orange' : 'dimmed'}
                         fw={consumer.reconnectCount > 0 ? 600 : undefined}
