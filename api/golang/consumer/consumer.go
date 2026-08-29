@@ -82,7 +82,7 @@ func (c *Service) Consume(ctx context.Context, topic, group string, processor Co
 				continue
 			}
 			if !connectResponse.Connect.Ok {
-				streamErr = fmt.Errorf(connectResponse.Connect.Message)
+					streamErr = fmt.Errorf("%s", connectResponse.Connect.Message)
 				continue
 			}
 			break

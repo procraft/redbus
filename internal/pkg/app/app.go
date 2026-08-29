@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/api/admincontrol"
@@ -27,6 +29,7 @@ import (
 	"github.com/prokraft/redbus/internal/pkg/kafka/producer"
 	"github.com/prokraft/redbus/internal/pkg/kafka/provider"
 	"github.com/prokraft/redbus/internal/pkg/logger"
+	metricspkg "github.com/prokraft/redbus/internal/pkg/metrics"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -48,6 +51,8 @@ type App struct {
 	grpcUnaryInterceptor  []grpc.UnaryServerInterceptor
 	grpcStreamInterceptor []grpc.StreamServerInterceptor
 	background            *bgpkg.Background
+	metrics               *metricspkg.Metrics
+	metricsServer         *http.Server
 }
 
 func New(ctx context.Context, conf *config.Config) (*App, error) {
@@ -70,6 +75,9 @@ func (a *App) Run(ctx context.Context) error {
 	eg.Go(a.getTerminateWatcher(egCtx, cancel))
 	eg.Go(a.getGrpcListener(egCtx, "public", a.conf.Grpc.ServerPort, a.grpcServer))
 	eg.Go(a.getGrpcListener(egCtx, "control", a.conf.Control.ServerPort, a.controlServer))
+	if a.conf.Metrics.ServerPort > 0 {
+		eg.Go(a.getMetricsListener(egCtx))
+	}
 	for _, fn := range a.getBackgroundExecutorList(egCtx) {
 		eg.Go(fn)
 	}
@@ -79,6 +87,7 @@ func (a *App) Run(ctx context.Context) error {
 
 func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
+		a.initMetrics,
 		a.initDb,
 		a.initService,
 		a.initBackground,
@@ -91,6 +100,20 @@ func (a *App) initDeps(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func (a *App) initMetrics(_ context.Context) error {
+	a.metrics = metricspkg.New()
+	a.grpcUnaryInterceptor = append(a.grpcUnaryInterceptor, a.metrics.UnaryServerInterceptor())
+	a.grpcStreamInterceptor = append(a.grpcStreamInterceptor, a.metrics.StreamServerInterceptor())
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", a.metrics.Handler())
+	a.metricsServer = &http.Server{
+		Addr:              fmt.Sprintf(":%d", a.conf.Metrics.ServerPort),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	return nil
 }
 
@@ -107,6 +130,9 @@ func (a *App) initDb(ctx context.Context) error {
 	)
 	if err != nil {
 		return err
+	}
+	if pool, ok := a.dbClient.(metricspkg.DBPoolStatsProvider); ok {
+		a.metrics.RegisterDBPool(pool)
 	}
 
 	dbFn := func(ctx context.Context) db.IClient {
@@ -140,6 +166,7 @@ func (a *App) initService(ctx context.Context) error {
 		a.conf.Repeat.DefaultStrategy,
 		connStoreService,
 		repository.New(),
+		a.metrics,
 	)
 	kafkaProvider, err := provider.New(ctx, a.conf.Kafka.HostPort, kafkaCredentials)
 	if err != nil {
@@ -150,6 +177,7 @@ func (a *App) initService(ctx context.Context) error {
 		connStoreService,
 		repeaterService,
 		kafkaProvider,
+		a.metrics,
 	)
 	a.repeaterService = repeaterService
 	return nil
@@ -159,6 +187,16 @@ func (a *App) initBackground(_ context.Context) error {
 	a.background.Add("repeat", func(ctx context.Context) error {
 		return a.repeaterService.Repeat(ctx)
 	}, a.conf.Repeat.Interval.Duration)
+	if a.conf.Metrics.ServerPort > 0 {
+		a.background.Add("metrics_retry_records", func(ctx context.Context) error {
+			allCount, failedCount, err := a.repeaterService.GetCount(ctx)
+			if err != nil {
+				return err
+			}
+			a.metrics.SetRetryRecords(allCount-failedCount, failedCount)
+			return nil
+		}, a.conf.Repeat.Interval.Duration)
+	}
 	return nil
 }
 
@@ -178,7 +216,7 @@ func (a *App) initGrpcApi(_ context.Context) error {
 		grpc_recovery.StreamServerInterceptor(recoveryFn),
 	)
 	a.grpcServer = a.newGrpcServer()
-	pb.RegisterRedbusServiceServer(a.grpcServer, grpcapi.New(a.conf, a.dataBusService, a.repeaterService))
+	pb.RegisterRedbusServiceServer(a.grpcServer, grpcapi.New(a.conf, a.dataBusService, a.repeaterService, a.metrics))
 	registerHealthServer(a.grpcServer)
 
 	a.controlServer = a.newGrpcServer()
@@ -189,6 +227,30 @@ func (a *App) initGrpcApi(_ context.Context) error {
 	registerHealthServer(a.controlServer)
 
 	return nil
+}
+
+func (a *App) getMetricsListener(ctx context.Context) func() error {
+	return func() error {
+		logger.Info(logger.App, "Start Prometheus metrics server on port %d", a.conf.Metrics.ServerPort)
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- a.metricsServer.ListenAndServe()
+		}()
+		select {
+		case err := <-errCh:
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return fmt.Errorf("failed to serve Prometheus metrics: %w", err)
+		case <-ctx.Done():
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := a.metricsServer.Shutdown(shutdownCtx); err != nil {
+				return fmt.Errorf("shutdown Prometheus metrics server: %w", err)
+			}
+			return ctx.Err()
+		}
+	}
 }
 
 func (a *App) newGrpcServer() *grpc.Server {

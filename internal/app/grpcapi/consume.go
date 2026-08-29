@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/app/model"
@@ -56,21 +57,30 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 	// Consume
 	handler := func(ctx context.Context, list model.MessageList) error {
 		logger.Consumer(ctx, c, "Receive %d messages (%s) from kafka and send", len(list), strings.Join(list.GetIdList(), ", "))
+		startedAt := time.Now()
 		data, err := serverStream.ProcessMessageList(ctx, c, list)
+		b.metrics.ObserveConsumerBatch(string(c.GetTopic()), string(c.GetGroup()), len(list), time.Since(startedAt))
 		if err != nil {
+			b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "stream_error", len(list))
 			return fmt.Errorf("%w: %v", model.ErrHandler, err)
 		}
 		if data == nil {
+			b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "stream_closed", len(list))
 			return fmt.Errorf("%w: consume stream closed without result", model.ErrHandler)
 		}
 		byID := list.IndexByID()
+		successCount := 0
+		retryCount := 0
 		for i := range data.ResultList {
 			result := data.ResultList[i]
 			m, ok := byID[result.Id]
 			if !ok {
+				b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "invalid_result", len(list))
 				return fmt.Errorf("%w: result id %q not in batch, have [%s]", model.ErrHandler, result.Id, strings.Join(list.GetIdList(), ", "))
 			}
-			if !result.Ok {
+			if result.Ok {
+				successCount++
+			} else {
 				var key *[]byte
 				if len(m.Key) != 0 {
 					key = &m.Key
@@ -85,9 +95,16 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 					Headers:    m.Headers,
 					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
 				}, result.Message); err != nil {
+					b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry_enqueue_error", len(list))
 					return fmt.Errorf("%w: %v", model.ErrHandler, err)
 				}
+				retryCount++
 			}
+		}
+		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "success", successCount)
+		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry", retryCount)
+		if missingCount := len(list) - len(data.ResultList); missingCount > 0 {
+			b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "missing_result", missingCount)
 		}
 		return nil
 	}

@@ -69,3 +69,25 @@ RED Bus will do the rest for you.
 
    - [GoLang client](./example/golang/README.md)
    - [Scala client](./example/scala/README.md)
+
+## Prometheus metrics
+
+The Redbus process exposes Prometheus metrics at `http://localhost:50008/metrics`. Set
+`metrics.serverPort` in `config.json` or `REDBUS_METRICS_SERVER_PORT`; use `0` to disable the HTTP endpoint.
+
+Minimal Prometheus scrape configuration:
+
+```yaml
+scrape_configs:
+  - job_name: redbus
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["redbus:50008"]
+```
+
+The endpoint includes Go/process metrics and Redbus metrics for produce/consume throughput, consumer state,
+processing latency, Kafka reconnects, retry processing, gRPC calls, and the PostgreSQL connection pool. Labels are
+limited to bounded values such as topic, group, result, and state; message and consumer identifiers are not exported.
+
+Import [`deploy/grafana/redbus-overview.json`](./deploy/grafana/redbus-overview.json) into Grafana and select the
+Prometheus data source to get the starter dashboard.

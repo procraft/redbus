@@ -5,6 +5,9 @@
   "control": {
     "serverPort": 50007
   },
+  "metrics": {
+    "serverPort": 50008
+  },
   "admin": {
     "serverPort": 50006,
     "token": "changeme",

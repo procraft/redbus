@@ -25,6 +25,11 @@ func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, creden
 		options = append(options, consumer.WithCredentials(credentials))
 	}
 	c, err := consumer.New(ctx, kafkaHost, topic, group, id, options...)
+	connectionResult := "success"
+	if err != nil {
+		connectionResult = "error"
+	}
+	b.metrics.ObserveConsumerConnection(string(topic), string(group), connectionResult)
 	connMsg := fmt.Sprintf("%s with credentials %s", strings.Join(kafkaHost, ", "), credentials)
 	if err != nil {
 		logger.Consumer(ctx, c, "Failed connect to kafka %s: %v", connMsg, err)
@@ -55,9 +60,11 @@ func (b *DataBus) Consume(
 func (b *DataBus) startConsumer(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy) {
 	logger.Consumer(ctx, c, "Start consuming")
 	b.connStore.AddConsumer(c, srv, repeatStrategy)
+	b.metrics.AddConsumer(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), c.GetState().String())
 }
 
 func (b *DataBus) finishConsumer(ctx context.Context, c model.IConsumer, err error) {
+	b.metrics.RemoveConsumer(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()))
 	b.connStore.RemoveConsumer(c)
 	logger.Consumer(ctx, c, "Finish consuming, error: %v", err)
 }
@@ -108,6 +115,7 @@ func (b *DataBus) processConsumer(
 			// При других ошибках reader может остаться валидным
 			if attempt != 1 && (consumer.IsRebalanceError(consumeErr) || consumer.IsAuthorizationError(consumeErr)) {
 				logger.Consumer(ctx, c, "Reconnecting kafka consumer...")
+				b.metrics.ObserveKafkaReconnect(string(c.GetTopic()), string(c.GetGroup()), kafkaErrorReason(consumeErr))
 				if err := c.Reconnect(ctx); err != nil {
 					logger.Consumer(ctx, c, "Failed to reconnect kafka consumer: %v", err)
 					consumeErr = err
@@ -117,8 +125,10 @@ func (b *DataBus) processConsumer(
 
 			logger.Consumer(ctx, c, "Consume kafka starting...")
 			c.SetState(model.ConsumerStateConnected)
+			b.metrics.ChangeConsumerState(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), model.ConsumerStateConnected.String())
 			consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })
 			c.SetState(model.ConsumerStateReconnecting)
+			b.metrics.ChangeConsumerState(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), model.ConsumerStateReconnecting.String())
 
 			// handler error
 			if errors.Is(consumeErr, errHandler) {
@@ -135,4 +145,15 @@ func (b *DataBus) processConsumer(
 	<-ctx.Done()
 
 	return nil
+}
+
+func kafkaErrorReason(err error) string {
+	switch {
+	case consumer.IsAuthorizationError(err):
+		return "authorization"
+	case consumer.IsRebalanceError(err):
+		return "rebalance"
+	default:
+		return "other"
+	}
 }

@@ -11,10 +11,15 @@ import (
 type Config struct {
 	Grpc    grpcConfig    `json:"grpc"`
 	Control controlConfig `json:"control"`
+	Metrics metricsConfig `json:"metrics"`
 	Admin   adminConfig   `json:"admin"`
 	Kafka   kafkaConfig   `json:"kafka"`
 	Repeat  repeatConfig  `json:"repeat"`
 	DB      dbConfig      `json:"db"`
+}
+
+type metricsConfig struct {
+	ServerPort int `json:"serverPort" env:"REDBUS_METRICS_SERVER_PORT"`
 }
 
 type grpcConfig struct {

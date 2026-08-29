@@ -23,4 +23,6 @@ COPY --chown=redbus --from=builder /app/config.json /app
 COPY --chown=redbus --from=builder /app/internal/migrations /app/internal/migrations
 COPY --chown=redbus --from=builder /app/deploy/YandexCA.crt /usr/local/share/ca-certificates/YandexCA.crt
 
+EXPOSE 50005 50007 50008
+
 CMD ["/app/redbus"]

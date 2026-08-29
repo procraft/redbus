@@ -2,6 +2,8 @@ package databus
 
 import (
 	"context"
+	"time"
+
 	"github.com/prokraft/redbus/internal/config"
 
 	"github.com/prokraft/redbus/api/golang/pb"
@@ -14,6 +16,7 @@ type DataBus struct {
 	connStore     IConnStore
 	repeater      IRepeater
 	kafkaProvider IKafkaProvider
+	metrics       IMetrics
 }
 
 func New(
@@ -21,13 +24,24 @@ func New(
 	connStore IConnStore,
 	repeater IRepeater,
 	kafkaProvider IKafkaProvider,
+	metrics IMetrics,
 ) *DataBus {
 	return &DataBus{
 		conf:          conf,
 		connStore:     connStore,
 		repeater:      repeater,
 		kafkaProvider: kafkaProvider,
+		metrics:       metrics,
 	}
+}
+
+type IMetrics interface {
+	ObserveProduce(topic, result string, duration time.Duration)
+	ObserveConsumerConnection(topic, group, result string)
+	AddConsumer(topic, group, id, state string)
+	RemoveConsumer(topic, group, id string)
+	ChangeConsumerState(topic, group, id, current string)
+	ObserveKafkaReconnect(topic, group, reason string)
 }
 
 type IConnStore interface {

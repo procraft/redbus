@@ -13,6 +13,7 @@ type GrpcApi struct {
 	conf     *config.Config
 	dataBus  IDataBus
 	repeater IRepeater
+	metrics  IMetrics
 	pb.UnimplementedRedbusServiceServer
 }
 
@@ -24,12 +25,19 @@ func New(
 	conf *config.Config,
 	dataBus IDataBus,
 	repeater IRepeater,
+	metrics IMetrics,
 ) *GrpcApi {
 	return &GrpcApi{
 		conf:     conf,
 		dataBus:  dataBus,
 		repeater: repeater,
+		metrics:  metrics,
 	}
+}
+
+type IMetrics interface {
+	ObserveConsumed(topic, group, result string, count int)
+	ObserveConsumerBatch(topic, group string, size int, duration time.Duration)
 }
 
 type IDataBus interface {
