@@ -59,6 +59,14 @@ function formatAge(value?: string | null): string {
   return `${Math.floor(hours / 24)}d ${hours % 24}h ago`;
 }
 
+function shortenMiddle(value: string, maxLength = 32): string {
+  if (value.length <= maxLength) return value;
+  const visibleLength = maxLength - 1;
+  const startLength = Math.ceil(visibleLength / 2);
+  const endLength = Math.floor(visibleLength / 2);
+  return `${value.slice(0, startLength)}…${value.slice(-endLength)}`;
+}
+
 function averageRate(consumer: ConsumerStat): number {
   const connectedAt = validDate(consumer.connectedAt);
   if (!connectedAt) return 0;
@@ -171,15 +179,20 @@ export function ConsumerList() {
           <Loader />
         </Center>
       ) : (
-        <Table.ScrollContainer minWidth={1160}>
-          <Table striped highlightOnHover withTableBorder verticalSpacing="sm">
+        <Table.ScrollContainer minWidth={1060}>
+          <Table
+            striped
+            highlightOnHover
+            styles={{ td: { verticalAlign: 'top' } }}
+            withTableBorder
+            verticalSpacing="sm"
+          >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ whiteSpace: 'nowrap' }}>Consumer / topic / group</Table.Th>
+                <Table.Th>Consumer</Table.Th>
                 <Table.Th style={{ whiteSpace: 'nowrap' }}>State / connection</Table.Th>
-                <Table.Th>Partitions and lag</Table.Th>
+                <Table.Th>Partitions</Table.Th>
                 <Table.Th style={{ whiteSpace: 'nowrap' }}>Lag / activity</Table.Th>
-                <Table.Th>Reconnects</Table.Th>
                 <Table.Th>Last error</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -220,9 +233,18 @@ export function ConsumerList() {
                           Connected: {formatAge(consumer.connectedAt)}
                         </Text>
                       </Tooltip>
-                      <Text c="dimmed" size="xs">
-                        Kafka: {consumer.kafkaMemberId || 'joining'}
+                      <Text
+                        c={consumer.reconnectCount > 0 ? 'orange' : 'dimmed'}
+                        fw={consumer.reconnectCount > 0 ? 600 : undefined}
+                        size="xs"
+                      >
+                        Reconnects: {numberFormatter.format(consumer.reconnectCount)}
                       </Text>
+                      <Tooltip label={consumer.kafkaMemberId || 'joining'}>
+                        <Text c="dimmed" size="xs" style={{ whiteSpace: 'nowrap' }}>
+                          Kafka: {consumer.kafkaMemberId ? shortenMiddle(consumer.kafkaMemberId) : 'joining'}
+                        </Text>
+                      </Tooltip>
                     </Table.Td>
                     <Table.Td>
                       <Stack gap={2}>
@@ -250,7 +272,6 @@ export function ConsumerList() {
                         </Text>
                       </Tooltip>
                     </Table.Td>
-                    <Table.Td>{numberFormatter.format(consumer.reconnectCount)}</Table.Td>
                     <Table.Td maw={260}>
                       {consumer.lastError ? (
                         <Tooltip label={consumer.lastError} multiline w={420}>
@@ -267,7 +288,7 @@ export function ConsumerList() {
               })}
               {filteredConsumers.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={6}>
+                  <Table.Td colSpan={5}>
                     <Text c="dimmed" ta="center" py="lg">
                       {consumers.length === 0
                         ? 'No consumers connected'
