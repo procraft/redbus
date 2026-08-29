@@ -107,24 +107,6 @@ export function ConsumerList() {
 
   const connectedCount = consumers.filter((consumer) => consumer.state === 'connected').length;
   const reconnectingCount = consumers.filter((consumer) => consumer.state === 'reconnecting').length;
-  const groupRowSpans = useMemo(() => {
-    const spans = new Map<number, number>();
-    let index = 0;
-    while (index < filteredConsumers.length) {
-      const consumer = filteredConsumers[index]!;
-      let end = index + 1;
-      while (
-        end < filteredConsumers.length &&
-        filteredConsumers[end]!.topic === consumer.topic &&
-        filteredConsumers[end]!.group === consumer.group
-      ) {
-        end++;
-      }
-      spans.set(index, end - index);
-      index = end;
-    }
-    return spans;
-  }, [filteredConsumers]);
 
   return (
     <Paper withBorder radius="lg" p={{ base: 'md', sm: 'lg' }}>
@@ -189,52 +171,57 @@ export function ConsumerList() {
           <Loader />
         </Center>
       ) : (
-        <Table.ScrollContainer minWidth={1480}>
+        <Table.ScrollContainer minWidth={1160}>
           <Table striped highlightOnHover withTableBorder verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Consumer</Table.Th>
-                <Table.Th>Topic / group</Table.Th>
-                <Table.Th>State</Table.Th>
+                <Table.Th style={{ whiteSpace: 'nowrap' }}>Consumer / topic / group</Table.Th>
+                <Table.Th style={{ whiteSpace: 'nowrap' }}>State / connection</Table.Th>
                 <Table.Th>Partitions and lag</Table.Th>
-                <Table.Th>Total / max lag</Table.Th>
-                <Table.Th>Activity</Table.Th>
-                <Table.Th>Connection</Table.Th>
+                <Table.Th style={{ whiteSpace: 'nowrap' }}>Lag / activity</Table.Th>
                 <Table.Th>Reconnects</Table.Th>
-                <Table.Th>Retry policy</Table.Th>
                 <Table.Th>Last error</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredConsumers.map((consumer, consumerIndex) => {
+              {filteredConsumers.map((consumer) => {
                 const partitions = [...(consumer.partitions ?? [])].sort((left, right) => left.n - right.n);
                 const totalLag = partitions.reduce((total, partition) => total + partition.lag, 0);
                 const maxLag = partitions.length > 0 ? Math.max(...partitions.map((partition) => partition.lag)) : 0;
                 return (
                   <Table.Tr key={`${consumer.topic}:${consumer.group}:${consumer.id}:${consumer.kafkaMemberId}`}>
                     <Table.Td>
-                      <Text fw={700}>{consumer.id}</Text>
-                      <Text c="dimmed" size="xs">
-                        {consumer.clientHost || 'Host unknown'}
+                      <Text fw={700} style={{ whiteSpace: 'nowrap' }}>
+                        {consumer.id}
                       </Text>
-                    </Table.Td>
-                    {groupRowSpans.has(consumerIndex) && (
-                      <Table.Td
-                        rowSpan={groupRowSpans.get(consumerIndex)}
-                        style={{ verticalAlign: 'top' }}
-                      >
-                        <Text fw={600}>{consumer.topic}</Text>
-                        <Text c="dimmed" size="xs">
-                          {consumer.group}
+                      <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
+                        {consumer.topic} / {consumer.group}
+                      </Text>
+                      <Group gap="xs" wrap="nowrap">
+                        <Badge color="gray" size="xs" variant="light">
+                          Retry: {consumer.repeatStrategy || 'default'}
+                        </Badge>
+                        <Text c="dimmed" size="xs" style={{ whiteSpace: 'nowrap' }}>
+                          {consumer.clientHost || 'Host unknown'}
                         </Text>
-                      </Table.Td>
-                    )}
+                      </Group>
+                    </Table.Td>
                     <Table.Td>
-                      <Badge color={stateColor(consumer.state)} variant="light">
-                        {consumer.state}
-                      </Badge>
-                      <Text c="dimmed" size="xs" mt={4}>
-                        {formatAge(consumer.stateSince)}
+                      <Group gap="xs" wrap="nowrap">
+                        <Badge color={stateColor(consumer.state)} variant="light">
+                          {consumer.state}
+                        </Badge>
+                        <Text c="dimmed" size="xs">
+                          {formatAge(consumer.stateSince)}
+                        </Text>
+                      </Group>
+                      <Tooltip label={formatDate(consumer.connectedAt)}>
+                        <Text size="sm" mt={4}>
+                          Connected: {formatAge(consumer.connectedAt)}
+                        </Text>
+                      </Tooltip>
+                      <Text c="dimmed" size="xs">
+                        Kafka: {consumer.kafkaMemberId || 'joining'}
                       </Text>
                     </Table.Td>
                     <Table.Td>
@@ -251,10 +238,8 @@ export function ConsumerList() {
                     </Table.Td>
                     <Table.Td>
                       <Text fw={totalLag > 0 ? 700 : undefined} c={totalLag > 0 ? 'orange' : undefined}>
-                        {numberFormatter.format(totalLag)} / {numberFormatter.format(maxLag)}
+                        Lag: {numberFormatter.format(totalLag)} / {numberFormatter.format(maxLag)}
                       </Text>
-                    </Table.Td>
-                    <Table.Td>
                       <Text>{numberFormatter.format(consumer.messagesProcessed)} messages</Text>
                       <Text c="dimmed" size="xs">
                         {averageRate(consumer).toFixed(2)} msg/s avg
@@ -265,16 +250,7 @@ export function ConsumerList() {
                         </Text>
                       </Tooltip>
                     </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={formatDate(consumer.connectedAt)}>
-                        <Text>{formatAge(consumer.connectedAt)}</Text>
-                      </Tooltip>
-                      <Text c="dimmed" size="xs">
-                        Kafka: {consumer.kafkaMemberId || 'joining'}
-                      </Text>
-                    </Table.Td>
                     <Table.Td>{numberFormatter.format(consumer.reconnectCount)}</Table.Td>
-                    <Table.Td>{consumer.repeatStrategy || 'default'}</Table.Td>
                     <Table.Td maw={260}>
                       {consumer.lastError ? (
                         <Tooltip label={consumer.lastError} multiline w={420}>
@@ -291,7 +267,7 @@ export function ConsumerList() {
               })}
               {filteredConsumers.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={10}>
+                  <Table.Td colSpan={6}>
                     <Text c="dimmed" ta="center" py="lg">
                       {consumers.length === 0
                         ? 'No consumers connected'
