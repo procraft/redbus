@@ -6,8 +6,14 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 8% 0%, light-dark(rgba(250, 82, 82, 0.08), rgba(250, 82, 82, 0.12)), transparent 28rem),
+    radial-gradient(circle at 8% 0%, light-dark(rgba(34, 139, 230, 0.06), rgba(51, 154, 240, 0.08)), transparent 28rem),
     var(--mantine-color-body);
+}
+
+.app-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
 }
 
 .stat-card-button {

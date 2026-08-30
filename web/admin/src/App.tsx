@@ -6,15 +6,15 @@ import {
   Center,
   Container,
   Group,
+  Image,
   Loader,
   Stack,
   Text,
-  ThemeIcon,
   Tooltip,
   useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { BusFront, Cable, Layers3, LayoutDashboard, Moon, Sun, TriangleAlert } from 'lucide-react';
+import { Cable, Layers3, LayoutDashboard, Moon, Sun, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 
@@ -83,9 +83,7 @@ export default function App() {
                 onClick={toggle}
                 size="sm"
               />
-              <ThemeIcon color="red" size="lg" variant="filled">
-                <BusFront size={22} />
-              </ThemeIcon>
+              <Image alt="RED Bus logo" className="app-logo" src="/logo.png" />
               <Text fw={800} visibleFrom="xs">
                 RED Bus
               </Text>

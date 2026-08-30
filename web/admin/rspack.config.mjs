@@ -13,6 +13,11 @@ dotenv.config({ path: path.join(currentDirectory, '.env'), quiet: true });
 export default {
   context: currentDirectory,
   mode: isDevelopment ? 'development' : 'production',
+  performance: {
+    hints: 'warning',
+    maxAssetSize: 650 * 1024,
+    maxEntrypointSize: 1100 * 1024,
+  },
   entry: './src/main.tsx',
   devtool: isDevelopment ? 'eval-cheap-module-source-map' : false,
   output: {
@@ -63,7 +68,10 @@ export default {
       template: './public/index.html',
     }),
     new rspack.CopyRspackPlugin({
-      patterns: [{ from: './public/favicon.ico', to: 'favicon.ico' }],
+      patterns: [
+        { from: './public/favicon.ico', to: 'favicon.ico' },
+        { from: './public/logo.png', to: 'logo.png' },
+      ],
     }),
     new rspack.DefinePlugin({
       __REDBUS_API_HOST__: JSON.stringify(process.env.REDBUS_API_HOST ?? ''),
