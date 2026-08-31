@@ -65,3 +65,21 @@ agent-adapters:
 
 agent-adapters-check:
 	.agents/scripts/sync-agent-adapters.sh --check
+
+.PHONY: readme-index readme-index-check readme-index-hook hooks
+readme-index:
+	bash .agents/scripts/readme-ai-index.sh
+
+readme-index-check:
+	bash .agents/scripts/readme-ai-index.sh --check
+
+readme-index-hook:
+	bash .agents/scripts/readme-ai-index.sh --hook
+
+hooks:
+	@current="$$(git config --local --get core.hooksPath || true)"; \
+		if [ -n "$$current" ] && [ "$$current" != ".agents/git-hooks" ]; then \
+			echo "Refusing to replace existing core.hooksPath=$$current" >&2; exit 1; \
+		fi
+	git config --local core.hooksPath .agents/git-hooks
+	chmod +x .agents/git-hooks/*

@@ -6,8 +6,6 @@
 /bin
 /vendors
 /config.local.json
-/docs/ai/proposals
-
 /api/scala/redbus/.idea
 /api/scala/redbus/.bsp
 /api/scala/redbus/target
