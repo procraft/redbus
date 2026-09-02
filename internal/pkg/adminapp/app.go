@@ -37,6 +37,11 @@ type App struct {
 }
 
 func New(conf *config.Config) (*App, error) {
+	apiHost := strings.TrimSpace(conf.Admin.ApiHost)
+	if apiHost == "" {
+		return nil, errors.New("REDBUS_API_HOST is required")
+	}
+
 	requestTimeout := conf.Admin.RequestTimeout.Duration
 	if requestTimeout <= 0 {
 		requestTimeout = 5 * time.Second
@@ -48,6 +53,7 @@ func New(conf *config.Config) (*App, error) {
 
 	eventSource := evtsrc.New()
 	mux := http.NewServeMux()
+	mux.Handle("/runtime-config.js", runtimeConfigHandler(apiHost))
 	api := adminapi.New(client, eventSource)
 	cancelSSE := api.RegisterHandlers(
 		mux,

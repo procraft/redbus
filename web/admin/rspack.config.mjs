@@ -71,6 +71,7 @@ export default {
       patterns: [
         { from: './public/favicon.ico', to: 'favicon.ico' },
         { from: './public/logo.png', to: 'logo.png' },
+        { from: './public/runtime-config.js', to: 'runtime-config.js' },
       ],
     }),
     new rspack.DefinePlugin({

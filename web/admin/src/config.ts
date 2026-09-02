@@ -1,4 +1,5 @@
-const apiHost = __REDBUS_API_HOST__.replace(/\/$/, '');
+const runtimeApiHost = window.__REDBUS_RUNTIME_CONFIG__?.apiHost?.trim();
+const apiHost = (runtimeApiHost || __REDBUS_API_HOST__).replace(/\/$/, '');
 
 const config = {
   apiHost,

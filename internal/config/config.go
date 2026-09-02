@@ -33,6 +33,7 @@ type controlConfig struct {
 type adminConfig struct {
 	ServerPort     int            `json:"serverPort" env:"REDBUS_ADMIN_SERVER_PORT"`
 	Token          string         `json:"token" env:"REDBUS_ADMIN_TOKEN"`
+	ApiHost        string         `json:"apiHost" env:"REDBUS_API_HOST"`
 	ControlAddress string         `json:"controlAddress" env:"REDBUS_ADMIN_CONTROL_ADDRESS"`
 	PollInterval   model.Duration `json:"pollInterval,string" env:"REDBUS_ADMIN_POLL_INTERVAL"`
 	RequestTimeout model.Duration `json:"requestTimeout,string" env:"REDBUS_ADMIN_REQUEST_TIMEOUT"`

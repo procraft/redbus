@@ -38,19 +38,17 @@ REDBUS_API_HOST=http://localhost:50006
 REDBUS_API_TOKEN=changeme
 ```
 
-The production admin image requires an explicit API host at build time. The UI and API must use separate
-origins because the UI ingress uses browser-managed HTTP Basic authentication while the admin API uses
-`Authorization: Token`:
+The production admin image reads the API host from the container environment at runtime. The same image can
+therefore be promoted between environments:
 
 ```shell
-ADMIN_API_HOST=https://redbus-api.sohoup.ru \
-ADMIN_API_TOKEN=changeme \
-make docker-build-admin
+docker run -e REDBUS_API_HOST=https://redbus-api.sohoup.ru lms-redbus-admin:latest
 ```
 
-The Docker build fails when `ADMIN_API_HOST` is missing, preventing an accidental same-origin bundle. CI/CD
-must set the correct host for each environment; DNS, TLS, and CORS for that API origin are infrastructure
-prerequisites.
+The Go server exposes the value as a non-cacheable `/runtime-config.js` before the React bundle starts. Admin
+startup fails when `REDBUS_API_HOST` is missing, preventing an accidental same-origin fallback. The UI and API
+must use separate origins because the UI ingress uses browser-managed HTTP Basic authentication while the admin
+API uses `Authorization: Token`. DNS, TLS, and CORS for the configured API origin are infrastructure prerequisites.
 
 ## Checks and production build
 
