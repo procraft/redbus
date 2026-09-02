@@ -38,6 +38,10 @@ REDBUS_API_HOST=http://localhost:50006
 REDBUS_API_TOKEN=changeme
 ```
 
+The production admin image deliberately forces `REDBUS_API_HOST` to an empty value and uses the same-origin
+`/api` endpoint served by `redbus-admin`. This keeps one image portable between environments and
+prevents a build-time host from routing production UI requests to another environment.
+
 ## Checks and production build
 
 ```shell

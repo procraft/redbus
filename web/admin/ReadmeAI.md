@@ -102,13 +102,16 @@ Rspack может предупреждать о raw-размере общего 
 
 - [`rspack.config.mjs`](rspack.config.mjs) читает `.env`, копирует favicon и генерирует production assets
   без публичных source maps.
-- Go-сервер отдаёт `./web/admin/dist`; отдельный образ [`deploy/admin/Dockerfile`](../../deploy/admin/Dockerfile)
-  собирает тот же dist через Node 24 + `yarn install --immutable` и публикует его через nginx.
+- Go-сервер `redbus-admin` отдаёт `./web/admin/dist` и `/api` на одном HTTP listener;
+  отдельный образ [`deploy/admin/Dockerfile`](../../deploy/admin/Dockerfile) собирает dist через
+  Node 24 + `yarn install --immutable` и запускает этот Go-сервер.
 - DTO статистики проходят через внутренний protobuf-контракт `internal/api/admincontrol/admincontrol.proto`.
   При изменении полей Topics/Consumers пересобирай и выкатывай Redbus и admin backend согласованно;
   обновление только одного из процессов может потерять новые поля на внутренней gRPC-границе.
-- Build arguments `apiHost` и `apiToken` должны быть адресом и токеном, доступными браузеру пользователя,
-  а не только контейнеру. Значения для make-задачи задаются через `ADMIN_API_HOST` и `ADMIN_API_TOKEN`.
+- Production-образ не принимает `apiHost`: пустой `REDBUS_API_HOST` собирает клиент с same-origin base URL `/api`.
+  Это не даёт production-админке незаметно обращаться к API другого контура. Ingress должен маршрутизировать
+  и static assets, и `/api` в один `redbus-admin` service. `apiToken` остаётся build argument; для make-задачи
+  он задаётся через `ADMIN_API_TOKEN`.
 
 ## Связанные визуальные assets
 
