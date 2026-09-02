@@ -48,9 +48,13 @@ runtime-метриками Redbus: состоянием соединения, в
 процесса Redbus и сбрасываются после его перезапуска. Kafka `ClientID` consumer задаётся равным Redbus
 consumer id, чтобы назначение партиции можно было связать с конкретным подключением.
 
-HTTP-клиент передаёт `Authorization: Token <token>`. `REDBUS_API_HOST` и `REDBUS_API_TOKEN` подставляются
-Rspack во время сборки, поэтому токен оказывается в browser bundle и не является секретом. Для настоящей
-защиты нужна серверная аутентификация или reverse proxy, а не попытка скрыть build argument.
+HTTP-клиент передаёт `Authorization: Token <token>`. UI и API должны находиться на разных origins: внешний
+ingress UI использует тот же стандартный header для управляемого браузером HTTP Basic auth, поэтому
+same-origin API-запрос заменит Basic credentials API-токеном и снова получит Basic challenge.
+
+`REDBUS_API_HOST` и `REDBUS_API_TOKEN` подставляются Rspack во время сборки, поэтому токен оказывается в
+browser bundle и не является секретом. Для настоящей защиты нужна серверная аутентификация или reverse
+proxy, а не попытка скрыть build argument.
 
 Live-статистика приходит из `/api/events` через native `EventSource`:
 
@@ -108,10 +112,12 @@ Rspack может предупреждать о raw-размере общего 
 - DTO статистики проходят через внутренний protobuf-контракт `internal/api/admincontrol/admincontrol.proto`.
   При изменении полей Topics/Consumers пересобирай и выкатывай Redbus и admin backend согласованно;
   обновление только одного из процессов может потерять новые поля на внутренней gRPC-границе.
-- Production-образ не принимает `apiHost`: пустой `REDBUS_API_HOST` собирает клиент с same-origin base URL `/api`.
-  Это не даёт production-админке незаметно обращаться к API другого контура. Ingress должен маршрутизировать
-  и static assets, и `/api` в один `redbus-admin` service. `apiToken` остаётся build argument; для make-задачи
-  он задаётся через `ADMIN_API_TOKEN`.
+- Production-образ требует непустой `apiHost`; Docker build завершается ошибкой, если его не передали.
+  `docker-build-admin` получает его через обязательный `ADMIN_API_HOST`. Для production CI/CD значение —
+  `https://redbus-api.sohoup.ru`; DNS, TLS и CORS для этого origin должны быть настроены инфраструктурой.
+  Отдельный origin обязателен, чтобы браузерный HTTP Basic на UI не конфликтовал с API
+  `Authorization: Token`. `apiToken` остаётся build argument и для make-задачи задаётся через
+  `ADMIN_API_TOKEN`.
 
 ## Связанные визуальные assets
 

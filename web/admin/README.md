@@ -38,9 +38,19 @@ REDBUS_API_HOST=http://localhost:50006
 REDBUS_API_TOKEN=changeme
 ```
 
-The production admin image deliberately forces `REDBUS_API_HOST` to an empty value and uses the same-origin
-`/api` endpoint served by `redbus-admin`. This keeps one image portable between environments and
-prevents a build-time host from routing production UI requests to another environment.
+The production admin image requires an explicit API host at build time. The UI and API must use separate
+origins because the UI ingress uses browser-managed HTTP Basic authentication while the admin API uses
+`Authorization: Token`:
+
+```shell
+ADMIN_API_HOST=https://redbus-api.sohoup.ru \
+ADMIN_API_TOKEN=changeme \
+make docker-build-admin
+```
+
+The Docker build fails when `ADMIN_API_HOST` is missing, preventing an accidental same-origin bundle. CI/CD
+must set the correct host for each environment; DNS, TLS, and CORS for that API origin are infrastructure
+prerequisites.
 
 ## Checks and production build
 

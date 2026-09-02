@@ -1,7 +1,9 @@
 FROM node:24-alpine AS web-builder
 
+ARG apiHost
 ARG apiToken
-ENV REDBUS_API_HOST=
+RUN test -n "$apiHost" || (echo "apiHost build argument is required" >&2; exit 1)
+ENV REDBUS_API_HOST=$apiHost
 ENV REDBUS_API_TOKEN=$apiToken
 
 WORKDIR /app

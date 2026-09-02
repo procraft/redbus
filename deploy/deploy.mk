@@ -1,10 +1,13 @@
+ADMIN_API_HOST ?=
 ADMIN_API_TOKEN ?= changeme
 
 docker-build:
 	docker build -f deploy/Dockerfile -t lms-redbus:latest ./
 
 docker-build-admin:
+	@test -n "$(ADMIN_API_HOST)" || { echo "ADMIN_API_HOST is required" >&2; exit 1; }
 	docker build -f deploy/admin/Dockerfile -t lms-redbus-admin:latest \
+		--build-arg apiHost=$(ADMIN_API_HOST) \
 		--build-arg apiToken=$(ADMIN_API_TOKEN) ./
 
 docker-run-admin: docker-build-admin
