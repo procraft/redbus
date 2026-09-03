@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.2.4"
+version := "0.2.5"
 
 ThisBuild / scalaVersion := "2.13.17"
 ThisBuild / versionScheme := Some("semver-spec")
@@ -23,6 +23,8 @@ libraryDependencies ++= Seq(
   "com.github.tminglei" %% "slick-pg" % slickPgVersion,
   "com.github.tminglei" %% "slick-pg_play-json" % slickPgVersion,
   "com.typesafe.slick" %% "slick-hikaricp" % slickHikaricp,
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+  "org.scalatest" %% "scalatest" % "3.2.19" % Test,
 )
 
 publishTo := Some(
