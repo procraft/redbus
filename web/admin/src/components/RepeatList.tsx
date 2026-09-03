@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -17,7 +18,14 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { ChevronDown, ChevronRight, RefreshCw, RotateCcw } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import dataBus from '@/api/dataBus';
@@ -31,6 +39,11 @@ type RestartTarget = {
   errorStat?: RepeatErrorStat;
 };
 
+type DeleteTarget = {
+  item: RepeatStat;
+  errorStat: RepeatErrorStat;
+};
+
 function formatDate(value?: string | null): string {
   if (!value || value.startsWith('0001-')) return '—';
 
@@ -41,8 +54,10 @@ function formatDate(value?: string | null): string {
 export function RepeatList() {
   const [items, setItems] = useState<RepeatStat[]>([]);
   const [restartingKey, setRestartingKey] = useState<string>();
+  const [deletingKey, setDeletingKey] = useState<string>();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [restartTarget, setRestartTarget] = useState<RestartTarget>();
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>();
   const [periodAmount, setPeriodAmount] = useState<number | string>(24);
   const [periodUnit, setPeriodUnit] = useState<PeriodUnit>('hours');
   const { execute, isLoading } = useRequest();
@@ -102,6 +117,27 @@ export function RepeatList() {
       }
       return next;
     });
+  };
+
+  const deleteFinished = async () => {
+    if (!deleteTarget) return;
+
+    const { item, errorStat } = deleteTarget;
+    const key = `delete:${item.topic}\u0000${item.group}\u0000${errorStat.error}`;
+    setDeletingKey(key);
+
+    const succeeded = await execute(
+      () => dataBus.deleteError(item.topic, item.group, errorStat.error),
+      undefined,
+      `Finished messages deleted for ${item.topic} / ${item.group}: ${errorStat.error || 'empty error'}`,
+    );
+
+    if (succeeded) {
+      setDeleteTarget(undefined);
+      await refresh(false);
+    }
+
+    setDeletingKey(undefined);
   };
 
   return (
@@ -165,6 +201,46 @@ export function RepeatList() {
               }
             >
               Restart
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        centered
+        onClose={() => !deletingKey && setDeleteTarget(undefined)}
+        opened={deleteTarget !== undefined}
+        title="Delete failed messages permanently?"
+      >
+        <Stack gap="md">
+          <div>
+            <Text fw={600}>
+              {deleteTarget?.item.topic} / {deleteTarget?.item.group}
+            </Text>
+            <Text c="dimmed" lineClamp={3} size="sm">
+              {deleteTarget?.errorStat.error || 'Empty error'}
+            </Text>
+          </div>
+          <Alert color="red" icon={<TriangleAlert size={20} />} title="Permanent deletion">
+            All {deleteTarget?.errorStat.failedCount ?? 0} finished repeat messages in this error
+            class will be deleted. This action cannot be undone, and the messages cannot be
+            restarted or recovered.
+          </Alert>
+          <Group justify="flex-end">
+            <Button
+              disabled={Boolean(deletingKey)}
+              onClick={() => setDeleteTarget(undefined)}
+              variant="default"
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              leftSection={<Trash2 size={17} />}
+              loading={Boolean(deletingKey)}
+              onClick={() => void deleteFinished()}
+            >
+              Delete permanently
             </Button>
           </Group>
         </Stack>
@@ -271,7 +347,7 @@ export function RepeatList() {
                                     <Table.Th w={120}>Failed</Table.Th>
                                     <Table.Th w={190}>First failed</Table.Th>
                                     <Table.Th w={190}>Last failed</Table.Th>
-                                    <Table.Th w={80} ta="right">
+                                    <Table.Th w={112} ta="right">
                                       Actions
                                     </Table.Th>
                                   </Table.Tr>
@@ -302,17 +378,33 @@ export function RepeatList() {
                                           <Text size="xs">{formatDate(errorStat.lastFailedAt)}</Text>
                                         </Table.Td>
                                         <Table.Td ta="right">
-                                          <Tooltip label="Restart this error class">
-                                            <ActionIcon
-                                              aria-label={`Restart ${errorStat.failedCount} messages with error ${errorStat.error || 'empty error'}`}
-                                              color="orange"
-                                              loading={restartingKey === errorRestartKey}
-                                              onClick={() => setRestartTarget({ item, errorStat })}
-                                              variant="light"
-                                            >
-                                              <RotateCcw size={17} />
-                                            </ActionIcon>
-                                          </Tooltip>
+                                          <Group gap={4} justify="flex-end" wrap="nowrap">
+                                            <Tooltip label="Restart this error class">
+                                              <ActionIcon
+                                                aria-label={`Restart ${errorStat.failedCount} messages with error ${errorStat.error || 'empty error'}`}
+                                                color="orange"
+                                                loading={restartingKey === errorRestartKey}
+                                                onClick={() => setRestartTarget({ item, errorStat })}
+                                                variant="light"
+                                              >
+                                                <RotateCcw size={17} />
+                                              </ActionIcon>
+                                            </Tooltip>
+                                            <Tooltip label="Delete all finished messages in this error class">
+                                              <ActionIcon
+                                                aria-label={`Permanently delete ${errorStat.failedCount} finished messages with error ${errorStat.error || 'empty error'}`}
+                                                color="red"
+                                                loading={
+                                                  deletingKey ===
+                                                  `delete:${key}\u0000${errorStat.error}`
+                                                }
+                                                onClick={() => setDeleteTarget({ item, errorStat })}
+                                                variant="light"
+                                              >
+                                                <Trash2 size={17} />
+                                              </ActionIcon>
+                                            </Tooltip>
+                                          </Group>
                                         </Table.Td>
                                       </Table.Tr>
                                     );

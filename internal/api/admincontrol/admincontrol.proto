@@ -11,6 +11,7 @@ service AdminControlService {
   rpc RestartFailed(RestartFailedRequest) returns (Empty) {}
   rpc RestartFailedSince(RestartFailedSinceRequest) returns (Empty) {}
   rpc RestartFailedByError(RestartFailedByErrorRequest) returns (Empty) {}
+  rpc DeleteFailedByError(DeleteFailedByErrorRequest) returns (Empty) {}
 }
 
 message Empty {}
@@ -119,4 +120,10 @@ message RestartFailedByErrorRequest {
   string group = 2;
   string error = 3;
   int64 lookback_seconds = 4;
+}
+
+message DeleteFailedByErrorRequest {
+  string topic = 1;
+  string group = 2;
+  string error = 3;
 }

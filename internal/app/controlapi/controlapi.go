@@ -23,6 +23,7 @@ type IRepeater interface {
 	RestartFailed(ctx context.Context, topic, group string) error
 	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
 	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
+	DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error
 }
 
 type ControlApi struct {
@@ -201,6 +202,16 @@ func (a *ControlApi) RestartFailedByError(ctx context.Context, req *admincontrol
 	}
 	if err := a.repeater.RestartFailedByError(ctx, req.GetTopic(), req.GetGroup(), req.GetError(), since); err != nil {
 		return nil, status.Errorf(codes.Internal, "restart failed retries by error: %v", err)
+	}
+	return &admincontrol.Empty{}, nil
+}
+
+func (a *ControlApi) DeleteFailedByError(ctx context.Context, req *admincontrol.DeleteFailedByErrorRequest) (*admincontrol.Empty, error) {
+	if req.GetTopic() == "" || req.GetGroup() == "" {
+		return nil, status.Error(codes.InvalidArgument, "topic and group are required")
+	}
+	if err := a.repeater.DeleteFailedByError(ctx, req.GetTopic(), req.GetGroup(), req.GetError()); err != nil {
+		return nil, status.Errorf(codes.Internal, "delete failed retries by error: %v", err)
 	}
 	return &admincontrol.Empty{}, nil
 }

@@ -25,6 +25,7 @@ const (
 	AdminControlService_RestartFailed_FullMethodName        = "/redbus.admincontrol.v1.AdminControlService/RestartFailed"
 	AdminControlService_RestartFailedSince_FullMethodName   = "/redbus.admincontrol.v1.AdminControlService/RestartFailedSince"
 	AdminControlService_RestartFailedByError_FullMethodName = "/redbus.admincontrol.v1.AdminControlService/RestartFailedByError"
+	AdminControlService_DeleteFailedByError_FullMethodName  = "/redbus.admincontrol.v1.AdminControlService/DeleteFailedByError"
 )
 
 // AdminControlServiceClient is the client API for AdminControlService service.
@@ -37,6 +38,7 @@ type AdminControlServiceClient interface {
 	RestartFailed(ctx context.Context, in *RestartFailedRequest, opts ...grpc.CallOption) (*Empty, error)
 	RestartFailedSince(ctx context.Context, in *RestartFailedSinceRequest, opts ...grpc.CallOption) (*Empty, error)
 	RestartFailedByError(ctx context.Context, in *RestartFailedByErrorRequest, opts ...grpc.CallOption) (*Empty, error)
+	DeleteFailedByError(ctx context.Context, in *DeleteFailedByErrorRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type adminControlServiceClient struct {
@@ -107,6 +109,16 @@ func (c *adminControlServiceClient) RestartFailedByError(ctx context.Context, in
 	return out, nil
 }
 
+func (c *adminControlServiceClient) DeleteFailedByError(ctx context.Context, in *DeleteFailedByErrorRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, AdminControlService_DeleteFailedByError_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminControlServiceServer is the server API for AdminControlService service.
 // All implementations should embed UnimplementedAdminControlServiceServer
 // for forward compatibility.
@@ -117,6 +129,7 @@ type AdminControlServiceServer interface {
 	RestartFailed(context.Context, *RestartFailedRequest) (*Empty, error)
 	RestartFailedSince(context.Context, *RestartFailedSinceRequest) (*Empty, error)
 	RestartFailedByError(context.Context, *RestartFailedByErrorRequest) (*Empty, error)
+	DeleteFailedByError(context.Context, *DeleteFailedByErrorRequest) (*Empty, error)
 }
 
 // UnimplementedAdminControlServiceServer should be embedded to have
@@ -143,6 +156,9 @@ func (UnimplementedAdminControlServiceServer) RestartFailedSince(context.Context
 }
 func (UnimplementedAdminControlServiceServer) RestartFailedByError(context.Context, *RestartFailedByErrorRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestartFailedByError not implemented")
+}
+func (UnimplementedAdminControlServiceServer) DeleteFailedByError(context.Context, *DeleteFailedByErrorRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFailedByError not implemented")
 }
 func (UnimplementedAdminControlServiceServer) testEmbeddedByValue() {}
 
@@ -272,6 +288,24 @@ func _AdminControlService_RestartFailedByError_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminControlService_DeleteFailedByError_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFailedByErrorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminControlServiceServer).DeleteFailedByError(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminControlService_DeleteFailedByError_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminControlServiceServer).DeleteFailedByError(ctx, req.(*DeleteFailedByErrorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminControlService_ServiceDesc is the grpc.ServiceDesc for AdminControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -302,6 +336,10 @@ var AdminControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestartFailedByError",
 			Handler:    _AdminControlService_RestartFailedByError_Handler,
+		},
+		{
+			MethodName: "DeleteFailedByError",
+			Handler:    _AdminControlService_DeleteFailedByError_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -96,3 +96,24 @@ func TestRestartFailedSinceFiltersPeriod(t *testing.T) {
 		t.Fatalf("unexpected restart filters: %#v", client.arguments[1:])
 	}
 }
+
+func TestDeleteFailedByErrorDeletesOnlyFinishedRepeats(t *testing.T) {
+	client := &execRecorder{}
+	ctx := db.AddToContext(context.Background(), client)
+
+	err := (&Repository{}).DeleteFailedByError(ctx, "orders", "billing", "invalid link")
+	if err != nil {
+		t.Fatalf("delete failed by error: %v", err)
+	}
+
+	normalizedSQL := strings.Join(strings.Fields(client.sql), " ")
+	if !strings.Contains(normalizedSQL, `DELETE FROM repeat WHERE finished_at IS NOT NULL AND topic = $1 AND "group" = $2 AND error = $3`) {
+		t.Fatalf("delete must affect only finished repeats with the selected error, query: %s", normalizedSQL)
+	}
+	if len(client.arguments) != 3 {
+		t.Fatalf("unexpected argument count: got %d want 3", len(client.arguments))
+	}
+	if client.arguments[0] != "orders" || client.arguments[1] != "billing" || client.arguments[2] != "invalid link" {
+		t.Fatalf("unexpected delete filters: %#v", client.arguments)
+	}
+}

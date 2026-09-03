@@ -33,6 +33,7 @@ type repeaterStub struct {
 	restartGroup string
 	restartError *string
 	restartSince time.Time
+	deleteError  *string
 }
 
 func (s *repeaterStub) GetStat(context.Context) (model.RepeatStat, error) {
@@ -59,6 +60,13 @@ func (s *repeaterStub) RestartFailedByError(_ context.Context, topic, group, err
 	s.restartGroup = group
 	s.restartError = &errorMessage
 	s.restartSince = since
+	return nil
+}
+
+func (s *repeaterStub) DeleteFailedByError(_ context.Context, topic, group, errorMessage string) error {
+	s.restartTopic = topic
+	s.restartGroup = group
+	s.deleteError = &errorMessage
 	return nil
 }
 
@@ -140,4 +148,12 @@ func TestControlApi(t *testing.T) {
 		Topic: "orders", Group: "billing", LookbackSeconds: 0,
 	})
 	require.Equal(t, codes.InvalidArgument, status.Code(err))
+
+	_, err = api.DeleteFailedByError(context.Background(), &admincontrol.DeleteFailedByErrorRequest{
+		Topic: "orders", Group: "billing", Error: "failed",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "orders", repeater.restartTopic)
+	require.Equal(t, "billing", repeater.restartGroup)
+	require.Equal(t, "failed", *repeater.deleteError)
 }

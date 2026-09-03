@@ -1073,6 +1073,66 @@ func (x *RestartFailedByErrorRequest) GetLookbackSeconds() int64 {
 	return 0
 }
 
+type DeleteFailedByErrorRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	Group         string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
+	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteFailedByErrorRequest) Reset() {
+	*x = DeleteFailedByErrorRequest{}
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteFailedByErrorRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteFailedByErrorRequest) ProtoMessage() {}
+
+func (x *DeleteFailedByErrorRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_api_admincontrol_admincontrol_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteFailedByErrorRequest.ProtoReflect.Descriptor instead.
+func (*DeleteFailedByErrorRequest) Descriptor() ([]byte, []int) {
+	return file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DeleteFailedByErrorRequest) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *DeleteFailedByErrorRequest) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *DeleteFailedByErrorRequest) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_internal_api_admincontrol_admincontrol_proto protoreflect.FileDescriptor
 
 const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
@@ -1172,14 +1232,19 @@ const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x14\n" +
 	"\x05group\x18\x02 \x01(\tR\x05group\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x12)\n" +
-	"\x10lookback_seconds\x18\x04 \x01(\x03R\x0flookbackSeconds2\xd5\x04\n" +
+	"\x10lookback_seconds\x18\x04 \x01(\x03R\x0flookbackSeconds\"^\n" +
+	"\x1aDeleteFailedByErrorRequest\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x14\n" +
+	"\x05group\x18\x02 \x01(\tR\x05group\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error2\xc1\x05\n" +
 	"\x13AdminControlService\x12Z\n" +
 	"\x10GetStateSnapshot\x12\x1d.redbus.admincontrol.v1.Empty\x1a%.redbus.admincontrol.v1.StateSnapshot\"\x00\x12T\n" +
 	"\rGetTopicStats\x12\x1d.redbus.admincontrol.v1.Empty\x1a\".redbus.admincontrol.v1.TopicStats\"\x00\x12T\n" +
 	"\rGetRetryStats\x12\x1d.redbus.admincontrol.v1.Empty\x1a\".redbus.admincontrol.v1.RetryStats\"\x00\x12^\n" +
 	"\rRestartFailed\x12,.redbus.admincontrol.v1.RestartFailedRequest\x1a\x1d.redbus.admincontrol.v1.Empty\"\x00\x12h\n" +
 	"\x12RestartFailedSince\x121.redbus.admincontrol.v1.RestartFailedSinceRequest\x1a\x1d.redbus.admincontrol.v1.Empty\"\x00\x12l\n" +
-	"\x14RestartFailedByError\x123.redbus.admincontrol.v1.RestartFailedByErrorRequest\x1a\x1d.redbus.admincontrol.v1.Empty\"\x00B6Z4github.com/prokraft/redbus/internal/api/admincontrolb\x06proto3"
+	"\x14RestartFailedByError\x123.redbus.admincontrol.v1.RestartFailedByErrorRequest\x1a\x1d.redbus.admincontrol.v1.Empty\"\x00\x12j\n" +
+	"\x13DeleteFailedByError\x122.redbus.admincontrol.v1.DeleteFailedByErrorRequest\x1a\x1d.redbus.admincontrol.v1.Empty\"\x00B6Z4github.com/prokraft/redbus/internal/api/admincontrolb\x06proto3"
 
 var (
 	file_internal_api_admincontrol_admincontrol_proto_rawDescOnce sync.Once
@@ -1193,7 +1258,7 @@ func file_internal_api_admincontrol_admincontrol_proto_rawDescGZIP() []byte {
 	return file_internal_api_admincontrol_admincontrol_proto_rawDescData
 }
 
-var file_internal_api_admincontrol_admincontrol_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_internal_api_admincontrol_admincontrol_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_internal_api_admincontrol_admincontrol_proto_goTypes = []any{
 	(*Empty)(nil),                       // 0: redbus.admincontrol.v1.Empty
 	(*StateSnapshot)(nil),               // 1: redbus.admincontrol.v1.StateSnapshot
@@ -1210,6 +1275,7 @@ var file_internal_api_admincontrol_admincontrol_proto_goTypes = []any{
 	(*RestartFailedRequest)(nil),        // 12: redbus.admincontrol.v1.RestartFailedRequest
 	(*RestartFailedSinceRequest)(nil),   // 13: redbus.admincontrol.v1.RestartFailedSinceRequest
 	(*RestartFailedByErrorRequest)(nil), // 14: redbus.admincontrol.v1.RestartFailedByErrorRequest
+	(*DeleteFailedByErrorRequest)(nil),  // 15: redbus.admincontrol.v1.DeleteFailedByErrorRequest
 }
 var file_internal_api_admincontrol_admincontrol_proto_depIdxs = []int32{
 	3,  // 0: redbus.admincontrol.v1.TopicStats.list:type_name -> redbus.admincontrol.v1.Topic
@@ -1226,14 +1292,16 @@ var file_internal_api_admincontrol_admincontrol_proto_depIdxs = []int32{
 	12, // 11: redbus.admincontrol.v1.AdminControlService.RestartFailed:input_type -> redbus.admincontrol.v1.RestartFailedRequest
 	13, // 12: redbus.admincontrol.v1.AdminControlService.RestartFailedSince:input_type -> redbus.admincontrol.v1.RestartFailedSinceRequest
 	14, // 13: redbus.admincontrol.v1.AdminControlService.RestartFailedByError:input_type -> redbus.admincontrol.v1.RestartFailedByErrorRequest
-	1,  // 14: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:output_type -> redbus.admincontrol.v1.StateSnapshot
-	2,  // 15: redbus.admincontrol.v1.AdminControlService.GetTopicStats:output_type -> redbus.admincontrol.v1.TopicStats
-	9,  // 16: redbus.admincontrol.v1.AdminControlService.GetRetryStats:output_type -> redbus.admincontrol.v1.RetryStats
-	0,  // 17: redbus.admincontrol.v1.AdminControlService.RestartFailed:output_type -> redbus.admincontrol.v1.Empty
-	0,  // 18: redbus.admincontrol.v1.AdminControlService.RestartFailedSince:output_type -> redbus.admincontrol.v1.Empty
-	0,  // 19: redbus.admincontrol.v1.AdminControlService.RestartFailedByError:output_type -> redbus.admincontrol.v1.Empty
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
+	15, // 14: redbus.admincontrol.v1.AdminControlService.DeleteFailedByError:input_type -> redbus.admincontrol.v1.DeleteFailedByErrorRequest
+	1,  // 15: redbus.admincontrol.v1.AdminControlService.GetStateSnapshot:output_type -> redbus.admincontrol.v1.StateSnapshot
+	2,  // 16: redbus.admincontrol.v1.AdminControlService.GetTopicStats:output_type -> redbus.admincontrol.v1.TopicStats
+	9,  // 17: redbus.admincontrol.v1.AdminControlService.GetRetryStats:output_type -> redbus.admincontrol.v1.RetryStats
+	0,  // 18: redbus.admincontrol.v1.AdminControlService.RestartFailed:output_type -> redbus.admincontrol.v1.Empty
+	0,  // 19: redbus.admincontrol.v1.AdminControlService.RestartFailedSince:output_type -> redbus.admincontrol.v1.Empty
+	0,  // 20: redbus.admincontrol.v1.AdminControlService.RestartFailedByError:output_type -> redbus.admincontrol.v1.Empty
+	0,  // 21: redbus.admincontrol.v1.AdminControlService.DeleteFailedByError:output_type -> redbus.admincontrol.v1.Empty
+	15, // [15:22] is the sub-list for method output_type
+	8,  // [8:15] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -1250,7 +1318,7 @@ func file_internal_api_admincontrol_admincontrol_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_api_admincontrol_admincontrol_proto_rawDesc), len(file_internal_api_admincontrol_admincontrol_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

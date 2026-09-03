@@ -29,6 +29,7 @@ type IRepository interface {
 	RestartFailed(ctx context.Context, topic, group string) error
 	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
 	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
+	DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error
 }
 
 type IConnStore interface {
@@ -124,6 +125,10 @@ func (r *Repeater) RestartFailedSince(ctx context.Context, topic, group string, 
 
 func (r *Repeater) RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error {
 	return r.repo.RestartFailedByError(ctx, topic, group, errorMessage, since)
+}
+
+func (r *Repeater) DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error {
+	return r.repo.DeleteFailedByError(ctx, topic, group, errorMessage)
 }
 
 func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatList) {

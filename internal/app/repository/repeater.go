@@ -203,3 +203,11 @@ func (r *Repository) RestartFailedByError(ctx context.Context, topic, group, err
 		runtime.Now(), topic, group, errorMessage, since)
 	return err
 }
+
+func (r *Repository) DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error {
+	conn := db.FromContext(ctx)
+	_, err := conn.Exec(ctx, `DELETE FROM repeat
+		WHERE finished_at IS NOT NULL AND topic = $1 AND "group" = $2 AND error = $3`,
+		topic, group, errorMessage)
+	return err
+}

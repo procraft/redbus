@@ -38,6 +38,10 @@ const dataBus = {
   ): Promise<void> {
     await httpClient.post('/repeat/repeatError', { topic, group, error, lookbackSeconds });
   },
+
+  async deleteError(topic: string, group: string, error: string): Promise<void> {
+    await httpClient.post('/repeat/deleteError', { topic, group, error });
+  },
 };
 
 export default dataBus;

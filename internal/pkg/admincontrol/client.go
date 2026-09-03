@@ -231,6 +231,17 @@ func (c *Client) RestartFailedByError(ctx context.Context, topic, group, errorMe
 	return err
 }
 
+func (c *Client) DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	_, err := c.control.DeleteFailedByError(ctx, &controlpb.DeleteFailedByErrorRequest{
+		Topic: topic,
+		Group: group,
+		Error: errorMessage,
+	})
+	return err
+}
+
 func (c *Client) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, c.timeout)
 }

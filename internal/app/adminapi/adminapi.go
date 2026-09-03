@@ -15,6 +15,7 @@ type IService interface {
 	RestartFailed(ctx context.Context, topic, group string) error
 	RestartFailedSince(ctx context.Context, topic, group string, lookbackSeconds int64) error
 	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, lookbackSeconds int64) error
+	DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error
 }
 
 type IEventSource interface {
