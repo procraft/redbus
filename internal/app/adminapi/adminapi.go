@@ -2,6 +2,7 @@ package adminapi
 
 import (
 	"context"
+
 	"github.com/prokraft/redbus/internal/app/model"
 )
 
@@ -12,6 +13,8 @@ type IService interface {
 	GetConsumerStats(ctx context.Context) (model.StatConsumerList, error)
 	GetRetryStats(ctx context.Context) (model.RepeatStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
+	RestartFailedSince(ctx context.Context, topic, group string, lookbackSeconds int64) error
+	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, lookbackSeconds int64) error
 }
 
 type IEventSource interface {

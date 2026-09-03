@@ -34,7 +34,16 @@
 - `/topic/stat`;
 - `/consumer/stat`;
 - `/repeat/stat`;
-- `/repeat/repeatTopicGroup`.
+- `/repeat/repeatTopicGroup`;
+- `/repeat/repeatTopicGroupSince`;
+- `/repeat/repeatError`.
+
+`/repeat/stat` возвращает для каждой пары topic/group вложенный триаж окончательно упавших сообщений,
+сгруппированный по точному значению сохранённого `error`, с количеством и первым/последним `finished_at`
+в каждом классе. `/repeat/repeatError` перезапускает только сообщения выбранного класса за заданный период,
+а `/repeat/repeatTopicGroupSince` — все окончательно упавшие сообщения topic/group за период. Период передаётся
+как положительный `lookbackSeconds` и вычисляется от серверного времени. Существующий
+`/repeat/repeatTopicGroup` сохраняет прежнее поведение без временного фильтра для обратной совместимости.
 
 `/topic/stat` возвращает все пользовательские Kafka topics, включая те, для которых нет подключённых
 Redbus consumers. Для каждой партиции Kafka `lastOffset` означает high watermark, то есть offset следующего
@@ -74,8 +83,8 @@ Live-статистика приходит из `/api/events` через native 
 на `/api/events` будет добавлена авторизация, одновременно потребуется cookie/session, signed URL или другой
 совместимый с EventSource механизм.
 
-API списка конкретных failed messages отсутствует. В старой Vue-админке кнопка «Failed list» ошибочно
-вызывала restart; в React UI оставлено только реально поддерживаемое действие restart.
+API списка отдельных failed messages отсутствует. React UI показывает агрегированный по точному тексту
+ошибки триаж и поддерживает restart как всего topic/group, так и одного класса ошибки.
 
 ## Локальный запуск и проверки
 
@@ -115,7 +124,7 @@ Rspack может предупреждать о raw-размере общего 
   отдельный образ [`deploy/admin/Dockerfile`](../../deploy/admin/Dockerfile) собирает dist через
   Node 24 + `yarn install --immutable` и запускает этот Go-сервер.
 - DTO статистики проходят через внутренний protobuf-контракт `internal/api/admincontrol/admincontrol.proto`.
-  При изменении полей Topics/Consumers пересобирай и выкатывай Redbus и admin backend согласованно;
+  При изменении полей Topics/Consumers/Retry пересобирай и выкатывай Redbus и admin backend согласованно;
   обновление только одного из процессов может потерять новые поля на внутренней gRPC-границе.
 - Production-образ получает `REDBUS_API_HOST` только при запуске контейнера; host не вшивается в assets.
   `docker-run-admin` передаёт runtime env из обязательного `ADMIN_API_HOST`. Для production значение —

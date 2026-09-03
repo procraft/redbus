@@ -9,6 +9,8 @@ service AdminControlService {
   rpc GetTopicStats(Empty) returns (TopicStats) {}
   rpc GetRetryStats(Empty) returns (RetryStats) {}
   rpc RestartFailed(RestartFailedRequest) returns (Empty) {}
+  rpc RestartFailedSince(RestartFailedSinceRequest) returns (Empty) {}
+  rpc RestartFailedByError(RestartFailedByErrorRequest) returns (Empty) {}
 }
 
 message Empty {}
@@ -91,9 +93,30 @@ message RetryStat {
   int32 all_count = 3;
   int32 failed_count = 4;
   string last_error = 5;
+  repeated RetryErrorStat errors = 6;
+}
+
+message RetryErrorStat {
+  string error = 1;
+  int32 failed_count = 2;
+  int64 first_failed_at_unix_ms = 3;
+  int64 last_failed_at_unix_ms = 4;
 }
 
 message RestartFailedRequest {
   string topic = 1;
   string group = 2;
+}
+
+message RestartFailedSinceRequest {
+  string topic = 1;
+  string group = 2;
+  int64 lookback_seconds = 3;
+}
+
+message RestartFailedByErrorRequest {
+  string topic = 1;
+  string group = 2;
+  string error = 3;
+  int64 lookback_seconds = 4;
 }

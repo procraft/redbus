@@ -22,8 +22,21 @@ const dataBus = {
     return data.list ?? [];
   },
 
-  async repeatTopicGroup(topic: string, group: string): Promise<void> {
-    await httpClient.post('/repeat/repeatTopicGroup', { topic, group });
+  async repeatTopicGroupSince(
+    topic: string,
+    group: string,
+    lookbackSeconds: number,
+  ): Promise<void> {
+    await httpClient.post('/repeat/repeatTopicGroupSince', { topic, group, lookbackSeconds });
+  },
+
+  async repeatError(
+    topic: string,
+    group: string,
+    error: string,
+    lookbackSeconds: number,
+  ): Promise<void> {
+    await httpClient.post('/repeat/repeatError', { topic, group, error, lookbackSeconds });
   },
 };
 

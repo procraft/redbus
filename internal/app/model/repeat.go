@@ -83,6 +83,14 @@ type RepeatStatItem struct {
 	AllCount    int
 	FailedCount int
 	LastError   string
+	Errors      []RepeatErrorStat
+}
+
+type RepeatErrorStat struct {
+	Error         string
+	FailedCount   int
+	FirstFailedAt time.Time
+	LastFailedAt  time.Time
 }
 
 type RepeatStat = []RepeatStatItem

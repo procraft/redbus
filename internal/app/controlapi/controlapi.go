@@ -2,10 +2,12 @@ package controlapi
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/prokraft/redbus/internal/api/admincontrol"
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,6 +21,8 @@ type IDataBusService interface {
 type IRepeater interface {
 	GetStat(ctx context.Context) (model.RepeatStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
+	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
+	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
 }
 
 type ControlApi struct {
@@ -142,12 +146,22 @@ func (a *ControlApi) GetRetryStats(ctx context.Context, _ *admincontrol.Empty) (
 
 	result := make([]*admincontrol.RetryStat, 0, len(stat))
 	for _, item := range stat {
+		errors := make([]*admincontrol.RetryErrorStat, 0, len(item.Errors))
+		for _, errorStat := range item.Errors {
+			errors = append(errors, &admincontrol.RetryErrorStat{
+				Error:               errorStat.Error,
+				FailedCount:         int32(errorStat.FailedCount),
+				FirstFailedAtUnixMs: unixMilli(errorStat.FirstFailedAt),
+				LastFailedAtUnixMs:  unixMilli(errorStat.LastFailedAt),
+			})
+		}
 		result = append(result, &admincontrol.RetryStat{
 			Topic:       item.Topic,
 			Group:       item.Group,
 			AllCount:    int32(item.AllCount),
 			FailedCount: int32(item.FailedCount),
 			LastError:   item.LastError,
+			Errors:      errors,
 		})
 	}
 	return &admincontrol.RetryStats{List: result}, nil
@@ -161,4 +175,43 @@ func (a *ControlApi) RestartFailed(ctx context.Context, req *admincontrol.Restar
 		return nil, status.Errorf(codes.Internal, "restart failed retries: %v", err)
 	}
 	return &admincontrol.Empty{}, nil
+}
+
+func (a *ControlApi) RestartFailedSince(ctx context.Context, req *admincontrol.RestartFailedSinceRequest) (*admincontrol.Empty, error) {
+	if req.GetTopic() == "" || req.GetGroup() == "" {
+		return nil, status.Error(codes.InvalidArgument, "topic and group are required")
+	}
+	since, err := lookbackStart(req.GetLookbackSeconds())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := a.repeater.RestartFailedSince(ctx, req.GetTopic(), req.GetGroup(), since); err != nil {
+		return nil, status.Errorf(codes.Internal, "restart failed retries for period: %v", err)
+	}
+	return &admincontrol.Empty{}, nil
+}
+
+func (a *ControlApi) RestartFailedByError(ctx context.Context, req *admincontrol.RestartFailedByErrorRequest) (*admincontrol.Empty, error) {
+	if req.GetTopic() == "" || req.GetGroup() == "" {
+		return nil, status.Error(codes.InvalidArgument, "topic and group are required")
+	}
+	since, err := lookbackStart(req.GetLookbackSeconds())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if err := a.repeater.RestartFailedByError(ctx, req.GetTopic(), req.GetGroup(), req.GetError(), since); err != nil {
+		return nil, status.Errorf(codes.Internal, "restart failed retries by error: %v", err)
+	}
+	return &admincontrol.Empty{}, nil
+}
+
+func lookbackStart(seconds int64) (time.Time, error) {
+	if seconds <= 0 {
+		return time.Time{}, fmt.Errorf("lookback seconds must be positive")
+	}
+	lookback := time.Duration(seconds) * time.Second
+	if lookback <= 0 || int64(lookback/time.Second) != seconds {
+		return time.Time{}, fmt.Errorf("lookback seconds are too large")
+	}
+	return runtime.Now().Add(-lookback), nil
 }

@@ -70,6 +70,14 @@ export type RepeatStat = {
   allCount: number;
   failedCount: number;
   lastError: string;
+  errors?: RepeatErrorStat[] | null;
+};
+
+export type RepeatErrorStat = {
+  error: string;
+  failedCount: number;
+  firstFailedAt?: string | null;
+  lastFailedAt?: string | null;
 };
 
 export type ConsumersEvent = Pick<DashboardStat, 'consumerCount' | 'consumeTopicCount'>;

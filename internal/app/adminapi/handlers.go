@@ -39,6 +39,8 @@ func (a *AdminApi) RegisterHandlers(
 		{path: "/consumer/stat", handler: h(a.consumerStatHandler)},
 		{path: "/repeat/stat", handler: h(a.repeatStatHandler)},
 		{path: "/repeat/repeatTopicGroup", handler: h(a.repeatTopicGroupHandler)},
+		{path: "/repeat/repeatTopicGroupSince", handler: h(a.repeatTopicGroupSinceHandler)},
+		{path: "/repeat/repeatError", handler: h(a.repeatErrorHandler)},
 	}
 	for _, r := range publicRoutes {
 		mux.Handle(r.path, middlewareChain(r.handler, m...))

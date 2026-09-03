@@ -27,6 +27,8 @@ type IRepository interface {
 	GetCount(ctx context.Context) (int, int, error)
 	GetStat(ctx context.Context) (model.RepeatStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
+	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
+	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
 }
 
 type IConnStore interface {
@@ -114,6 +116,14 @@ func (r *Repeater) GetStat(ctx context.Context) (model.RepeatStat, error) {
 
 func (r *Repeater) RestartFailed(ctx context.Context, topic, group string) error {
 	return r.repo.RestartFailed(ctx, topic, group)
+}
+
+func (r *Repeater) RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error {
+	return r.repo.RestartFailedSince(ctx, topic, group, since)
+}
+
+func (r *Repeater) RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error {
+	return r.repo.RestartFailedByError(ctx, topic, group, errorMessage, since)
 }
 
 func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatList) {

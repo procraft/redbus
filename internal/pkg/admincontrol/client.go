@@ -180,12 +180,22 @@ func (c *Client) GetRetryStats(ctx context.Context) (model.RepeatStat, error) {
 
 	result := make(model.RepeatStat, 0, len(response.GetList()))
 	for _, item := range response.GetList() {
+		errors := make([]model.RepeatErrorStat, 0, len(item.GetErrors()))
+		for _, errorStat := range item.GetErrors() {
+			errors = append(errors, model.RepeatErrorStat{
+				Error:         errorStat.GetError(),
+				FailedCount:   int(errorStat.GetFailedCount()),
+				FirstFailedAt: timeFromUnixMilli(errorStat.GetFirstFailedAtUnixMs()),
+				LastFailedAt:  timeFromUnixMilli(errorStat.GetLastFailedAtUnixMs()),
+			})
+		}
 		result = append(result, model.RepeatStatItem{
 			Topic:       item.GetTopic(),
 			Group:       item.GetGroup(),
 			AllCount:    int(item.GetAllCount()),
 			FailedCount: int(item.GetFailedCount()),
 			LastError:   item.GetLastError(),
+			Errors:      errors,
 		})
 	}
 	return result, nil
@@ -195,6 +205,29 @@ func (c *Client) RestartFailed(ctx context.Context, topic, group string) error {
 	ctx, cancel := c.withTimeout(ctx)
 	defer cancel()
 	_, err := c.control.RestartFailed(ctx, &controlpb.RestartFailedRequest{Topic: topic, Group: group})
+	return err
+}
+
+func (c *Client) RestartFailedSince(ctx context.Context, topic, group string, lookbackSeconds int64) error {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	_, err := c.control.RestartFailedSince(ctx, &controlpb.RestartFailedSinceRequest{
+		Topic:           topic,
+		Group:           group,
+		LookbackSeconds: lookbackSeconds,
+	})
+	return err
+}
+
+func (c *Client) RestartFailedByError(ctx context.Context, topic, group, errorMessage string, lookbackSeconds int64) error {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	_, err := c.control.RestartFailedByError(ctx, &controlpb.RestartFailedByErrorRequest{
+		Topic:           topic,
+		Group:           group,
+		Error:           errorMessage,
+		LookbackSeconds: lookbackSeconds,
+	})
 	return err
 }
 
