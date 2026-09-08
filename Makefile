@@ -83,3 +83,9 @@ hooks:
 		fi
 	git config --local core.hooksPath .agents/git-hooks
 	chmod +x .agents/git-hooks/*
+
+scala-proto-compile:
+	make export-env && cd api/scala/redbus && sbt compile
+
+scala-proto-publish: scala-proto-compile
+	make export-env && cd api/scala/redbus && sbt publish
