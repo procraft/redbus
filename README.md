@@ -70,6 +70,31 @@ RED Bus will do the rest for you.
    - [GoLang client](./example/golang/README.md)
    - [Scala client](./example/scala/README.md)
 
+## Consume stream safety
+
+The bus protects itself from a client that stops answering. Relevant `config.json` keys (each with a
+`REDBUS_*` environment override):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `grpc.keepaliveTime` | `30s` | how often an idle connection is pinged |
+| `grpc.keepaliveTimeout` | `10s` | how long a ping answer is awaited before the connection is dropped |
+| `grpc.keepaliveMinTime` | `10s` | minimum ping interval the server accepts from a client |
+| `grpc.consumeResultTimeout` | `60s` | per message budget used when a client does not declare `Connect.consumeTimeoutSec` |
+| `grpc.consumeResultSlack` | `30s` | extra time added on top of `budget * batch size` |
+| `grpc.consumeResultTimeoutMax` | `1h` | upper bound of the computed budget |
+| `log.json` | `false` | emit structured JSON log lines instead of plain text |
+| `log.verbose` | `false` | include debug level messages |
+
+A batch whose result does not arrive within the computed budget closes the consume stream with an
+error, so the client sees the failure and reconnects instead of staying connected while holding
+Kafka partitions.
+
+The server tags every batch with `ConsumeResponse.batchId`; a client echoes it back in
+`ConsumeRequest.batchId`. A result carrying a different batch id is discarded with a log entry
+instead of shifting the request/response phase of the stream. Both fields are optional, so clients
+built before they existed keep working against a newer bus.
+
 ## Prometheus metrics
 
 The Redbus process exposes Prometheus metrics at `http://localhost:50008/metrics`. Set

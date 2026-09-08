@@ -8,12 +8,18 @@ import (
 
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
 type ConsumerBag struct {
 	Consumer       model.IConsumer
 	Server         pb.RedbusService_ConsumeServer
 	RepeatStrategy *model.RepeatStrategy
+	// Abort завершает consume-RPC этого consumer'а с указанной причиной. Repeater пишет в тот
+	// же стрим, поэтому ему нужна та же возможность закрыть его при просроченном результате.
+	Abort stream.AbortFn
+	// Limits — бюджет ожидания результата батча, согласованный при подключении.
+	Limits model.ConsumeLimits
 }
 
 type ConsumerStore struct {
@@ -48,10 +54,10 @@ func NewConsumerStore() *ConsumerStore {
 	}
 }
 
-func (s *ConsumerStore) add(c model.IConsumer, repeatStrategy *model.RepeatStrategy, srv pb.RedbusService_ConsumeServer) {
+func (s *ConsumerStore) add(bag ConsumerBag) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.store[s.getKey(c)] = ConsumerBag{Consumer: c, Server: srv, RepeatStrategy: repeatStrategy}
+	s.store[s.getKey(bag.Consumer)] = bag
 }
 
 func (s *ConsumerStore) remove(c model.IConsumer) {

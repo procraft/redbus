@@ -52,6 +52,9 @@ class Consumer(
         group = group,
         repeatStrategy = listener.repeatStrategy.map(_.toPB),
         batchSize = listener.batchSize,
+        // Сообщаем шине свой бюджет обработки: её дедлайн ожидания результата считается от него,
+        // чтобы не рвать легитимную долгую обработку и при этом не ждать вечно.
+        consumeTimeoutSec = listener.consumeTimeout.toSeconds.toInt,
       )
     )
   )
@@ -96,7 +99,7 @@ class Consumer(
           val batchCapMs = perMsgMs * math.max(1, response.messageList.size) + 5000L
           Try(
             Await.result(
-              processMessageList(response.messageList, currentEpoch),
+              processMessageList(response.messageList, response.batchId, currentEpoch),
               new FiniteDuration(batchCapMs, TimeUnit.MILLISECONDS),
             )
           ) match {
@@ -135,7 +138,7 @@ class Consumer(
 
   private def sendRequest(request: ConsumeRequest, epoch: Long): Unit = {
     try {
-      log("Send connect request")
+      log(if (request.connect.isDefined) "Send connect request" else s"Send result for batch ${request.batchId}")
       requestObserver.foreach {
         case (activeEpoch, observer) if activeEpoch == epoch =>
           observer.onNext(request)
@@ -161,14 +164,20 @@ class Consumer(
     }
   }
 
-  private def processMessageList(messageList: Seq[ConsumeResponse.Message], epoch: Long): Future[Unit] = {
+  // batchId возвращается шине как есть: по нему она отличает ответ на текущий батч от позднего
+  // или чужого и отбрасывает лишний вместо того, чтобы навсегда сдвинуть фазу "батч ↔ ответ".
+  private def processMessageList(
+    messageList: Seq[ConsumeResponse.Message],
+    batchId: String,
+    epoch: Long,
+  ): Future[Unit] = {
     for {
       results <- Future.sequence(messageList.map(processMessage))
       resultResponse = messageList.zip(results).map {
         case (x, Right(_)) => ConsumeRequest.Result(ok = true, id = x.id)
         case (x, Left(e)) => ConsumeRequest.Result(ok = false, message = e.getMessage, id = x.id)
       }
-      _ = sendRequest(ConsumeRequest(resultList = resultResponse), epoch)
+      _ = sendRequest(ConsumeRequest(resultList = resultResponse, batchId = batchId), epoch)
     } yield ()
   }
 

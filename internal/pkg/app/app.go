@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 )
 
 type App struct {
@@ -254,9 +255,20 @@ func (a *App) getMetricsListener(ctx context.Context) func() error {
 }
 
 func (a *App) newGrpcServer() *grpc.Server {
+	// Без keepalive оборванное соединение не обнаруживается: consume-стрим остаётся открытым,
+	// consumer числится CONNECTED и продолжает держать партиции kafka-группы.
+	keepaliveTime, keepaliveTimeout, keepaliveMinTime := a.conf.Grpc.Keepalive()
 	return grpc.NewServer(
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(a.grpcUnaryInterceptor...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(a.grpcStreamInterceptor...)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    keepaliveTime,
+			Timeout: keepaliveTimeout,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             keepaliveMinTime,
+			PermitWithoutStream: true,
+		}),
 	)
 }
 

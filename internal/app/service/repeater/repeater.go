@@ -142,7 +142,14 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 			r.metrics.ObserveRetrySkipped(string(repeat.Topic), string(repeat.Group), "consumer_not_connected")
 			continue
 		}
-		data, err := stream.New(bag.Server).ProcessMessageList(
+		// Repeater пишет в тот же consume-стрим, что и цикл чтения kafka, поэтому получает те же
+		// бюджет ожидания результата и отмену RPC: иначе один неотвеченный retry вешал бы
+		// фоновую задачу навсегда.
+		data, err := stream.New(
+			bag.Server,
+			stream.WithAbort(bag.Abort),
+			stream.WithLimits(bag.Limits),
+		).ProcessMessageList(
 			logger.App,
 			bag.Consumer,
 			model.MessageList{{Id: repeat.MessageId, Value: repeat.Data, Headers: repeat.Headers}},
@@ -150,6 +157,12 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 		if err != nil {
 			r.metrics.ObserveRetryAttempt(string(repeat.Topic), string(repeat.Group), "stream_error")
 			logger.Error(ctx, "Error on repeat process message: %v", err)
+			continue
+		}
+		if data == nil {
+			// Клиент закрыл стрим, не ответив: сообщение остаётся в очереди до следующей итерации.
+			r.metrics.ObserveRetryAttempt(string(repeat.Topic), string(repeat.Group), "stream_closed")
+			logger.Error(ctx, "Error on repeat process message: consume stream closed without result")
 			continue
 		}
 		if len(data.ResultList) == 0 {

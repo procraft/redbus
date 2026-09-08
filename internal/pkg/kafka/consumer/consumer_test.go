@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	kpkg "github.com/prokraft/redbus/internal/app/model"
-	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
+
+	kpkg "github.com/prokraft/redbus/internal/app/model"
+	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 func TestSetOffsetStoresNextCommittedPosition(t *testing.T) {
@@ -32,4 +33,16 @@ func TestSetOffsetStoresNextCommittedPosition(t *testing.T) {
 	consumer.SetState(kpkg.ConsumerStateConnected)
 	require.Equal(t, kpkg.ConsumerStateConnected, consumer.GetState())
 	require.Equal(t, metrics.LastMessageAt, consumer.GetMetrics().StateSince)
+}
+
+func TestToMessageListKeepsPartitionOfEachMessage(t *testing.T) {
+	list := toMessageList([]kafka.Message{
+		{Partition: 0, Offset: 10, Value: []byte("a")},
+		{Partition: 3, Offset: 10, Value: []byte("b")},
+		{Partition: 7, Offset: 42, Value: []byte("c"), Headers: []kafka.Header{{Key: "k", Value: []byte("v")}}},
+	})
+
+	require.Equal(t, []string{"0/10", "3/10", "7/42"}, list.GetIdList())
+	require.Len(t, list.IndexByID(), 3, "id разных партиций не должны схлопываться")
+	require.Equal(t, map[string]string{"k": "v"}, list[2].Headers)
 }

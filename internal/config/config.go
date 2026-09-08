@@ -2,8 +2,10 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/caarlos0/env/v6"
 	"os"
+	"time"
+
+	"github.com/caarlos0/env/v6"
 
 	"github.com/prokraft/redbus/internal/app/model"
 )
@@ -16,6 +18,12 @@ type Config struct {
 	Kafka   kafkaConfig   `json:"kafka"`
 	Repeat  repeatConfig  `json:"repeat"`
 	DB      dbConfig      `json:"db"`
+	Log     logConfig     `json:"log"`
+}
+
+type logConfig struct {
+	Json    bool `json:"json" env:"REDBUS_LOG_JSON"`
+	Verbose bool `json:"verbose" env:"REDBUS_LOG_VERBOSE"`
 }
 
 type metricsConfig struct {
@@ -24,6 +32,52 @@ type metricsConfig struct {
 
 type grpcConfig struct {
 	ServerPort int `json:"serverPort" env:"REDBUS_GRPC_SERVER_PORT"`
+	// KeepaliveTime — период ping'а простаивающего соединения, KeepaliveTimeout — ожидание ответа
+	// на ping. Без них полумёртвый клиент остаётся CONNECTED, а его consumer держит партиции.
+	KeepaliveTime    model.Duration `json:"keepaliveTime,string" env:"REDBUS_GRPC_KEEPALIVE_TIME"`
+	KeepaliveTimeout model.Duration `json:"keepaliveTimeout,string" env:"REDBUS_GRPC_KEEPALIVE_TIMEOUT"`
+	// KeepaliveMinTime — минимальный интервал ping'ов, который сервер терпит от клиента.
+	KeepaliveMinTime model.Duration `json:"keepaliveMinTime,string" env:"REDBUS_GRPC_KEEPALIVE_MIN_TIME"`
+	// Бюджет ожидания результата батча, если клиент не объявил свой consumeTimeoutSec в Connect.
+	ConsumeResultTimeout model.Duration `json:"consumeResultTimeout,string" env:"REDBUS_GRPC_CONSUME_RESULT_TIMEOUT"`
+	// Запас поверх batchSize * per-message timeout, чтобы не рвать легитимную долгую обработку.
+	ConsumeResultSlack model.Duration `json:"consumeResultSlack,string" env:"REDBUS_GRPC_CONSUME_RESULT_SLACK"`
+	// Верхняя граница рассчитанного бюджета.
+	ConsumeResultTimeoutMax model.Duration `json:"consumeResultTimeoutMax,string" env:"REDBUS_GRPC_CONSUME_RESULT_TIMEOUT_MAX"`
+}
+
+// Значения по умолчанию применяются, когда поле не задано ни в config.json, ни в окружении:
+// конфиг может приезжать из старого деплоя, а нулевой таймаут отключил бы защиту.
+const (
+	DefaultGrpcKeepaliveTime           = 30 * time.Second
+	DefaultGrpcKeepaliveTimeout        = 10 * time.Second
+	DefaultGrpcKeepaliveMinTime        = 10 * time.Second
+	DefaultConsumeResultTimeout        = 60 * time.Second
+	DefaultConsumeResultSlack          = 30 * time.Second
+	DefaultConsumeResultTimeoutMax     = time.Hour
+	minAllowedConsumeResultTimeoutUnit = time.Second
+)
+
+// ConsumeLimits возвращает бюджеты ожидания результата батча для consume-стрима.
+func (c grpcConfig) ConsumeLimits() model.ConsumeLimits {
+	return model.ConsumeLimits{
+		PerMessage: durationOr(c.ConsumeResultTimeout, DefaultConsumeResultTimeout),
+		Slack:      durationOr(c.ConsumeResultSlack, DefaultConsumeResultSlack),
+		Max:        durationOr(c.ConsumeResultTimeoutMax, DefaultConsumeResultTimeoutMax),
+	}
+}
+
+func (c grpcConfig) Keepalive() (time.Duration, time.Duration, time.Duration) {
+	return durationOr(c.KeepaliveTime, DefaultGrpcKeepaliveTime),
+		durationOr(c.KeepaliveTimeout, DefaultGrpcKeepaliveTimeout),
+		durationOr(c.KeepaliveMinTime, DefaultGrpcKeepaliveMinTime)
+}
+
+func durationOr(v model.Duration, fallback time.Duration) time.Duration {
+	if v.Duration < minAllowedConsumeResultTimeoutUnit {
+		return fallback
+	}
+	return v.Duration
 }
 
 type controlConfig struct {

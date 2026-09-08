@@ -1,6 +1,12 @@
 {
   "grpc": {
-    "serverPort": 50005
+    "serverPort": 50005,
+    "keepaliveTime": "30s",
+    "keepaliveTimeout": "10s",
+    "keepaliveMinTime": "10s",
+    "consumeResultTimeout": "60s",
+    "consumeResultSlack": "30s",
+    "consumeResultTimeoutMax": "1h"
   },
   "control": {
     "serverPort": 50007
@@ -40,5 +46,9 @@
     "password": "",
     "name": "redbus",
     "poolSize": 10
+  },
+  "log": {
+    "json": false,
+    "verbose": false
   }
 }

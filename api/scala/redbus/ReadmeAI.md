@@ -14,6 +14,11 @@ report which consumers must raise their pin.
 - `producer.Flusher` / `FlusherActor` — drains `redbus_outbox` into the bus.
 - `consumer.Consumer` — bidirectional `Consume` stream with reconnect and the `consumer.Option.*`
   settings (repeat strategy, batch size, consume timeout, inbox-based only-once processing).
+  It echoes `ConsumeResponse.batchId` back in the result request so the bus can tell the answer to
+  the current batch from a late or foreign one, and declares `Connect.consumeTimeoutSec` so the
+  bus sizes its own result deadline from the client's real processing budget. Both fields are
+  optional on the wire: a bus that predates them ignores them. See
+  `internal/pkg/stream/ReadmeAI.md` for the server side of that protocol.
 - ScalaPB code is generated from `api/api.proto` at build time; never edit generated sources.
 
 ## Outbox flusher invariants

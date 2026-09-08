@@ -9,6 +9,7 @@ import (
 	"github.com/prokraft/redbus/api/golang/pb"
 
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
 type DataBus struct {
@@ -47,7 +48,7 @@ type IMetrics interface {
 type IConnStore interface {
 	GetProducer(ctx context.Context, topic model.TopicName) (model.IProducer, error)
 	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
-	AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy)
+	AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, abort stream.AbortFn, limits model.ConsumeLimits)
 	RemoveConsumer(c model.IConsumer)
 	GetConsumerCount() int
 	GetConsumeTopicCount() int

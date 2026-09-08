@@ -11,6 +11,7 @@ import (
 
 	kpkg "github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
 
 	"github.com/segmentio/kafka-go"
@@ -210,20 +211,21 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 				mList = append(mList, m)
 
 				waitTimeout := time.Millisecond * 100
-				for {
-					ctx, cancel := context.WithTimeout(ctx, waitTimeout)
-					m, err = c.reader.FetchMessage(ctx)
+				for len(mList) < batchSize {
+					waitCtx, cancel := context.WithTimeout(ctx, waitTimeout)
+					m, err = c.reader.FetchMessage(waitCtx)
 					cancel()
 					if err == nil {
 						mList = append(mList, m)
-						if len(mList) == batchSize {
-							break
-						}
+						continue
 					}
-					if errors.Is(err, context.DeadlineExceeded) {
+					// Окно добора батча истекло — обрабатываем то, что успели собрать.
+					if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
 						err = nil
-						break
 					}
+					// Любая другая ошибка (в том числе отмена внешнего контекста) выходит наружу:
+					// без этого цикл крутился бы вхолостую, не завершаясь.
+					break
 				}
 			}
 		} else {
@@ -257,44 +259,53 @@ func (c *Consumer) Consume(ctx context.Context, processor func(ctx context.Conte
 func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, processor func(ctx context.Context, list kpkg.MessageList) error) error {
 	fn := func() error {
 		topic := c.topic
-		partition := mList[0].Partition
 		offset := mList[len(mList)-1].Offset
-		list := make(kpkg.MessageList, 0, len(mList))
-		for _, m := range mList {
-			headers := make(map[string]string, len(m.Headers))
-			for _, h := range m.Headers {
-				headers[h.Key] = string(h.Value)
-			}
-			list = append(list, kpkg.Message{
-				Id:      fmt.Sprintf("%v/%v", partition, m.Offset),
-				Key:     m.Key,
-				Value:   m.Value,
-				Headers: headers,
-			})
-		}
+		list := toMessageList(mList)
 
 		if c.conf.log {
-			fmt.Printf("Receive %d kafka message at topic/partition/offsetMap %v/%v/%v: %v\n", len(mList), topic, partition, offset, list)
+			logger.Debug(ctx, "Receive %d kafka message at topic/offset %v/%v: %v", len(mList), topic, offset, list)
 		}
 
 		if err := processor(ctx, list); err != nil {
-			return fmt.Errorf("Can't process kafka event: %w\n", err)
+			return fmt.Errorf("Can't process kafka event: %w", err)
 		}
 
 		return nil
 	}
 
 	if err := fn(); err != nil {
-		fmt.Printf("failed to process messages: %v\n", err)
+		logger.Error(ctx, "[%v/%v] Failed to process messages: %v", c.topic, c.group, err)
 		return err
 	}
 
 	if err := c.reader.CommitMessages(ctx, mList...); err != nil {
-		fmt.Printf("failed to commit messages: %v\n", err)
+		logger.Error(ctx, "[%v/%v] Failed to commit messages: %v", c.topic, c.group, err)
 		return err
 	}
 
 	return nil
+}
+
+// toMessageList переводит сообщения kafka в доменный вид.
+//
+// Id обязан строиться из партиции самого сообщения: при batchSize > 1 батч собирается из разных
+// партиций, а общая партиция подменяла бы id, схлопывала сообщения в MessageList.IndexByID и
+// отправляла их в retry с чужим MessageId.
+func toMessageList(mList []kafka.Message) kpkg.MessageList {
+	list := make(kpkg.MessageList, 0, len(mList))
+	for _, m := range mList {
+		headers := make(map[string]string, len(m.Headers))
+		for _, h := range m.Headers {
+			headers[h.Key] = string(h.Value)
+		}
+		list = append(list, kpkg.Message{
+			Id:      fmt.Sprintf("%v/%v", m.Partition, m.Offset),
+			Key:     m.Key,
+			Value:   m.Value,
+			Headers: headers,
+		})
+	}
+	return list
 }
 
 func (c *Consumer) Lock() {

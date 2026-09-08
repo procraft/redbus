@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/prokraft/redbus/internal/app/model"
 )
 
 type consumerStub struct {
@@ -37,11 +38,11 @@ func TestGetStatTopicGroupPartitionIncludesConsumersWithoutOffsets(t *testing.T)
 	store.AddConsumer(&consumerStub{
 		topic: "orders", group: "billing", id: "worker-1", state: model.ConsumerStateConnecting,
 		offsets: model.PartitionOffsetMap{},
-	}, nil, nil)
+	}, nil, nil, nil, model.ConsumeLimits{})
 	store.AddConsumer(&consumerStub{
 		topic: "orders", group: "billing", id: "worker-2", state: model.ConsumerStateConnected,
 		offsets: model.PartitionOffsetMap{0: 15},
-	}, nil, nil)
+	}, nil, nil, nil, model.ConsumeLimits{})
 
 	groups := store.GetStatTopicGroupPartition()["orders"]
 	require.Len(t, groups, 1)

@@ -48,6 +48,9 @@ message ConsumeRequest {
     string group = 3;
     RepeatStrategy repeatStrategy = 4;
     int32 batchSize = 5;
+    // Per message processing budget the client applies before it gives up and reconnects.
+    // Optional: 0 means "not declared", the server then falls back to its own configuration.
+    int32 consumeTimeoutSec = 6;
   }
   message Result {
     string id = 1;
@@ -57,6 +60,10 @@ message ConsumeRequest {
 
   Connect connect = 1;
   repeated Result resultList = 2;
+  // Echo of ConsumeResponse.batchId this result list answers.
+  // Optional: clients built before this field exist send "", the server then falls back to
+  // positional matching (the result list answers the batch currently outstanding).
+  string batchId = 3;
 }
 
 message ConsumeResponse {
@@ -74,4 +81,8 @@ message ConsumeResponse {
 
   Connect connect = 1;
   repeated Message messageList = 2;
+  // Server generated id of this batch. A client that understands it must echo it back in
+  // ConsumeRequest.batchId so a late or foreign result can be discarded instead of shifting
+  // the request/response phase of the stream forever.
+  string batchId = 3;
 }

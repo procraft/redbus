@@ -19,13 +19,33 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 	defer cancel()
 
 	logger.Info(ctx, "Handle new consume")
-	serverStream := stream.New(server)
+	connectStream := stream.New(server)
 
 	// Receive connect data
-	ok, data, err := serverStream.Recv(ctx, nil)
+	ok, data, err := connectStream.Recv(ctx, nil)
 	if !ok || err != nil {
 		return err
 	}
+	if data.Connect == nil {
+		logger.Info(ctx, "First consume request has no connect data, closing stream")
+		return fmt.Errorf("%w: first request must contain connect data", model.ErrStream)
+	}
+
+	// Бюджет ожидания результата батча: заявленный клиентом per-message таймаут, иначе серверный.
+	limits := b.conf.Grpc.ConsumeLimits().
+		WithPerMessage(time.Duration(data.Connect.ConsumeTimeoutSec) * time.Second)
+	// Причина закрытия стрима запоминается отдельно от отмены контекста: заблокированный
+	// server.Recv() просыпается только при завершении RPC, то есть уже после возврата отсюда,
+	// поэтому статус ошибки нужно вернуть самому хендлеру.
+	abortErrCh := make(chan error, 1)
+	abort := func(err error) {
+		select {
+		case abortErrCh <- err:
+		default:
+		}
+		cancel()
+	}
+	serverStream := stream.New(server, stream.WithAbort(abort), stream.WithLimits(limits))
 
 	// Get consumer with kafka connection
 	kafkaHost := []string{b.conf.Kafka.HostPort}
@@ -46,7 +66,7 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 	}
 
 	// Notify about connection
-	if ok, err := serverStream.Send(ctx, c, &pb.ConsumeResponse{Connect: connectResult}); !ok || err != nil {
+	if ok, err := connectStream.Send(ctx, c, &pb.ConsumeResponse{Connect: connectResult}); !ok || err != nil {
 		return err
 	}
 
@@ -71,13 +91,18 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		byID := list.IndexByID()
 		successCount := 0
 		retryCount := 0
+		matchedCount := 0
 		for i := range data.ResultList {
 			result := data.ResultList[i]
 			m, ok := byID[result.Id]
 			if !ok {
-				b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "invalid_result", len(list))
-				return fmt.Errorf("%w: result id %q not in batch, have [%s]", model.ErrHandler, result.Id, strings.Join(list.GetIdList(), ", "))
+				// Лишний или чужой результат внутри принятого ответа: логируем и пропускаем,
+				// валить из-за него consumer нельзя.
+				b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "invalid_result", 1)
+				logger.Consumer(ctx, c, "Skip result id %q, not in batch, have [%s]", result.Id, strings.Join(list.GetIdList(), ", "))
+				continue
 			}
+			matchedCount++
 			if result.Ok {
 				successCount++
 			} else {
@@ -103,12 +128,26 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		}
 		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "success", successCount)
 		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry", retryCount)
-		if missingCount := len(list) - len(data.ResultList); missingCount > 0 {
+		if matchedCount == 0 && len(list) > 0 {
+			// Ни один результат не относится к отправленному батчу: фаза "батч ↔ ответ"
+			// разошлась, дальше молча терялись бы сообщения. Закрываем стрим.
+			b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "desynchronized", len(list))
+			return fmt.Errorf("%w: no result matched batch, have [%s]", model.ErrHandler, strings.Join(list.GetIdList(), ", "))
+		}
+		if missingCount := len(list) - matchedCount; missingCount > 0 {
 			b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "missing_result", missingCount)
 		}
 		return nil
 	}
 
 	repeatStrategy := fromPBRepeatStrategy(data.Connect.RepeatStrategy)
-	return b.dataBus.Consume(ctx, c, server, repeatStrategy, handler, cancel)
+	consumeErr := b.dataBus.Consume(ctx, c, server, repeatStrategy, limits, abort, handler, cancel)
+	if consumeErr == nil {
+		select {
+		case abortErr := <-abortErrCh:
+			consumeErr = abortErr
+		default:
+		}
+	}
+	return consumeErr
 }

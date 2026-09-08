@@ -8,6 +8,7 @@ import (
 	"github.com/prokraft/redbus/internal/config"
 
 	"github.com/prokraft/redbus/internal/pkg/app"
+	"github.com/prokraft/redbus/internal/pkg/logger"
 )
 
 func main() {
@@ -15,6 +16,9 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	logger.JsonLog = conf.Log.Json
+	logger.Verbose = conf.Log.Verbose
 
 	ctx := context.Background()
 	redbus, err := app.New(ctx, conf)

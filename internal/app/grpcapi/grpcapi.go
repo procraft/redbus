@@ -2,11 +2,13 @@ package grpcapi
 
 import (
 	"context"
+	"time"
+
 	"github.com/prokraft/redbus/api/golang/pb"
 	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/config"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
-	"time"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
 type GrpcApi struct {
@@ -43,7 +45,7 @@ type IMetrics interface {
 type IDataBus interface {
 	CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic model.TopicName, group model.GroupName, id model.ConsumerId, batchSize int) (model.IConsumer, error)
 	FindRepeatStrategy(topic model.TopicName, group model.GroupName, id model.ConsumerId) *model.RepeatStrategy
-	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
+	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, limits model.ConsumeLimits, abort stream.AbortFn, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
 	Produce(ctx context.Context, topic model.TopicName, key string, message []byte, version int64, idempotencyKey string, timestamp *time.Time) error
 }

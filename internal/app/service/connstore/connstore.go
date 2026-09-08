@@ -7,6 +7,7 @@ import (
 	"github.com/prokraft/redbus/api/golang/pb"
 
 	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/prokraft/redbus/internal/pkg/stream"
 )
 
 type ConnStore struct {
@@ -41,8 +42,20 @@ func (s *ConnStore) GetConsumerTopicGroupList() model.TopicGroupList {
 	return s.consumerStore.getTopicGroupList()
 }
 
-func (s *ConnStore) AddConsumer(c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy) {
-	s.consumerStore.add(c, repeatStrategy, srv)
+func (s *ConnStore) AddConsumer(
+	c model.IConsumer,
+	srv pb.RedbusService_ConsumeServer,
+	repeatStrategy *model.RepeatStrategy,
+	abort stream.AbortFn,
+	limits model.ConsumeLimits,
+) {
+	s.consumerStore.add(ConsumerBag{
+		Consumer:       c,
+		Server:         srv,
+		RepeatStrategy: repeatStrategy,
+		Abort:          abort,
+		Limits:         limits,
+	})
 }
 
 func (s *ConnStore) RemoveConsumer(c model.IConsumer) {
