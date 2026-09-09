@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"time"
+
+	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
 type Repeat struct {
@@ -65,6 +67,25 @@ func (r *Repeat) ApplyNextAttempt(defaultStrategy *RepeatStrategy) {
 	}
 	r.Attempt++
 	r.StartedAt = strategy.GetNextStartedAt(r.Attempt)
+}
+
+// ApplyFailure schedules another delivery. A preserved attempt cannot exhaust the repeat and a
+// positive consumer delay overrides the configured strategy without changing that strategy.
+func (r *Repeat) ApplyFailure(defaultStrategy *RepeatStrategy, preserveAttempt bool, retryAfter time.Duration) {
+	if preserveAttempt {
+		var strategy = defaultStrategy
+		if r.Strategy != nil {
+			strategy = r.Strategy
+		}
+		r.FinishedAt = nil
+		// A malformed/legacy zero delay still uses the configured strategy and cannot busy-loop.
+		r.StartedAt = strategy.GetNextStartedAt(r.Attempt + 1)
+	} else {
+		r.ApplyNextAttempt(defaultStrategy)
+	}
+	if r.FinishedAt == nil && retryAfter > 0 {
+		r.StartedAt = runtime.Now().Add(retryAfter)
+	}
 }
 
 type TopicGroupList []TopicGroup

@@ -173,9 +173,8 @@ class Consumer(
   ): Future[Unit] = {
     for {
       results <- Future.sequence(messageList.map(processMessage))
-      resultResponse = messageList.zip(results).map {
-        case (x, Right(_)) => ConsumeRequest.Result(ok = true, id = x.id)
-        case (x, Left(e)) => ConsumeRequest.Result(ok = false, message = e.getMessage, id = x.id)
+      resultResponse = messageList.zip(results).map { case (message, result) =>
+        ResultConverter.toPB(message.id, result)
       }
       _ = sendRequest(ConsumeRequest(resultList = resultResponse, batchId = batchId), epoch)
     } yield ()

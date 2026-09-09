@@ -51,6 +51,6 @@ type IDataBus interface {
 }
 
 type IRepeater interface {
-	Add(ctx context.Context, data model.RepeatData, errorMsg string) error
+	Add(ctx context.Context, data model.RepeatData, errorMsg string, retryAfter time.Duration) error
 	Repeat(ctx context.Context) error
 }

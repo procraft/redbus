@@ -14,6 +14,13 @@ sbt compile
 sbt test
 ```
 
+### Temporary processing failures
+
+Return a failed future with `consumer.RetryLaterException(cause, delay)` when an external provider
+asks the consumer to wait (for example, a rate limit). A compatible Redbus server schedules the next
+delivery after the requested delay without consuming a retry attempt. Servers older than this SDK
+ignore the additive result fields and use their configured repeat strategy.
+
 ### Transactional outbox flusher
 
 `producer.Producer.produceDba` writes the message into the client's `redbus_outbox` table

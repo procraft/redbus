@@ -95,6 +95,13 @@ The server tags every batch with `ConsumeResponse.batchId`; a client echoes it b
 instead of shifting the request/response phase of the stream. Both fields are optional, so clients
 built before they existed keep working against a newer bus.
 
+A failed result may also set `ConsumeRequest.Result.preserveAttempt` and `retryAfterSec`.
+`preserveAttempt = true` keeps the current retry attempt from being exhausted, while a positive
+`retryAfterSec` overrides the next delay. A non-positive delay falls back to the consumer's repeat
+strategy, which prevents a malformed response from creating a busy retry loop. The Go and Scala SDKs
+expose this combination as `NewRetryLaterError` and `RetryLaterException` respectively. Older clients
+leave both fields at their protobuf defaults and retain the original retry behaviour.
+
 ## Prometheus metrics
 
 The Redbus process exposes Prometheus metrics at `http://localhost:50008/metrics`. Set

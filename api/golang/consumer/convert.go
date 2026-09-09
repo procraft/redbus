@@ -1,8 +1,12 @@
 package consumer
 
 import (
-	"github.com/prokraft/redbus/api/golang/pb"
+	"errors"
 	"log"
+	"math"
+	"time"
+
+	"github.com/prokraft/redbus/api/golang/pb"
 )
 
 func toPBRepeatStrategy(strategy *RepeatStrategy) *pb.ConsumeRequest_Connect_RepeatStrategy {
@@ -48,8 +52,25 @@ func toPBResultList(resultList []ProcessResult) []*pb.ConsumeRequest_Result {
 			ret = append(ret, &pb.ConsumeRequest_Result{Id: v.id, Ok: true})
 		} else {
 			log.Printf("[%v] Process payload error: %v\n", v.id, v.err)
-			ret = append(ret, &pb.ConsumeRequest_Result{Id: v.id, Ok: false, Message: v.err.Error()})
+			result := &pb.ConsumeRequest_Result{Id: v.id, Ok: false, Message: v.err.Error()}
+			var retryLater *RetryLaterError
+			if errors.As(v.err, &retryLater) {
+				result.PreserveAttempt = true
+				result.RetryAfterSec = durationSeconds(retryLater.Delay)
+			}
+			ret = append(ret, result)
 		}
 	}
 	return ret
+}
+
+func durationSeconds(delay time.Duration) int32 {
+	if delay <= 0 {
+		return 0
+	}
+	seconds := math.Ceil(delay.Seconds())
+	if seconds > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(seconds)
 }

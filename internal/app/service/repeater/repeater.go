@@ -53,7 +53,7 @@ func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepo
 	}
 }
 
-func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg string) error {
+func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg string, retryAfter time.Duration) error {
 	repeat := model.Repeat{
 		Topic:      data.Topic,
 		Group:      data.Group,
@@ -67,6 +67,9 @@ func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg stri
 		CreatedAt:  runtime.Now(),
 	}
 	repeat.SetZeroAttempt(r.defaultStrategy)
+	if retryAfter > 0 {
+		repeat.StartedAt = runtime.Now().Add(retryAfter)
+	}
 	err := r.repo.Insert(ctx, repeat)
 	result := "success"
 	if err != nil {
@@ -181,7 +184,8 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 		if data.ResultList[0].Ok {
 			err = r.repo.Delete(ctx, repeat.Id)
 		} else {
-			repeat.ApplyNextAttempt(r.defaultStrategy)
+			result := data.ResultList[0]
+			repeat.ApplyFailure(r.defaultStrategy, result.PreserveAttempt, retryAfter(result.RetryAfterSec))
 			repeat.Error = data.ResultList[0].Message
 			err = r.repo.UpdateAttempt(ctx, repeat)
 		}
@@ -194,6 +198,13 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 			r.metrics.ObserveRetryAttempt(string(repeat.Topic), string(repeat.Group), repeatOutcome(repeat))
 		}
 	}
+}
+
+func retryAfter(seconds int32) time.Duration {
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 func repeatOutcome(repeat *model.Repeat) string {

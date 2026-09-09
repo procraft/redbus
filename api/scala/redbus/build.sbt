@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.2.6"
+version := "0.2.7"
 
 ThisBuild / scalaVersion := "2.13.17"
 ThisBuild / versionScheme := Some("semver-spec")

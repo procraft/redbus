@@ -119,7 +119,7 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 					MessageId:  m.Id,
 					Headers:    m.Headers,
 					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
-				}, result.Message); err != nil {
+				}, result.Message, retryAfter(result.RetryAfterSec)); err != nil {
 					b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry_enqueue_error", len(list))
 					return fmt.Errorf("%w: %v", model.ErrHandler, err)
 				}
@@ -150,4 +150,11 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		}
 	}
 	return consumeErr
+}
+
+func retryAfter(seconds int32) time.Duration {
+	if seconds <= 0 {
+		return 0
+	}
+	return time.Duration(seconds) * time.Second
 }

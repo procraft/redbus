@@ -19,6 +19,10 @@ report which consumers must raise their pin.
   bus sizes its own result deadline from the client's real processing budget. Both fields are
   optional on the wire: a bus that predates them ignores them. See
   `internal/pkg/stream/ReadmeAI.md` for the server side of that protocol.
+  A processor may fail with `RetryLaterException(cause, delay)` for a temporary provider condition:
+  the SDK sends `preserveAttempt = true` and a rounded-up `retryAfterSec`, so a compatible bus waits
+  without consuming an attempt. Older buses ignore the additive fields and apply their normal retry
+  strategy.
 - ScalaPB code is generated from `api/api.proto` at build time; never edit generated sources.
 
 ## Outbox flusher invariants

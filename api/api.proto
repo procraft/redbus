@@ -56,6 +56,12 @@ message ConsumeRequest {
     string id = 1;
     bool ok = 2;
     string message = 3;
+    // Keep the current retry attempt when processing failed. This is intended for temporary
+    // external throttling or billing failures which should not exhaust the retry strategy.
+    bool preserveAttempt = 4;
+    // Consumer-requested delay before the next delivery. Values <= 0 use the configured
+    // repeat strategy. This field only affects failed results.
+    int32 retryAfterSec = 5;
   }
 
   Connect connect = 1;

@@ -57,7 +57,7 @@ type IConnStore interface {
 }
 
 type IRepeater interface {
-	Add(ctx context.Context, data model.RepeatData, errorMsg string) error
+	Add(ctx context.Context, data model.RepeatData, errorMsg string, retryAfter time.Duration) error
 	GetCount(ctx context.Context) (int, int, error)
 }
 
