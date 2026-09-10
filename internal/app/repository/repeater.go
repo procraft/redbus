@@ -12,6 +12,21 @@ import (
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, created_at, started_at, finished_at`
 
+const repeatTriageSQL = `SELECT
+		topic,
+		"group",
+		error,
+		COUNT(*) AS failed_count,
+		MIN(finished_at) AS first_failed_at,
+		MAX(finished_at) AS last_failed_at
+	FROM repeat
+	WHERE finished_at >= $1
+		AND finished_at < $2
+		AND ($3 = '' OR topic = $3)
+		AND ($4 = '' OR "group" = $4)
+	GROUP BY topic, "group", error
+	ORDER BY topic, "group", failed_count DESC, error`
+
 func repeatScanDest(r *model.Repeat) []any {
 	return []any{
 		&r.Id, &r.Topic, &r.Group, &r.ConsumerId, &r.MessageId, &r.Key, &r.Data,
@@ -176,6 +191,56 @@ func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 		return nil, fmt.Errorf("Can't iterate repeat stat from db: %w", err)
 	}
 	return ret, nil
+}
+
+func (r *Repository) GetTriageStat(
+	ctx context.Context,
+	since, until time.Time,
+	topic, group string,
+) (model.RepeatTriageStat, error) {
+	conn := db.FromContext(ctx)
+	rows, err := conn.Query(ctx, repeatTriageSQL, since, until, topic, group)
+	if err != nil {
+		return model.RepeatTriageStat{}, fmt.Errorf("can't get repeat triage stat from db: %w", err)
+	}
+	defer rows.Close()
+
+	result := model.RepeatTriageStat{
+		Since: since,
+		Until: until,
+		List:  make([]model.RepeatTriageStatItem, 0),
+	}
+	for rows.Next() {
+		var itemTopic, itemGroup string
+		var errorStat model.RepeatErrorStat
+		if err := rows.Scan(
+			&itemTopic,
+			&itemGroup,
+			&errorStat.Error,
+			&errorStat.FailedCount,
+			&errorStat.FirstFailedAt,
+			&errorStat.LastFailedAt,
+		); err != nil {
+			return model.RepeatTriageStat{}, fmt.Errorf("can't scan repeat triage stat from db: %w", err)
+		}
+
+		if len(result.List) == 0 ||
+			result.List[len(result.List)-1].Topic != itemTopic ||
+			result.List[len(result.List)-1].Group != itemGroup {
+			result.List = append(result.List, model.RepeatTriageStatItem{
+				Topic:  itemTopic,
+				Group:  itemGroup,
+				Errors: make([]model.RepeatErrorStat, 0),
+			})
+		}
+		last := &result.List[len(result.List)-1]
+		last.FailedCount += errorStat.FailedCount
+		last.Errors = append(last.Errors, errorStat)
+	}
+	if err := rows.Err(); err != nil {
+		return model.RepeatTriageStat{}, fmt.Errorf("can't iterate repeat triage stat from db: %w", err)
+	}
+	return result, nil
 }
 
 func (r *Repository) RestartFailed(ctx context.Context, topic, group string) error {

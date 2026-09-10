@@ -182,12 +182,7 @@ func (c *Client) GetRetryStats(ctx context.Context) (model.RepeatStat, error) {
 	for _, item := range response.GetList() {
 		errors := make([]model.RepeatErrorStat, 0, len(item.GetErrors()))
 		for _, errorStat := range item.GetErrors() {
-			errors = append(errors, model.RepeatErrorStat{
-				Error:         errorStat.GetError(),
-				FailedCount:   int(errorStat.GetFailedCount()),
-				FirstFailedAt: timeFromUnixMilli(errorStat.GetFirstFailedAtUnixMs()),
-				LastFailedAt:  timeFromUnixMilli(errorStat.GetLastFailedAtUnixMs()),
-			})
+			errors = append(errors, repeatErrorStatFromProto(errorStat))
 		}
 		result = append(result, model.RepeatStatItem{
 			Topic:       item.GetTopic(),
@@ -199,6 +194,52 @@ func (c *Client) GetRetryStats(ctx context.Context) (model.RepeatStat, error) {
 		})
 	}
 	return result, nil
+}
+
+func (c *Client) GetRetryTriage(
+	ctx context.Context,
+	since, until time.Time,
+	topic, group string,
+) (model.RepeatTriageStat, error) {
+	ctx, cancel := c.withTimeout(ctx)
+	defer cancel()
+	response, err := c.control.GetRetryTriage(ctx, &controlpb.RetryTriageRequest{
+		SinceUnixMs: since.UnixMilli(),
+		UntilUnixMs: until.UnixMilli(),
+		Topic:       topic,
+		Group:       group,
+	})
+	if err != nil {
+		return model.RepeatTriageStat{}, err
+	}
+
+	result := make([]model.RepeatTriageStatItem, 0, len(response.GetList()))
+	for _, item := range response.GetList() {
+		errors := make([]model.RepeatErrorStat, 0, len(item.GetErrors()))
+		for _, errorStat := range item.GetErrors() {
+			errors = append(errors, repeatErrorStatFromProto(errorStat))
+		}
+		result = append(result, model.RepeatTriageStatItem{
+			Topic:       item.GetTopic(),
+			Group:       item.GetGroup(),
+			FailedCount: int(item.GetFailedCount()),
+			Errors:      errors,
+		})
+	}
+	return model.RepeatTriageStat{
+		Since: timeFromUnixMilli(response.GetSinceUnixMs()),
+		Until: timeFromUnixMilli(response.GetUntilUnixMs()),
+		List:  result,
+	}, nil
+}
+
+func repeatErrorStatFromProto(errorStat *controlpb.RetryErrorStat) model.RepeatErrorStat {
+	return model.RepeatErrorStat{
+		Error:         errorStat.GetError(),
+		FailedCount:   int(errorStat.GetFailedCount()),
+		FirstFailedAt: timeFromUnixMilli(errorStat.GetFirstFailedAtUnixMs()),
+		LastFailedAt:  timeFromUnixMilli(errorStat.GetLastFailedAtUnixMs()),
+	}
 }
 
 func (c *Client) RestartFailed(ctx context.Context, topic, group string) error {

@@ -26,6 +26,7 @@ type IRepository interface {
 	UpdateAttempt(ctx context.Context, repeat *model.Repeat) error
 	GetCount(ctx context.Context) (int, int, error)
 	GetStat(ctx context.Context) (model.RepeatStat, error)
+	GetTriageStat(ctx context.Context, since, until time.Time, topic, group string) (model.RepeatTriageStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
 	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
 	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
@@ -116,6 +117,14 @@ func (r *Repeater) GetCount(ctx context.Context) (int, int, error) {
 
 func (r *Repeater) GetStat(ctx context.Context) (model.RepeatStat, error) {
 	return r.repo.GetStat(ctx)
+}
+
+func (r *Repeater) GetTriageStat(
+	ctx context.Context,
+	since, until time.Time,
+	topic, group string,
+) (model.RepeatTriageStat, error) {
+	return r.repo.GetTriageStat(ctx, since, until, topic, group)
 }
 
 func (r *Repeater) RestartFailed(ctx context.Context, topic, group string) error {

@@ -53,6 +53,21 @@ func TestRepeatFieldsMatchScanDestinations(t *testing.T) {
 	}
 }
 
+func TestRepeatTriageSQLUsesBoundedFinishedWindowAndOptionalFilters(t *testing.T) {
+	normalizedSQL := strings.Join(strings.Fields(repeatTriageSQL), " ")
+	for _, clause := range []string{
+		`finished_at >= $1`,
+		`finished_at < $2`,
+		`($3 = '' OR topic = $3)`,
+		`($4 = '' OR "group" = $4)`,
+		`GROUP BY topic, "group", error`,
+	} {
+		if !strings.Contains(normalizedSQL, clause) {
+			t.Fatalf("triage query must contain %q: %s", clause, normalizedSQL)
+		}
+	}
+}
+
 func TestRestartFailedByErrorFiltersSelectedError(t *testing.T) {
 	client := &execRecorder{}
 	ctx := db.AddToContext(context.Background(), client)

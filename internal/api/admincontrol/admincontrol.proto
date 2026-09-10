@@ -8,6 +8,7 @@ service AdminControlService {
   rpc GetStateSnapshot(Empty) returns (StateSnapshot) {}
   rpc GetTopicStats(Empty) returns (TopicStats) {}
   rpc GetRetryStats(Empty) returns (RetryStats) {}
+  rpc GetRetryTriage(RetryTriageRequest) returns (RetryTriageStats) {}
   rpc RestartFailed(RestartFailedRequest) returns (Empty) {}
   rpc RestartFailedSince(RestartFailedSinceRequest) returns (Empty) {}
   rpc RestartFailedByError(RestartFailedByErrorRequest) returns (Empty) {}
@@ -102,6 +103,26 @@ message RetryErrorStat {
   int32 failed_count = 2;
   int64 first_failed_at_unix_ms = 3;
   int64 last_failed_at_unix_ms = 4;
+}
+
+message RetryTriageRequest {
+  int64 since_unix_ms = 1;
+  int64 until_unix_ms = 2;
+  string topic = 3;
+  string group = 4;
+}
+
+message RetryTriageStats {
+  int64 since_unix_ms = 1;
+  int64 until_unix_ms = 2;
+  repeated RetryTriageStat list = 3;
+}
+
+message RetryTriageStat {
+  string topic = 1;
+  string group = 2;
+  int32 failed_count = 3;
+  repeated RetryErrorStat errors = 4;
 }
 
 message RestartFailedRequest {

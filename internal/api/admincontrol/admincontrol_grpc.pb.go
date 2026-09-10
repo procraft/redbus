@@ -22,6 +22,7 @@ const (
 	AdminControlService_GetStateSnapshot_FullMethodName     = "/redbus.admincontrol.v1.AdminControlService/GetStateSnapshot"
 	AdminControlService_GetTopicStats_FullMethodName        = "/redbus.admincontrol.v1.AdminControlService/GetTopicStats"
 	AdminControlService_GetRetryStats_FullMethodName        = "/redbus.admincontrol.v1.AdminControlService/GetRetryStats"
+	AdminControlService_GetRetryTriage_FullMethodName       = "/redbus.admincontrol.v1.AdminControlService/GetRetryTriage"
 	AdminControlService_RestartFailed_FullMethodName        = "/redbus.admincontrol.v1.AdminControlService/RestartFailed"
 	AdminControlService_RestartFailedSince_FullMethodName   = "/redbus.admincontrol.v1.AdminControlService/RestartFailedSince"
 	AdminControlService_RestartFailedByError_FullMethodName = "/redbus.admincontrol.v1.AdminControlService/RestartFailedByError"
@@ -35,6 +36,7 @@ type AdminControlServiceClient interface {
 	GetStateSnapshot(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*StateSnapshot, error)
 	GetTopicStats(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*TopicStats, error)
 	GetRetryStats(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RetryStats, error)
+	GetRetryTriage(ctx context.Context, in *RetryTriageRequest, opts ...grpc.CallOption) (*RetryTriageStats, error)
 	RestartFailed(ctx context.Context, in *RestartFailedRequest, opts ...grpc.CallOption) (*Empty, error)
 	RestartFailedSince(ctx context.Context, in *RestartFailedSinceRequest, opts ...grpc.CallOption) (*Empty, error)
 	RestartFailedByError(ctx context.Context, in *RestartFailedByErrorRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -73,6 +75,16 @@ func (c *adminControlServiceClient) GetRetryStats(ctx context.Context, in *Empty
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RetryStats)
 	err := c.cc.Invoke(ctx, AdminControlService_GetRetryStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminControlServiceClient) GetRetryTriage(ctx context.Context, in *RetryTriageRequest, opts ...grpc.CallOption) (*RetryTriageStats, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetryTriageStats)
+	err := c.cc.Invoke(ctx, AdminControlService_GetRetryTriage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +138,7 @@ type AdminControlServiceServer interface {
 	GetStateSnapshot(context.Context, *Empty) (*StateSnapshot, error)
 	GetTopicStats(context.Context, *Empty) (*TopicStats, error)
 	GetRetryStats(context.Context, *Empty) (*RetryStats, error)
+	GetRetryTriage(context.Context, *RetryTriageRequest) (*RetryTriageStats, error)
 	RestartFailed(context.Context, *RestartFailedRequest) (*Empty, error)
 	RestartFailedSince(context.Context, *RestartFailedSinceRequest) (*Empty, error)
 	RestartFailedByError(context.Context, *RestartFailedByErrorRequest) (*Empty, error)
@@ -147,6 +160,9 @@ func (UnimplementedAdminControlServiceServer) GetTopicStats(context.Context, *Em
 }
 func (UnimplementedAdminControlServiceServer) GetRetryStats(context.Context, *Empty) (*RetryStats, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRetryStats not implemented")
+}
+func (UnimplementedAdminControlServiceServer) GetRetryTriage(context.Context, *RetryTriageRequest) (*RetryTriageStats, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRetryTriage not implemented")
 }
 func (UnimplementedAdminControlServiceServer) RestartFailed(context.Context, *RestartFailedRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method RestartFailed not implemented")
@@ -230,6 +246,24 @@ func _AdminControlService_GetRetryStats_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AdminControlServiceServer).GetRetryStats(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminControlService_GetRetryTriage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryTriageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminControlServiceServer).GetRetryTriage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminControlService_GetRetryTriage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminControlServiceServer).GetRetryTriage(ctx, req.(*RetryTriageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -324,6 +358,10 @@ var AdminControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRetryStats",
 			Handler:    _AdminControlService_GetRetryStats_Handler,
+		},
+		{
+			MethodName: "GetRetryTriage",
+			Handler:    _AdminControlService_GetRetryTriage_Handler,
 		},
 		{
 			MethodName: "RestartFailed",

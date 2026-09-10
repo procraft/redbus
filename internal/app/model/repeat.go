@@ -115,3 +115,18 @@ type RepeatErrorStat struct {
 }
 
 type RepeatStat = []RepeatStatItem
+
+// RepeatTriageStat is a read-only snapshot of retries that became terminally failed
+// inside one half-open time window. It deliberately excludes active retries.
+type RepeatTriageStat struct {
+	Since time.Time
+	Until time.Time
+	List  []RepeatTriageStatItem
+}
+
+type RepeatTriageStatItem struct {
+	Topic       string
+	Group       string
+	FailedCount int
+	Errors      []RepeatErrorStat
+}

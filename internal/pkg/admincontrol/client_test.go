@@ -28,3 +28,16 @@ func TestConsumerFromProto(t *testing.T) {
 	require.Equal(t, uint64(42), consumer.MessagesProcessed)
 	require.Equal(t, int64(2), int64(consumer.PartitionList[0].Lag))
 }
+
+func TestRepeatErrorStatFromProto(t *testing.T) {
+	result := repeatErrorStatFromProto(&controlpb.RetryErrorStat{
+		Error: "boom", FailedCount: 3,
+		FirstFailedAtUnixMs: 1_777_632_000_000,
+		LastFailedAtUnixMs:  1_777_632_060_000,
+	})
+
+	require.Equal(t, "boom", result.Error)
+	require.Equal(t, 3, result.FailedCount)
+	require.Equal(t, time.UnixMilli(1_777_632_000_000), result.FirstFailedAt)
+	require.Equal(t, time.UnixMilli(1_777_632_060_000), result.LastFailedAt)
+}

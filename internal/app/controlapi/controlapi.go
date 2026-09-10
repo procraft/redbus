@@ -20,6 +20,7 @@ type IDataBusService interface {
 
 type IRepeater interface {
 	GetStat(ctx context.Context) (model.RepeatStat, error)
+	GetTriageStat(ctx context.Context, since, until time.Time, topic, group string) (model.RepeatTriageStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
 	RestartFailedSince(ctx context.Context, topic, group string, since time.Time) error
 	RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error
@@ -149,12 +150,7 @@ func (a *ControlApi) GetRetryStats(ctx context.Context, _ *admincontrol.Empty) (
 	for _, item := range stat {
 		errors := make([]*admincontrol.RetryErrorStat, 0, len(item.Errors))
 		for _, errorStat := range item.Errors {
-			errors = append(errors, &admincontrol.RetryErrorStat{
-				Error:               errorStat.Error,
-				FailedCount:         int32(errorStat.FailedCount),
-				FirstFailedAtUnixMs: unixMilli(errorStat.FirstFailedAt),
-				LastFailedAtUnixMs:  unixMilli(errorStat.LastFailedAt),
-			})
+			errors = append(errors, retryErrorStatToProto(errorStat))
 		}
 		result = append(result, &admincontrol.RetryStat{
 			Topic:       item.Topic,
@@ -166,6 +162,57 @@ func (a *ControlApi) GetRetryStats(ctx context.Context, _ *admincontrol.Empty) (
 		})
 	}
 	return &admincontrol.RetryStats{List: result}, nil
+}
+
+func (a *ControlApi) GetRetryTriage(
+	ctx context.Context,
+	req *admincontrol.RetryTriageRequest,
+) (*admincontrol.RetryTriageStats, error) {
+	since := timeFromUnixMilli(req.GetSinceUnixMs())
+	until := timeFromUnixMilli(req.GetUntilUnixMs())
+	if since.IsZero() || until.IsZero() || !since.Before(until) {
+		return nil, status.Error(codes.InvalidArgument, "since and until must define a non-empty time window")
+	}
+
+	stat, err := a.repeater.GetTriageStat(ctx, since, until, req.GetTopic(), req.GetGroup())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "get retry triage: %v", err)
+	}
+
+	result := make([]*admincontrol.RetryTriageStat, 0, len(stat.List))
+	for _, item := range stat.List {
+		errors := make([]*admincontrol.RetryErrorStat, 0, len(item.Errors))
+		for _, errorStat := range item.Errors {
+			errors = append(errors, retryErrorStatToProto(errorStat))
+		}
+		result = append(result, &admincontrol.RetryTriageStat{
+			Topic:       item.Topic,
+			Group:       item.Group,
+			FailedCount: int32(item.FailedCount),
+			Errors:      errors,
+		})
+	}
+	return &admincontrol.RetryTriageStats{
+		SinceUnixMs: stat.Since.UnixMilli(),
+		UntilUnixMs: stat.Until.UnixMilli(),
+		List:        result,
+	}, nil
+}
+
+func retryErrorStatToProto(errorStat model.RepeatErrorStat) *admincontrol.RetryErrorStat {
+	return &admincontrol.RetryErrorStat{
+		Error:               errorStat.Error,
+		FailedCount:         int32(errorStat.FailedCount),
+		FirstFailedAtUnixMs: unixMilli(errorStat.FirstFailedAt),
+		LastFailedAtUnixMs:  unixMilli(errorStat.LastFailedAt),
+	}
+}
+
+func timeFromUnixMilli(value int64) time.Time {
+	if value <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(value)
 }
 
 func (a *ControlApi) RestartFailed(ctx context.Context, req *admincontrol.RestartFailedRequest) (*admincontrol.Empty, error) {

@@ -23,10 +23,13 @@ func (s *repositoryStub) Insert(_ context.Context, repeat model.Repeat) error {
 func (s *repositoryStub) FindForRepeat(context.Context, model.TopicGroupList) (model.RepeatList, error) {
 	return nil, nil
 }
-func (s *repositoryStub) Delete(context.Context, int64) error                 { return nil }
-func (s *repositoryStub) UpdateAttempt(context.Context, *model.Repeat) error  { return nil }
-func (s *repositoryStub) GetCount(context.Context) (int, int, error)          { return 0, 0, nil }
-func (s *repositoryStub) GetStat(context.Context) (model.RepeatStat, error)   { return nil, nil }
+func (s *repositoryStub) Delete(context.Context, int64) error                { return nil }
+func (s *repositoryStub) UpdateAttempt(context.Context, *model.Repeat) error { return nil }
+func (s *repositoryStub) GetCount(context.Context) (int, int, error)         { return 0, 0, nil }
+func (s *repositoryStub) GetStat(context.Context) (model.RepeatStat, error)  { return nil, nil }
+func (s *repositoryStub) GetTriageStat(context.Context, time.Time, time.Time, string, string) (model.RepeatTriageStat, error) {
+	return model.RepeatTriageStat{}, nil
+}
 func (s *repositoryStub) RestartFailed(context.Context, string, string) error { return nil }
 func (s *repositoryStub) RestartFailedSince(context.Context, string, string, time.Time) error {
 	return nil

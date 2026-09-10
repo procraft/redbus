@@ -29,6 +29,9 @@ func (s dataBusStub) GetTopicList(context.Context) (model.StatTopicList, error) 
 
 type repeaterStub struct {
 	stat         model.RepeatStat
+	triage       model.RepeatTriageStat
+	triageTopic  string
+	triageGroup  string
 	restartTopic string
 	restartGroup string
 	restartError *string
@@ -38,6 +41,18 @@ type repeaterStub struct {
 
 func (s *repeaterStub) GetStat(context.Context) (model.RepeatStat, error) {
 	return s.stat, nil
+}
+
+func (s *repeaterStub) GetTriageStat(
+	_ context.Context,
+	since, until time.Time,
+	topic, group string,
+) (model.RepeatTriageStat, error) {
+	s.triage.Since = since
+	s.triage.Until = until
+	s.triageTopic = topic
+	s.triageGroup = group
+	return s.triage, nil
 }
 
 func (s *repeaterStub) RestartFailed(_ context.Context, topic, group string) error {
@@ -75,12 +90,20 @@ func TestControlApi(t *testing.T) {
 	t.Cleanup(redruntime.ResetNowFn)
 	firstFailedAt := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	lastFailedAt := time.Date(2026, 9, 3, 9, 0, 0, 0, time.UTC)
-	repeater := &repeaterStub{stat: model.RepeatStat{{
-		Topic: "orders", Group: "billing", AllCount: 4, FailedCount: 1, LastError: "failed",
-		Errors: []model.RepeatErrorStat{{
-			Error: "failed", FailedCount: 1, FirstFailedAt: firstFailedAt, LastFailedAt: lastFailedAt,
+	repeater := &repeaterStub{
+		stat: model.RepeatStat{{
+			Topic: "orders", Group: "billing", AllCount: 4, FailedCount: 1, LastError: "failed",
+			Errors: []model.RepeatErrorStat{{
+				Error: "failed", FailedCount: 1, FirstFailedAt: firstFailedAt, LastFailedAt: lastFailedAt,
+			}},
 		}},
-	}}}
+		triage: model.RepeatTriageStat{List: []model.RepeatTriageStatItem{{
+			Topic: "orders", Group: "billing", FailedCount: 2,
+			Errors: []model.RepeatErrorStat{{
+				Error: "failed", FailedCount: 2, FirstFailedAt: firstFailedAt, LastFailedAt: lastFailedAt,
+			}},
+		}}},
+	}
 	api := New(dataBusStub{
 		stat: model.Stat{ConsumeTopicCount: 2, ConsumerCount: 3, RepeatAllCount: 4, RepeatFailedCount: 1},
 		topics: model.StatTopicList{{
@@ -122,6 +145,24 @@ func TestControlApi(t *testing.T) {
 	require.Equal(t, int32(1), retries.GetList()[0].GetErrors()[0].GetFailedCount())
 	require.Equal(t, firstFailedAt.UnixMilli(), retries.GetList()[0].GetErrors()[0].GetFirstFailedAtUnixMs())
 	require.Equal(t, lastFailedAt.UnixMilli(), retries.GetList()[0].GetErrors()[0].GetLastFailedAtUnixMs())
+
+	triage, err := api.GetRetryTriage(context.Background(), &admincontrol.RetryTriageRequest{
+		SinceUnixMs: firstFailedAt.UnixMilli(),
+		UntilUnixMs: lastFailedAt.Add(time.Hour).UnixMilli(),
+		Topic:       "orders",
+		Group:       "billing",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int32(2), triage.GetList()[0].GetFailedCount())
+	require.Equal(t, "orders", repeater.triageTopic)
+	require.Equal(t, "billing", repeater.triageGroup)
+	require.Equal(t, firstFailedAt.UnixMilli(), triage.GetSinceUnixMs())
+	require.Equal(t, lastFailedAt.Add(time.Hour).UnixMilli(), triage.GetUntilUnixMs())
+
+	_, err = api.GetRetryTriage(context.Background(), &admincontrol.RetryTriageRequest{
+		SinceUnixMs: lastFailedAt.UnixMilli(), UntilUnixMs: firstFailedAt.UnixMilli(),
+	})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 
 	_, err = api.RestartFailed(context.Background(), &admincontrol.RestartFailedRequest{Topic: "orders", Group: "billing"})
 	require.NoError(t, err)
