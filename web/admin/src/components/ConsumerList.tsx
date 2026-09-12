@@ -19,8 +19,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import dataBus from '@/api/dataBus';
 import type { ConsumerStat } from '@/api/types';
 import { useRequest } from '@/hooks/useRequest';
-
-const numberFormatter = new Intl.NumberFormat('en-US');
+import {
+  averageRate,
+  formatAge,
+  formatDate,
+  numberFormatter,
+  shortenMiddle,
+} from '@/utils/format';
 
 function stateColor(state: string): string {
   switch (state) {
@@ -35,43 +40,6 @@ function stateColor(state: string): string {
     default:
       return 'gray';
   }
-}
-
-function validDate(value?: string | null): Date | null {
-  if (!value || value.startsWith('0001-')) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDate(value?: string | null): string {
-  return validDate(value)?.toLocaleString() ?? '—';
-}
-
-function formatAge(value?: string | null): string {
-  const date = validDate(value);
-  if (!date) return '—';
-  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h ago`;
-}
-
-function shortenMiddle(value: string, maxLength = 32): string {
-  if (value.length <= maxLength) return value;
-  const visibleLength = maxLength - 1;
-  const startLength = Math.ceil(visibleLength / 2);
-  const endLength = Math.floor(visibleLength / 2);
-  return `${value.slice(0, startLength)}…${value.slice(-endLength)}`;
-}
-
-function averageRate(consumer: ConsumerStat): number {
-  const connectedAt = validDate(consumer.connectedAt);
-  if (!connectedAt) return 0;
-  const seconds = Math.max(1, (Date.now() - connectedAt.getTime()) / 1000);
-  return consumer.messagesProcessed / seconds;
 }
 
 export function ConsumerList() {
@@ -189,7 +157,7 @@ export function ConsumerList() {
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Consumer</Table.Th>
+                <Table.Th>Topic / consumer</Table.Th>
                 <Table.Th style={{ whiteSpace: 'nowrap' }}>State / connection</Table.Th>
                 <Table.Th>Partitions</Table.Th>
                 <Table.Th style={{ whiteSpace: 'nowrap' }}>Lag / activity</Table.Th>
@@ -207,10 +175,10 @@ export function ConsumerList() {
                   <Table.Tr key={`${consumer.topic}:${consumer.group}:${consumer.id}:${consumer.kafkaMemberId}`}>
                     <Table.Td>
                       <Text fw={700} style={{ whiteSpace: 'nowrap' }}>
-                        {consumer.id}
+                        {consumer.topic}
                       </Text>
-                      <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
-                        {consumer.topic} / {consumer.group}
+                      <Text fw={600} size="xs" style={{ whiteSpace: 'nowrap' }}>
+                        {consumer.group} / {consumer.id}
                       </Text>
                       <Group gap="xs" wrap="nowrap">
                         <Text c="dimmed" size="xs" style={{ whiteSpace: 'nowrap' }}>
@@ -268,7 +236,7 @@ export function ConsumerList() {
                       </Text>
                       <Text>{numberFormatter.format(consumer.messagesProcessed)} messages</Text>
                       <Text c="dimmed" size="xs">
-                        {averageRate(consumer).toFixed(2)} msg/s avg
+                        {averageRate(consumer.messagesProcessed, consumer.connectedAt).toFixed(2)} msg/s avg
                       </Text>
                       <Tooltip label={formatDate(consumer.lastMessageAt)}>
                         <Text c="dimmed" size="xs">

@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import dataBus from '@/api/dataBus';
 import type { TopicGroup, TopicStat } from '@/api/types';
@@ -142,9 +143,13 @@ function GroupDetails({ group }: { group: TopicGroup }) {
 }
 
 export function TopicList() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const topicParam = searchParams.get('topic') ?? '';
   const [topics, setTopics] = useState<TopicStat[]>([]);
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState(topicParam);
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(topicParam ? [topicParam] : []),
+  );
   const { execute, isLoading } = useRequest();
 
   const refresh = useCallback(
@@ -197,7 +202,10 @@ export function TopicList() {
         aria-label="Search topics"
         leftSection={<Search size={16} />}
         mb="md"
-        onChange={(event) => setSearch(event.currentTarget.value)}
+        onChange={(event) => {
+          setSearch(event.currentTarget.value);
+          if (topicParam) setSearchParams({}, { replace: true });
+        }}
         placeholder="Search topics"
         value={search}
       />
