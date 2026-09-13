@@ -13,6 +13,8 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 - **Git reading:** inspect local/remote history, refs, status and diffs, and fetch without asking.
   Push only after an explicit user request, to the requested repository/branch. Do not ask again for
   the same authorized push. Reading does not authorize reset, cleanup, force-push or discarding work.
+  After a confirmed push, sync the task-owned source checkout to the delivered commit so the delivered
+  change stops existing as a local diff (see `master-sync.md`, «Leave the source checkout clean»).
 - **Local implementation verification:** an explicit implementation, bug-fix, refactoring, cleanup,
   documentation, or conveyor request authorizes the cheapest deterministic local checks needed to
   validate that scoped work: focused regression tests, targeted compile/typecheck/lint, and required
@@ -32,6 +34,11 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 - **Local database reading:** read whenever necessary without asking. Resolve the actual endpoint:
   a localhost tunnel to stage/prod is not a local database. No implicit writes, migrations, fixture
   changes, clones, new databases or permission grants.
+- **Production database:** agents do not execute production SQL. Put the statements in a file and
+  hand the user one ready command. Any command that writes must use `$SOHOLMS_PROD_PG_RW_URL`
+  (role `libicraft`, password entered interactively by the user), never `-U libicraft` on the read
+  string: a role inside the URL silently wins over `-U` and `PGUSER`.
+  See `.agents/docs/postgres-prod-access.md`.
 - **Loki:** read stage logs without asking. Read production logs when the user requested that
   investigation, or ask once before agent-initiated production access. Permission to read logs
   does not authorize database access, changing environments or running a repair.
@@ -89,6 +96,77 @@ not acceptance execution; skip unrelated documentation or formatting-only change
   the user's testing decision, reusing any still-applicable authorization. This policy
   does not authorize automatic fixture preparation, CI execution or registration
   of the legacy test repository in the `wt` lifecycle.
+
+## Implementation discipline
+
+For nontrivial implementation, **decompose before editing and execute each slice through an
+appropriate agent when delegation is available**. The task coordinator owns this decomposition;
+a worker already assigned a matching slice executes it directly, rather than delegating it again.
+Nontrivial means multiple responsibilities,
+unresolved design, or meaningful contract, persistent-state, authorization or side-effect risk;
+line count is not the criterion. Keep a compact execution record in the current task or existing
+plan: outcome, owner role and exact paths, dependencies, preserved invariants/acceptance criteria,
+focused verification, and the owner of integration. Resolve a design unknown with a bounded
+investigation slice before committing dependent implementation to a guessed design.
+
+Reuse the same agent for coherent dependent work. Parallelize only independent slices with
+nonoverlapping write ownership, settled interfaces and available build/runtime resources; cap
+active agents to useful independent work and available slots. A file or checklist step is not a
+reason for another agent. The coordinator owns the execution graph; workers request another
+slice rather than recursively spawning their own teams. Keep bounded independent checks already
+defined by an explicitly invoked workflow (such as `fix-ticket`); account for their reviewer in
+the same resource budget. For a trivial change, use the owning repo's normal route without extra
+decomposition agents. When delegation is unavailable, retain
+the same outcome/verification record and execute sequentially under the relevant repo rulebook;
+report this fallback without blocking otherwise authorized work.
+
+Before adding a policy, stored state, helper/abstraction or dependency, and after a meaningful
+slice, check the existing owner and callers: can reuse, derivation or deletion solve the need?
+Justify added complexity by today's behavior or a protected boundary, not speculative reuse.
+Unify code when it expresses the same rule and changes together; preserve separate owners when
+similar code has different reasons to change. Prefer clear contracts and fewer states over merely
+fewer lines. Where useful and proportionate, encode durable invariants in types/immutable state,
+module boundaries, constraints or focused tests instead of relying only on prose. Record only
+consequential decisions; this is implementation work, not an automatic final review.
+
+Close each slice with criterion-to-evidence links: changed paths, what the focused check proves,
+command/result, and the checked commit plus identifiable worktree changes (or equivalent artifact
+snapshot). Mark inspection-only and unverified criteria explicitly. After later edits, reuse
+checks only if their relevant code, inputs and generated artifacts are unchanged. The integration
+owner confirms the combined outcome and producer/consumer seams against the final scoped change;
+agent completion alone does not prove integration. Keep acceptance execution, final review,
+runtime access, commit and push within their existing authorization boundaries above.
+
+## Performance-risk discipline
+
+Always consider performance alongside correctness, simplicity and delivery cost. Prefer the simplest design
+that meets the task's user and operational needs. Scale investigation to absolute impact, frequency, affected
+tenants/shared resources, uncertainty and recoverability. A low-impact change needs no separate report or
+benchmark; a brief rationale in the existing plan/review is enough. Technical categories and slowdown ratios
+are investigation signals, not automatic gates.
+
+For a plausible material risk, record what improves, what must remain acceptable, the representative workload
+and known configuration, and the cheapest check that can decide the trade-off. Use existing objectives or
+operational deadlines; distinguish a baseline from a required budget and label unknowns rather than inventing
+an SLO. Count the whole operation, including queries, fan-out, commits, lock duration, retries and fixed delays
+across batch fragments. The integration owner keeps one cost assessment in the existing plan/contract; repo
+owners contribute their part. Update it when cost, scale or assumptions change, and verify it against the final
+implementation during review. Reuse still-applicable evidence.
+
+A calculation, query plan or focused test may settle the decision; measure representative behavior when
+contention or composition makes that bound unreliable. Functional checks alone do not establish throughput.
+Block demonstrated material user/operational harm, a violated agreed budget, or a reachable uncontrolled cost
+increase without effective mitigation. A slowdown within the budget can be an acceptable price for simplicity
+or correctness: state the trade-off, and stop when sufficient evidence supports it. Do not optimize merely to
+beat the baseline or continue checks that cannot change the delivery decision.
+
+Bounded residual performance uncertainty may be handled by an already available, authorized limited rollout
+with an owner, observable stop threshold and effective disable/rollback path. Record these briefly where the
+risk warrants it; do not require new flags, metrics or a rollout framework for every change. A tenant-limited
+release can still affect a shared database. Code rollback cannot undo deleted data, exposed tenant information
+or completed external payments: check those invariants before release. Missing safeguards or evidence remain
+explicit gaps; propose the smallest check when they prevent a delivery conclusion. Existing runtime, acceptance
+and deployment authorization boundaries still apply.
 
 ## Coordinating execution
 
