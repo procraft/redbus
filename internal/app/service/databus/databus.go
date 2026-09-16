@@ -37,7 +37,7 @@ func New(
 }
 
 type IMetrics interface {
-	ObserveProduce(topic, result string, duration time.Duration)
+	ObserveProduce(topic, result string, count int, duration time.Duration)
 	ObserveConsumerConnection(topic, group, result string)
 	AddConsumer(topic, group, id, state string)
 	RemoveConsumer(topic, group, id string)

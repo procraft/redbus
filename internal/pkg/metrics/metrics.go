@@ -87,7 +87,7 @@ func New() *Metrics {
 		produceDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "produce_duration_seconds",
-			Help:      "Time spent sending a message to Kafka.",
+			Help:      "Time spent sending one produce request to Kafka.",
 			Buckets:   []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5},
 		}, []string{"topic"}),
 		consumedMessages: prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -218,8 +218,10 @@ func (m *Metrics) RegisterDBPool(pool DBPoolStatsProvider) {
 	})
 }
 
-func (m *Metrics) ObserveProduce(topic, result string, duration time.Duration) {
-	m.producedMessages.WithLabelValues(topic, result).Inc()
+func (m *Metrics) ObserveProduce(topic, result string, count int, duration time.Duration) {
+	if count > 0 {
+		m.producedMessages.WithLabelValues(topic, result).Add(float64(count))
+	}
 	m.produceDuration.WithLabelValues(topic).Observe(duration.Seconds())
 }
 

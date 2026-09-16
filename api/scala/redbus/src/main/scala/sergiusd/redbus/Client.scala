@@ -26,13 +26,15 @@ case class Client(
 
   /**
    * Starts the transactional-outbox flusher for rows written with `producer.Producer.produceDba`.
-   * Besides reacting to `pg_notify`, it sweeps `redbus_outbox` every `sweepInterval` (default 30 s).
+   * Besides reacting to `pg_notify`, it sweeps `redbus_outbox` every `sweepInterval` (default 30 s)
+   * and publishes ordered, bounded batches (default 100 rows).
    */
   def startProducerDbaFlusher(
     db: slick.jdbc.PostgresProfile.backend.Database,
     sweepInterval: FiniteDuration = Flusher.defaultSweepInterval,
+    batchSize: Int = Flusher.defaultBatchSize,
   )(implicit as: ActorSystem): Unit = {
-    Flusher.start(db, grpc.produce, logger, sweepInterval)
+    Flusher.start(db, grpc.produceBatch, logger, sweepInterval, batchSize)
   }
 
   def consume(

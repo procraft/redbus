@@ -24,16 +24,19 @@ private case object ProcessingFinished
  */
 class FlusherActor private[producer] (
   store: Flusher.Store,
-  produce: api.ProduceRequest => Future[api.ProduceResponse],
+  produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
   logger: String => Unit,
+  batchSize: Int,
 ) extends Actor {
   import Flusher.ec
+  require(batchSize > 0, "batchSize must be positive")
 
   def this(
     db: Database,
-    produce: api.ProduceRequest => Future[api.ProduceResponse],
+    produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
     logger: String => Unit = _ => (),
-  ) = this(new Flusher.SlickStore(db), produce, logger)
+    batchSize: Int = Flusher.defaultBatchSize,
+  ) = this(new Flusher.SlickStore(db), produceBatch, logger, batchSize)
 
   private var inProgress = false
   private var pending = false
@@ -67,34 +70,36 @@ class FlusherActor private[producer] (
   }
 
   private def processMessages(data: String): Future[Unit] = {
-    for {
-      messages <- store.fetchAll()
-      _ <- runSeq(messages) { message =>
-        for {
-          response <- produce(api.ProduceRequest(
-            message.topic,
-            message.options.key.getOrElse(""),
-            ByteString.copyFrom(message.message),
-            message.options.idempotencyKey.getOrElse(""),
-            message.options.timestamp.getOrElse(""),
-            message.options.version.getOrElse(message.id),
-          ))
-          _ <- if (response.ok) Future.unit else Future.failed(
-            new IllegalStateException(s"Bus rejected message ${message.topic} / ${message.id}")
+    store.fetchBatch(batchSize).flatMap { fetched =>
+      fetched.headOption match {
+        case None => Future.unit
+        case Some(first) =>
+          val messages = fetched.takeWhile(_.topic == first.topic)
+          val ids = messages.map(_.id)
+          val request = api.ProduceBatchRequest(
+            topic = first.topic,
+            messageList = messages.map(message => api.ProduceBatchMessage(
+              message.options.key.getOrElse(""),
+              ByteString.copyFrom(message.message),
+              message.options.idempotencyKey.getOrElse(""),
+              message.options.timestamp.getOrElse(""),
+              message.options.version.getOrElse(message.id),
+            )),
           )
-          _ <- store.delete(message.id)
-          _ = logger(s"Flushed message ${message.topic} / ${message.id}")
-        } yield ()
+          for {
+            response <- produceBatch(request)
+            _ <- if (response.ok) Future.unit else Future.failed(
+              new IllegalStateException(s"Bus rejected batch ${first.topic} / ${ids.mkString(",")}")
+            )
+            deleted <- store.deleteBatch(ids)
+            _ <- if (deleted == ids.size) Future.unit else Future.failed(
+              new IllegalStateException(s"Deleted $deleted of ${ids.size} flushed outbox rows")
+            )
+            _ = logger(s"Flushed batch ${first.topic} / ${ids.mkString(",")}")
+            _ <- processMessages(data)
+          } yield ()
       }
-    } yield ()
-  }
-
-  private def runSeq[T, U](items: Iterable[T])(futureProvider: T => Future[U])(implicit ec: ExecutionContext): Future[List[U]] = {
-    items.foldLeft(Future.successful[List[U]](Nil)) {
-      (f, item) => f.flatMap {
-        x => Future.unit.flatMap(_ => futureProvider(item).map(_ :: x))
-      }
-    } map (_.reverse)
+    }
   }
 }
 
@@ -103,19 +108,21 @@ object Flusher {
 
   /** Default interval of the periodic outbox sweep. */
   val defaultSweepInterval: FiniteDuration = 30.seconds
+  /** Default maximum number of outbox rows fetched in one query and batch request. */
+  val defaultBatchSize: Int = 100
 
   /** Outbox storage used by [[FlusherActor]]; rows are returned in `id` order. */
   trait Store {
-    def fetchAll(): Future[Seq[PublishingMessage]]
-    def delete(id: Long): Future[Int]
+    def fetchBatch(batchSize: Int): Future[Seq[PublishingMessage]]
+    def deleteBatch(ids: Seq[Long]): Future[Int]
   }
 
   class SlickStore(db: Database) extends Store {
-    override def fetchAll(): Future[Seq[PublishingMessage]] =
-      db.run(PublishingMessages.sortBy(_.id).result)
+    override def fetchBatch(batchSize: Int): Future[Seq[PublishingMessage]] =
+      db.run(PublishingMessages.sortBy(_.id).take(batchSize).result)
 
-    override def delete(id: Long): Future[Int] =
-      db.run(PublishingMessages.filter(_.id === id).delete)
+    override def deleteBatch(ids: Seq[Long]): Future[Int] =
+      db.run(PublishingMessages.filter(_.id.inSetBind(ids)).delete)
   }
 
   /**
@@ -125,11 +132,13 @@ object Flusher {
    */
   def start(
     db: Database,
-    produce: api.ProduceRequest => Future[api.ProduceResponse],
+    produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
     logger: String => Unit = _ => (),
     sweepInterval: FiniteDuration = defaultSweepInterval,
+    batchSize: Int = defaultBatchSize,
   )(implicit as: ActorSystem): Unit = {
-    val dispatcher = as.actorOf(Props(new FlusherActor(db, produce, logger)), "redbusFlusherActor")
+    require(batchSize > 0, "batchSize must be positive")
+    val dispatcher = as.actorOf(Props(new FlusherActor(db, produceBatch, logger, batchSize)), "redbusFlusherActor")
 
     PostgresListener.listen(db) { id => dispatcher ! ProcessMessage(id) }
 

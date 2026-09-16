@@ -48,6 +48,7 @@ type IDataBus interface {
 	Consume(ctx context.Context, c model.IConsumer, srv pb.RedbusService_ConsumeServer, repeatStrategy *model.RepeatStrategy, limits model.ConsumeLimits, abort stream.AbortFn, handler func(ctx context.Context, list model.MessageList) error, cancel context.CancelFunc) error
 
 	Produce(ctx context.Context, topic model.TopicName, key string, message []byte, version int64, idempotencyKey string, timestamp *time.Time) error
+	ProduceBatch(ctx context.Context, topic model.TopicName, messages []model.ProduceData) error
 }
 
 type IRepeater interface {

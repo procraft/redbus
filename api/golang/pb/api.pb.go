@@ -149,6 +149,178 @@ func (x *ProduceResponse) GetOk() bool {
 	return false
 }
 
+type ProduceBatchMessage struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Key            string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Message        []byte                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,3,opt,name=idempotencyKey,proto3" json:"idempotencyKey,omitempty"`
+	Timestamp      string                 `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Version        int64                  `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ProduceBatchMessage) Reset() {
+	*x = ProduceBatchMessage{}
+	mi := &file_api_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProduceBatchMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProduceBatchMessage) ProtoMessage() {}
+
+func (x *ProduceBatchMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProduceBatchMessage.ProtoReflect.Descriptor instead.
+func (*ProduceBatchMessage) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ProduceBatchMessage) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *ProduceBatchMessage) GetMessage() []byte {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *ProduceBatchMessage) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *ProduceBatchMessage) GetTimestamp() string {
+	if x != nil {
+		return x.Timestamp
+	}
+	return ""
+}
+
+func (x *ProduceBatchMessage) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type ProduceBatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	MessageList   []*ProduceBatchMessage `protobuf:"bytes,2,rep,name=messageList,proto3" json:"messageList,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProduceBatchRequest) Reset() {
+	*x = ProduceBatchRequest{}
+	mi := &file_api_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProduceBatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProduceBatchRequest) ProtoMessage() {}
+
+func (x *ProduceBatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProduceBatchRequest.ProtoReflect.Descriptor instead.
+func (*ProduceBatchRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ProduceBatchRequest) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *ProduceBatchRequest) GetMessageList() []*ProduceBatchMessage {
+	if x != nil {
+		return x.MessageList
+	}
+	return nil
+}
+
+type ProduceBatchResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProduceBatchResponse) Reset() {
+	*x = ProduceBatchResponse{}
+	mi := &file_api_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProduceBatchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProduceBatchResponse) ProtoMessage() {}
+
+func (x *ProduceBatchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProduceBatchResponse.ProtoReflect.Descriptor instead.
+func (*ProduceBatchResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ProduceBatchResponse) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
 type ConsumeRequest struct {
 	state      protoimpl.MessageState   `protogen:"open.v1"`
 	Connect    *ConsumeRequest_Connect  `protobuf:"bytes,1,opt,name=connect,proto3" json:"connect,omitempty"`
@@ -163,7 +335,7 @@ type ConsumeRequest struct {
 
 func (x *ConsumeRequest) Reset() {
 	*x = ConsumeRequest{}
-	mi := &file_api_proto_msgTypes[2]
+	mi := &file_api_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -175,7 +347,7 @@ func (x *ConsumeRequest) String() string {
 func (*ConsumeRequest) ProtoMessage() {}
 
 func (x *ConsumeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[2]
+	mi := &file_api_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -188,7 +360,7 @@ func (x *ConsumeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeRequest.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ConsumeRequest) GetConnect() *ConsumeRequest_Connect {
@@ -226,7 +398,7 @@ type ConsumeResponse struct {
 
 func (x *ConsumeResponse) Reset() {
 	*x = ConsumeResponse{}
-	mi := &file_api_proto_msgTypes[3]
+	mi := &file_api_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +410,7 @@ func (x *ConsumeResponse) String() string {
 func (*ConsumeResponse) ProtoMessage() {}
 
 func (x *ConsumeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[3]
+	mi := &file_api_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +423,7 @@ func (x *ConsumeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeResponse.ProtoReflect.Descriptor instead.
 func (*ConsumeResponse) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ConsumeResponse) GetConnect() *ConsumeResponse_Connect {
@@ -291,7 +463,7 @@ type ConsumeRequest_Connect struct {
 
 func (x *ConsumeRequest_Connect) Reset() {
 	*x = ConsumeRequest_Connect{}
-	mi := &file_api_proto_msgTypes[4]
+	mi := &file_api_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +475,7 @@ func (x *ConsumeRequest_Connect) String() string {
 func (*ConsumeRequest_Connect) ProtoMessage() {}
 
 func (x *ConsumeRequest_Connect) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[4]
+	mi := &file_api_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,7 +488,7 @@ func (x *ConsumeRequest_Connect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeRequest_Connect.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest_Connect) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2, 0}
+	return file_api_proto_rawDescGZIP(), []int{5, 0}
 }
 
 func (x *ConsumeRequest_Connect) GetId() string {
@@ -378,7 +550,7 @@ type ConsumeRequest_Result struct {
 
 func (x *ConsumeRequest_Result) Reset() {
 	*x = ConsumeRequest_Result{}
-	mi := &file_api_proto_msgTypes[5]
+	mi := &file_api_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +562,7 @@ func (x *ConsumeRequest_Result) String() string {
 func (*ConsumeRequest_Result) ProtoMessage() {}
 
 func (x *ConsumeRequest_Result) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[5]
+	mi := &file_api_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,7 +575,7 @@ func (x *ConsumeRequest_Result) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeRequest_Result.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest_Result) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2, 1}
+	return file_api_proto_rawDescGZIP(), []int{5, 1}
 }
 
 func (x *ConsumeRequest_Result) GetId() string {
@@ -452,7 +624,7 @@ type ConsumeRequest_Connect_RepeatStrategy struct {
 
 func (x *ConsumeRequest_Connect_RepeatStrategy) Reset() {
 	*x = ConsumeRequest_Connect_RepeatStrategy{}
-	mi := &file_api_proto_msgTypes[6]
+	mi := &file_api_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -464,7 +636,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy) String() string {
 func (*ConsumeRequest_Connect_RepeatStrategy) ProtoMessage() {}
 
 func (x *ConsumeRequest_Connect_RepeatStrategy) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[6]
+	mi := &file_api_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -477,7 +649,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ConsumeRequest_Connect_RepeatStrategy.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest_Connect_RepeatStrategy) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2, 0, 0}
+	return file_api_proto_rawDescGZIP(), []int{5, 0, 0}
 }
 
 func (x *ConsumeRequest_Connect_RepeatStrategy) GetMaxAttempts() int32 {
@@ -510,7 +682,7 @@ type ConsumeRequest_Connect_RepeatStrategy_EvenConfig struct {
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Reset() {
 	*x = ConsumeRequest_Connect_RepeatStrategy_EvenConfig{}
-	mi := &file_api_proto_msgTypes[7]
+	mi := &file_api_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -522,7 +694,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) String() string {
 func (*ConsumeRequest_Connect_RepeatStrategy_EvenConfig) ProtoMessage() {}
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[7]
+	mi := &file_api_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -535,7 +707,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) ProtoReflect() protor
 
 // Deprecated: Use ConsumeRequest_Connect_RepeatStrategy_EvenConfig.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest_Connect_RepeatStrategy_EvenConfig) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2, 0, 0, 0}
+	return file_api_proto_rawDescGZIP(), []int{5, 0, 0, 0}
 }
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_EvenConfig) GetIntervalSec() int32 {
@@ -555,7 +727,7 @@ type ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig struct {
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Reset() {
 	*x = ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig{}
-	mi := &file_api_proto_msgTypes[8]
+	mi := &file_api_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -567,7 +739,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) String() strin
 func (*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) ProtoMessage() {}
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[8]
+	mi := &file_api_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -580,7 +752,7 @@ func (x *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) ProtoReflect()
 
 // Deprecated: Use ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig.ProtoReflect.Descriptor instead.
 func (*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{2, 0, 0, 1}
+	return file_api_proto_rawDescGZIP(), []int{5, 0, 0, 1}
 }
 
 func (x *ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig) GetIntervalSec() int32 {
@@ -607,7 +779,7 @@ type ConsumeResponse_Connect struct {
 
 func (x *ConsumeResponse_Connect) Reset() {
 	*x = ConsumeResponse_Connect{}
-	mi := &file_api_proto_msgTypes[9]
+	mi := &file_api_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -619,7 +791,7 @@ func (x *ConsumeResponse_Connect) String() string {
 func (*ConsumeResponse_Connect) ProtoMessage() {}
 
 func (x *ConsumeResponse_Connect) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[9]
+	mi := &file_api_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -632,7 +804,7 @@ func (x *ConsumeResponse_Connect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeResponse_Connect.ProtoReflect.Descriptor instead.
 func (*ConsumeResponse_Connect) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{3, 0}
+	return file_api_proto_rawDescGZIP(), []int{6, 0}
 }
 
 func (x *ConsumeResponse_Connect) GetOk() bool {
@@ -662,7 +834,7 @@ type ConsumeResponse_Message struct {
 
 func (x *ConsumeResponse_Message) Reset() {
 	*x = ConsumeResponse_Message{}
-	mi := &file_api_proto_msgTypes[10]
+	mi := &file_api_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -674,7 +846,7 @@ func (x *ConsumeResponse_Message) String() string {
 func (*ConsumeResponse_Message) ProtoMessage() {}
 
 func (x *ConsumeResponse_Message) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_msgTypes[10]
+	mi := &file_api_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -687,7 +859,7 @@ func (x *ConsumeResponse_Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConsumeResponse_Message.ProtoReflect.Descriptor instead.
 func (*ConsumeResponse_Message) Descriptor() ([]byte, []int) {
-	return file_api_proto_rawDescGZIP(), []int{3, 1}
+	return file_api_proto_rawDescGZIP(), []int{6, 1}
 }
 
 func (x *ConsumeResponse_Message) GetId() string {
@@ -738,6 +910,17 @@ const file_api_proto_rawDesc = "" +
 	"\ttimestamp\x18\x05 \x01(\tR\ttimestamp\x12\x18\n" +
 	"\aversion\x18\x06 \x01(\x03R\aversion\"!\n" +
 	"\x0fProduceResponse\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xa1\x01\n" +
+	"\x13ProduceBatchMessage\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\fR\amessage\x12&\n" +
+	"\x0eidempotencyKey\x18\x03 \x01(\tR\x0eidempotencyKey\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\tR\ttimestamp\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\x03R\aversion\"s\n" +
+	"\x13ProduceBatchRequest\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12F\n" +
+	"\vmessageList\x18\x02 \x03(\v2$.sergiusd.redbus.ProduceBatchMessageR\vmessageList\"&\n" +
+	"\x14ProduceBatchResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd5\a\n" +
 	"\x0eConsumeRequest\x12A\n" +
 	"\aconnect\x18\x01 \x01(\v2'.sergiusd.redbus.ConsumeRequest.ConnectR\aconnect\x12F\n" +
@@ -784,9 +967,10 @@ const file_api_proto_rawDesc = "" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12&\n" +
 	"\x0eidempotencyKey\x18\x03 \x01(\tR\x0eidempotencyKey\x12\x1c\n" +
 	"\ttimestamp\x18\x04 \x01(\tR\ttimestamp\x12\x18\n" +
-	"\aversion\x18\x05 \x01(\x03R\aversion2\xb3\x01\n" +
+	"\aversion\x18\x05 \x01(\x03R\aversion2\x92\x02\n" +
 	"\rRedbusService\x12N\n" +
-	"\aProduce\x12\x1f.sergiusd.redbus.ProduceRequest\x1a .sergiusd.redbus.ProduceResponse\"\x00\x12R\n" +
+	"\aProduce\x12\x1f.sergiusd.redbus.ProduceRequest\x1a .sergiusd.redbus.ProduceResponse\"\x00\x12]\n" +
+	"\fProduceBatch\x12$.sergiusd.redbus.ProduceBatchRequest\x1a%.sergiusd.redbus.ProduceBatchResponse\"\x00\x12R\n" +
 	"\aConsume\x12\x1f.sergiusd.redbus.ConsumeRequest\x1a .sergiusd.redbus.ConsumeResponse\"\x00(\x010\x01B8\n" +
 	"\x0fsergiusd.redbusB\vRedbusProtoP\x01Z\rapi/golang/pb\xa2\x02\x06Redbusb\x06proto3"
 
@@ -802,37 +986,43 @@ func file_api_proto_rawDescGZIP() []byte {
 	return file_api_proto_rawDescData
 }
 
-var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_api_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_api_proto_goTypes = []any{
 	(*ProduceRequest)(nil),                                          // 0: sergiusd.redbus.ProduceRequest
 	(*ProduceResponse)(nil),                                         // 1: sergiusd.redbus.ProduceResponse
-	(*ConsumeRequest)(nil),                                          // 2: sergiusd.redbus.ConsumeRequest
-	(*ConsumeResponse)(nil),                                         // 3: sergiusd.redbus.ConsumeResponse
-	(*ConsumeRequest_Connect)(nil),                                  // 4: sergiusd.redbus.ConsumeRequest.Connect
-	(*ConsumeRequest_Result)(nil),                                   // 5: sergiusd.redbus.ConsumeRequest.Result
-	(*ConsumeRequest_Connect_RepeatStrategy)(nil),                   // 6: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy
-	(*ConsumeRequest_Connect_RepeatStrategy_EvenConfig)(nil),        // 7: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig
-	(*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig)(nil), // 8: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig
-	(*ConsumeResponse_Connect)(nil),                                 // 9: sergiusd.redbus.ConsumeResponse.Connect
-	(*ConsumeResponse_Message)(nil),                                 // 10: sergiusd.redbus.ConsumeResponse.Message
+	(*ProduceBatchMessage)(nil),                                     // 2: sergiusd.redbus.ProduceBatchMessage
+	(*ProduceBatchRequest)(nil),                                     // 3: sergiusd.redbus.ProduceBatchRequest
+	(*ProduceBatchResponse)(nil),                                    // 4: sergiusd.redbus.ProduceBatchResponse
+	(*ConsumeRequest)(nil),                                          // 5: sergiusd.redbus.ConsumeRequest
+	(*ConsumeResponse)(nil),                                         // 6: sergiusd.redbus.ConsumeResponse
+	(*ConsumeRequest_Connect)(nil),                                  // 7: sergiusd.redbus.ConsumeRequest.Connect
+	(*ConsumeRequest_Result)(nil),                                   // 8: sergiusd.redbus.ConsumeRequest.Result
+	(*ConsumeRequest_Connect_RepeatStrategy)(nil),                   // 9: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy
+	(*ConsumeRequest_Connect_RepeatStrategy_EvenConfig)(nil),        // 10: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig
+	(*ConsumeRequest_Connect_RepeatStrategy_ProgressiveConfig)(nil), // 11: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig
+	(*ConsumeResponse_Connect)(nil),                                 // 12: sergiusd.redbus.ConsumeResponse.Connect
+	(*ConsumeResponse_Message)(nil),                                 // 13: sergiusd.redbus.ConsumeResponse.Message
 }
 var file_api_proto_depIdxs = []int32{
-	4,  // 0: sergiusd.redbus.ConsumeRequest.connect:type_name -> sergiusd.redbus.ConsumeRequest.Connect
-	5,  // 1: sergiusd.redbus.ConsumeRequest.resultList:type_name -> sergiusd.redbus.ConsumeRequest.Result
-	9,  // 2: sergiusd.redbus.ConsumeResponse.connect:type_name -> sergiusd.redbus.ConsumeResponse.Connect
-	10, // 3: sergiusd.redbus.ConsumeResponse.messageList:type_name -> sergiusd.redbus.ConsumeResponse.Message
-	6,  // 4: sergiusd.redbus.ConsumeRequest.Connect.repeatStrategy:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy
-	7,  // 5: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.evenConfig:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig
-	8,  // 6: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.progressiveConfig:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig
-	0,  // 7: sergiusd.redbus.RedbusService.Produce:input_type -> sergiusd.redbus.ProduceRequest
-	2,  // 8: sergiusd.redbus.RedbusService.Consume:input_type -> sergiusd.redbus.ConsumeRequest
-	1,  // 9: sergiusd.redbus.RedbusService.Produce:output_type -> sergiusd.redbus.ProduceResponse
-	3,  // 10: sergiusd.redbus.RedbusService.Consume:output_type -> sergiusd.redbus.ConsumeResponse
-	9,  // [9:11] is the sub-list for method output_type
-	7,  // [7:9] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	2,  // 0: sergiusd.redbus.ProduceBatchRequest.messageList:type_name -> sergiusd.redbus.ProduceBatchMessage
+	7,  // 1: sergiusd.redbus.ConsumeRequest.connect:type_name -> sergiusd.redbus.ConsumeRequest.Connect
+	8,  // 2: sergiusd.redbus.ConsumeRequest.resultList:type_name -> sergiusd.redbus.ConsumeRequest.Result
+	12, // 3: sergiusd.redbus.ConsumeResponse.connect:type_name -> sergiusd.redbus.ConsumeResponse.Connect
+	13, // 4: sergiusd.redbus.ConsumeResponse.messageList:type_name -> sergiusd.redbus.ConsumeResponse.Message
+	9,  // 5: sergiusd.redbus.ConsumeRequest.Connect.repeatStrategy:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy
+	10, // 6: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.evenConfig:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.EvenConfig
+	11, // 7: sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.progressiveConfig:type_name -> sergiusd.redbus.ConsumeRequest.Connect.RepeatStrategy.ProgressiveConfig
+	0,  // 8: sergiusd.redbus.RedbusService.Produce:input_type -> sergiusd.redbus.ProduceRequest
+	3,  // 9: sergiusd.redbus.RedbusService.ProduceBatch:input_type -> sergiusd.redbus.ProduceBatchRequest
+	5,  // 10: sergiusd.redbus.RedbusService.Consume:input_type -> sergiusd.redbus.ConsumeRequest
+	1,  // 11: sergiusd.redbus.RedbusService.Produce:output_type -> sergiusd.redbus.ProduceResponse
+	4,  // 12: sergiusd.redbus.RedbusService.ProduceBatch:output_type -> sergiusd.redbus.ProduceBatchResponse
+	6,  // 13: sergiusd.redbus.RedbusService.Consume:output_type -> sergiusd.redbus.ConsumeResponse
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_init() }
@@ -846,7 +1036,7 @@ func file_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_rawDesc), len(file_api_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

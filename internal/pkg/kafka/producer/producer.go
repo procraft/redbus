@@ -3,17 +3,22 @@ package producer
 import (
 	"context"
 	"fmt"
-	"github.com/prokraft/redbus/internal/app/model"
 	"log"
 	"time"
 
+	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 
 	"github.com/segmentio/kafka-go"
 )
 
+type messageWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
 type Producer struct {
-	writer *kafka.Writer
+	writer messageWriter
 	topic  model.TopicName
 	conf   conf
 }
@@ -50,7 +55,7 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 		}
 	}
 
-	p.writer = &kafka.Writer{
+	writer := &kafka.Writer{
 		Addr:         kafka.TCP(hosts...),
 		Topic:        string(topic),
 		RequiredAcks: kafka.RequireOne,
@@ -67,8 +72,9 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 		return nil, err
 	}
 	if transport != nil {
-		p.writer.Transport = transport
+		writer.Transport = transport
 	}
+	p.writer = writer
 
 	log.Printf("Ready to produce kafka %v@%v '%v', %T\n", auth, hosts, p.topic, p.conf.balancer)
 
@@ -76,16 +82,30 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 }
 
 func (p *Producer) Produce(ctx context.Context, key string, message []byte, headers map[string]string) error {
-	kafkaHeaders := make([]kafka.Header, 0, len(headers))
-	for k, v := range headers {
-		kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: k, Value: []byte(v)})
+	return p.ProduceBatch(ctx, []model.ProduceMessage{{Key: key, Message: message, Headers: headers}})
+}
+
+func (p *Producer) ProduceBatch(ctx context.Context, messages []model.ProduceMessage) error {
+	if len(messages) == 0 {
+		return fmt.Errorf("produce batch for topic %q is empty", p.topic)
 	}
-	kafkaMessage := kafka.Message{Key: []byte(key), Value: message, Headers: kafkaHeaders}
-	if err := p.writer.WriteMessages(ctx, kafkaMessage); err != nil {
-		return fmt.Errorf("Failed to produce messages, messages: %v, topic: %v, err: %w\n", kafkaMessage, p.topic, err)
+	kafkaMessages := make([]kafka.Message, 0, len(messages))
+	for _, message := range messages {
+		kafkaHeaders := make([]kafka.Header, 0, len(message.Headers))
+		for key, value := range message.Headers {
+			kafkaHeaders = append(kafkaHeaders, kafka.Header{Key: key, Value: []byte(value)})
+		}
+		kafkaMessages = append(kafkaMessages, kafka.Message{
+			Key:     []byte(message.Key),
+			Value:   message.Message,
+			Headers: kafkaHeaders,
+		})
+	}
+	if err := p.writer.WriteMessages(ctx, kafkaMessages...); err != nil {
+		return fmt.Errorf("failed to produce %d messages to topic %q: %w", len(kafkaMessages), p.topic, err)
 	}
 	if p.conf.log {
-		log.Printf("Produce kafka message at topic %v: %#v\n", p.topic, kafkaMessage)
+		log.Printf("Produce kafka messages at topic %v: %#v\n", p.topic, kafkaMessages)
 	}
 	return nil
 }

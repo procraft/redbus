@@ -37,6 +37,14 @@ report which consumers must raise their pin.
 - Rows are sent in `id` order. A produce failure (failed future or `ok = false`) stops the pass,
   logs through the client `logger`, keeps the row and is retried on the next trigger or sweep. This
   is the expected behaviour while the bus is unavailable.
+- Each query fetches at most `batchSize` rows (default 100) in `id` order. A batch ends at the first
+  topic change, is sent through one confirmed `ProduceBatch` call, and its ids are deleted together
+  only after the whole call succeeds. The same pass keeps fetching bounded batches until the outbox
+  is empty.
+- A Kafka partial error or context cancellation is ambiguous: the whole selected batch stays in the
+  outbox and may produce duplicates on retry, so consumer idempotency remains required. `batchSize`
+  bounds row count, not serialized bytes; with the server's current default gRPC receive limit, a
+  request above 4 MiB is rejected and retried until configuration or batching policy changes.
 - `FlusherActor` takes a `Flusher.Store` (package-private constructor) so the pass logic is unit
   tested without a database; production uses `Flusher.SlickStore`.
 - `PostgresListener` opens its own JDBC connection from the given Slick `Database` for `LISTEN`;

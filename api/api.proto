@@ -11,6 +11,7 @@ option go_package = "api/golang/pb";
 
 service RedbusService {
   rpc Produce (ProduceRequest) returns (ProduceResponse) {}
+  rpc ProduceBatch (ProduceBatchRequest) returns (ProduceBatchResponse) {}
   rpc Consume (stream ConsumeRequest) returns (stream ConsumeResponse) {}
 }
 
@@ -24,6 +25,23 @@ message ProduceRequest {
 }
 
 message ProduceResponse {
+  bool ok = 1;
+}
+
+message ProduceBatchMessage {
+  string key = 1;
+  bytes message = 2;
+  string idempotencyKey = 3;
+  string timestamp = 4;
+  int64 version = 5;
+}
+
+message ProduceBatchRequest {
+  string topic = 1;
+  repeated ProduceBatchMessage messageList = 2;
+}
+
+message ProduceBatchResponse {
   bool ok = 1;
 }
 

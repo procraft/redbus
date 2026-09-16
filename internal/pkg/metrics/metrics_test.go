@@ -9,7 +9,7 @@ import (
 
 func TestHandlerExposesDomainAndRuntimeMetrics(t *testing.T) {
 	m := New()
-	m.ObserveProduce("orders", "success", 20*time.Millisecond)
+	m.ObserveProduce("orders", "success", 4, 20*time.Millisecond)
 	m.ObserveConsumed("orders", "billing", "success", 4)
 	m.ObserveConsumerBatch("orders", "billing", 4, 100*time.Millisecond)
 	m.ObserveRetryEnqueued("orders", "billing", "success")
@@ -23,7 +23,8 @@ func TestHandlerExposesDomainAndRuntimeMetrics(t *testing.T) {
 		t.Fatalf("unexpected response status: %d", recorder.Code)
 	}
 	for _, expected := range []string{
-		`redbus_produced_messages_total{result="success",topic="orders"} 1`,
+		`redbus_produced_messages_total{result="success",topic="orders"} 4`,
+		`redbus_produce_duration_seconds_count{topic="orders"} 1`,
 		`redbus_consumed_messages_total{group="billing",result="success",topic="orders"} 4`,
 		`redbus_retry_enqueued_total{group="billing",result="success",topic="orders"} 1`,
 		`redbus_retry_records{state="pending"} 3`,
