@@ -3,12 +3,18 @@
 <!-- shared-guidance:start -->
 ## Shared baseline guidance
 
-Before substantive work, read and follow:
+Load only the guidance required by the current execution profile:
 
-- `.agents/guidance/operation-policy.md` — team authorization policy; overrides older automatic test/linter and repeated-approval instructions.
+- General-purpose workers read `.agents/guidance/operation-policy.md` — the full team authorization
+  and execution policy.
+- A coordinator-classified bounded worker reads `.agents/guidance/agent-baseline.md` and
+  `.agents/guidance/bounded-worker.md` instead of the full operation policy, then only the role and
+  context paths named in its compact handoff.
+- A coordinator choosing between ordinary and bounded execution reads
+  `.agents/guidance/execution-routing.md`; workers do not preload it after classification.
 - `.agents/guidance/readme-ai.md` — module-local context discovery and documentation maintenance.
-- `ReadmeAI.index.md` — repository-wide map for finding relevant context outside the nearest
-  directory walk-up path.
+- `ReadmeAI.index.md` — repository-wide map, one line per document (context card, section titles,
+  sibling docs); grep it for the task's terms to find owners outside the directory walk-up path.
 
 Store committed durable AI-facing reference docs in `.agents/docs/`; keep temporary contracts,
 plans, test plans/reports, and drafts in the git-ignored `.agents/proposals/`; keep topic directories
@@ -18,8 +24,9 @@ the coordination workspace's `docs/adr/`.
 
 ### ReadmeAI index maintenance
 
-After creating, deleting, or moving a `ReadmeAI.md`, or changing its H1 or first summary paragraph,
-run `make readme-index`. Validate the committed result with `make readme-index-check`.
+After creating, deleting, or moving a `ReadmeAI.md`, or changing its H1, context card or section
+titles, run `make readme-index`. Validate the committed result with `make readme-index-check`; run
+`make readme-lint` for the document contract (context card, concept-named sections, 250/400 lines).
 
 A pre-commit hook may run `make readme-index-hook` and stage only the generated index. Pre-push hooks
 and CI must never regenerate committed files; they should run `make readme-index-check` and fail on
