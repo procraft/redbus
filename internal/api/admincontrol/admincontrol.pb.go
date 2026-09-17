@@ -826,13 +826,17 @@ func (x *RetryStat) GetErrors() []*RetryErrorStat {
 }
 
 type RetryErrorStat struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Error               string                 `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
-	FailedCount         int32                  `protobuf:"varint,2,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
-	FirstFailedAtUnixMs int64                  `protobuf:"varint,3,opt,name=first_failed_at_unix_ms,json=firstFailedAtUnixMs,proto3" json:"first_failed_at_unix_ms,omitempty"`
-	LastFailedAtUnixMs  int64                  `protobuf:"varint,4,opt,name=last_failed_at_unix_ms,json=lastFailedAtUnixMs,proto3" json:"last_failed_at_unix_ms,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Error class: the message with volatile values (numbers, ids, hashes) replaced by placeholders.
+	// Actions by error accept either this class or any exact message of the class.
+	Error               string `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
+	FailedCount         int32  `protobuf:"varint,2,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
+	FirstFailedAtUnixMs int64  `protobuf:"varint,3,opt,name=first_failed_at_unix_ms,json=firstFailedAtUnixMs,proto3" json:"first_failed_at_unix_ms,omitempty"`
+	LastFailedAtUnixMs  int64  `protobuf:"varint,4,opt,name=last_failed_at_unix_ms,json=lastFailedAtUnixMs,proto3" json:"last_failed_at_unix_ms,omitempty"`
+	// Exact message of the most recent failure in the class.
+	SampleError   string `protobuf:"bytes,5,opt,name=sample_error,json=sampleError,proto3" json:"sample_error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetryErrorStat) Reset() {
@@ -891,6 +895,13 @@ func (x *RetryErrorStat) GetLastFailedAtUnixMs() int64 {
 		return x.LastFailedAtUnixMs
 	}
 	return 0
+}
+
+func (x *RetryErrorStat) GetSampleError() string {
+	if x != nil {
+		return x.SampleError
+	}
+	return ""
 }
 
 type RetryTriageRequest struct {
@@ -1411,12 +1422,13 @@ const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\ffailed_count\x18\x04 \x01(\x05R\vfailedCount\x12\x1d\n" +
 	"\n" +
 	"last_error\x18\x05 \x01(\tR\tlastError\x12>\n" +
-	"\x06errors\x18\x06 \x03(\v2&.redbus.admincontrol.v1.RetryErrorStatR\x06errors\"\xb3\x01\n" +
+	"\x06errors\x18\x06 \x03(\v2&.redbus.admincontrol.v1.RetryErrorStatR\x06errors\"\xd6\x01\n" +
 	"\x0eRetryErrorStat\x12\x14\n" +
 	"\x05error\x18\x01 \x01(\tR\x05error\x12!\n" +
 	"\ffailed_count\x18\x02 \x01(\x05R\vfailedCount\x124\n" +
 	"\x17first_failed_at_unix_ms\x18\x03 \x01(\x03R\x13firstFailedAtUnixMs\x122\n" +
-	"\x16last_failed_at_unix_ms\x18\x04 \x01(\x03R\x12lastFailedAtUnixMs\"\x88\x01\n" +
+	"\x16last_failed_at_unix_ms\x18\x04 \x01(\x03R\x12lastFailedAtUnixMs\x12!\n" +
+	"\fsample_error\x18\x05 \x01(\tR\vsampleError\"\x88\x01\n" +
 	"\x12RetryTriageRequest\x12\"\n" +
 	"\rsince_unix_ms\x18\x01 \x01(\x03R\vsinceUnixMs\x12\"\n" +
 	"\runtil_unix_ms\x18\x02 \x01(\x03R\vuntilUnixMs\x12\x14\n" +

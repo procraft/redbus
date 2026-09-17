@@ -202,6 +202,7 @@ func (a *ControlApi) GetRetryTriage(
 func retryErrorStatToProto(errorStat model.RepeatErrorStat) *admincontrol.RetryErrorStat {
 	return &admincontrol.RetryErrorStat{
 		Error:               errorStat.Error,
+		SampleError:         errorStat.Sample,
 		FailedCount:         int32(errorStat.FailedCount),
 		FirstFailedAtUnixMs: unixMilli(errorStat.FirstFailedAt),
 		LastFailedAtUnixMs:  unixMilli(errorStat.LastFailedAt),

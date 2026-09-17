@@ -365,6 +365,17 @@ export function RepeatList() {
                                           >
                                             {errorStat.error || 'Empty error'}
                                           </Text>
+                                          {errorStat.sample && errorStat.sample !== errorStat.error && (
+                                            <Text
+                                              c="dimmed"
+                                              lineClamp={2}
+                                              size="xs"
+                                              style={{ overflowWrap: 'anywhere' }}
+                                              title={errorStat.sample}
+                                            >
+                                              Latest: {errorStat.sample}
+                                            </Text>
+                                          )}
                                         </Table.Td>
                                         <Table.Td>
                                           <Badge color="red" variant="light">

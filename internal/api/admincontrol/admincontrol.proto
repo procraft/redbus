@@ -99,10 +99,14 @@ message RetryStat {
 }
 
 message RetryErrorStat {
+  // Error class: the message with volatile values (numbers, ids, hashes) replaced by placeholders.
+  // Actions by error accept either this class or any exact message of the class.
   string error = 1;
   int32 failed_count = 2;
   int64 first_failed_at_unix_ms = 3;
   int64 last_failed_at_unix_ms = 4;
+  // Exact message of the most recent failure in the class.
+  string sample_error = 5;
 }
 
 message RetryTriageRequest {

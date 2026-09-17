@@ -107,8 +107,11 @@ type RepeatStatItem struct {
 	Errors      []RepeatErrorStat
 }
 
+// RepeatErrorStat describes one error class (see ErrorClass). Error is the class and Sample is
+// the exact message of its most recent failure.
 type RepeatErrorStat struct {
 	Error         string
+	Sample        string
 	FailedCount   int
 	FirstFailedAt time.Time
 	LastFailedAt  time.Time

@@ -31,12 +31,13 @@ func TestConsumerFromProto(t *testing.T) {
 
 func TestRepeatErrorStatFromProto(t *testing.T) {
 	result := repeatErrorStatFromProto(&controlpb.RetryErrorStat{
-		Error: "boom", FailedCount: 3,
+		Error: "boom <N>", SampleError: "boom 7", FailedCount: 3,
 		FirstFailedAtUnixMs: 1_777_632_000_000,
 		LastFailedAtUnixMs:  1_777_632_060_000,
 	})
 
-	require.Equal(t, "boom", result.Error)
+	require.Equal(t, "boom <N>", result.Error)
+	require.Equal(t, "boom 7", result.Sample)
 	require.Equal(t, 3, result.FailedCount)
 	require.Equal(t, time.UnixMilli(1_777_632_000_000), result.FirstFailedAt)
 	require.Equal(t, time.UnixMilli(1_777_632_060_000), result.LastFailedAt)

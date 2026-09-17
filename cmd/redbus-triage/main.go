@@ -29,6 +29,7 @@ type responseItem struct {
 
 type responseError struct {
 	Error         string `json:"error"`
+	Sample        string `json:"sample"`
 	FailedCount   int    `json:"failedCount"`
 	FirstFailedAt string `json:"firstFailedAt"`
 	LastFailedAt  string `json:"lastFailedAt"`
@@ -101,6 +102,7 @@ func toResponse(stat model.RepeatTriageStat) response {
 		for _, itemError := range item.Errors {
 			errors = append(errors, responseError{
 				Error:         itemError.Error,
+				Sample:        itemError.Sample,
 				FailedCount:   itemError.FailedCount,
 				FirstFailedAt: itemError.FirstFailedAt.UTC().Format(time.RFC3339Nano),
 				LastFailedAt:  itemError.LastFailedAt.UTC().Format(time.RFC3339Nano),

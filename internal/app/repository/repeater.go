@@ -190,6 +190,9 @@ func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("Can't iterate repeat stat from db: %w", err)
 	}
+	for i := range ret {
+		ret[i].Errors = model.GroupRepeatErrorStatsByClass(ret[i].Errors)
+	}
 	return ret, nil
 }
 
@@ -240,6 +243,9 @@ func (r *Repository) GetTriageStat(
 	if err := rows.Err(); err != nil {
 		return model.RepeatTriageStat{}, fmt.Errorf("can't iterate repeat triage stat from db: %w", err)
 	}
+	for i := range result.List {
+		result.List[i].Errors = model.GroupRepeatErrorStatsByClass(result.List[i].Errors)
+	}
 	return result, nil
 }
 
@@ -260,19 +266,59 @@ func (r *Repository) RestartFailedSince(ctx context.Context, topic, group string
 	return err
 }
 
+// RestartFailedByError restarts finished repeats whose error belongs to the class of errorMessage.
 func (r *Repository) RestartFailedByError(ctx context.Context, topic, group, errorMessage string, since time.Time) error {
+	errors, err := r.findFailedErrorsOfClass(ctx, topic, group, errorMessage, &since)
+	if err != nil || len(errors) == 0 {
+		return err
+	}
 	conn := db.FromContext(ctx)
-	_, err := conn.Exec(ctx, `UPDATE repeat
+	_, err = conn.Exec(ctx, `UPDATE repeat
 		SET started_at = $1, attempt = 0, error = '', finished_at = null
-		WHERE finished_at IS NOT NULL AND topic = $2 AND "group" = $3 AND error = $4 AND finished_at >= $5`,
-		runtime.Now(), topic, group, errorMessage, since)
+		WHERE finished_at IS NOT NULL AND topic = $2 AND "group" = $3 AND error = ANY($4) AND finished_at >= $5`,
+		runtime.Now(), topic, group, errors, since)
 	return err
 }
 
+// DeleteFailedByError deletes finished repeats whose error belongs to the class of errorMessage.
 func (r *Repository) DeleteFailedByError(ctx context.Context, topic, group, errorMessage string) error {
+	errors, err := r.findFailedErrorsOfClass(ctx, topic, group, errorMessage, nil)
+	if err != nil || len(errors) == 0 {
+		return err
+	}
 	conn := db.FromContext(ctx)
-	_, err := conn.Exec(ctx, `DELETE FROM repeat
-		WHERE finished_at IS NOT NULL AND topic = $1 AND "group" = $2 AND error = $3`,
-		topic, group, errorMessage)
+	_, err = conn.Exec(ctx, `DELETE FROM repeat
+		WHERE finished_at IS NOT NULL AND topic = $1 AND "group" = $2 AND error = ANY($3)`,
+		topic, group, errors)
 	return err
+}
+
+// findFailedErrorsOfClass resolves an error class to the exact stored messages, so the following
+// write matches only failures that were visible when the class was resolved.
+func (r *Repository) findFailedErrorsOfClass(
+	ctx context.Context,
+	topic, group, errorMessage string,
+	since *time.Time,
+) ([]string, error) {
+	conn := db.FromContext(ctx)
+	rows, err := conn.Query(ctx, `SELECT DISTINCT error FROM repeat
+		WHERE finished_at IS NOT NULL AND topic = $1 AND "group" = $2 AND ($3::timestamptz IS NULL OR finished_at >= $3)`,
+		topic, group, since)
+	if err != nil {
+		return nil, fmt.Errorf("can't get failed repeat errors from db: %w", err)
+	}
+	defer rows.Close()
+
+	messages := make([]string, 0)
+	for rows.Next() {
+		var message string
+		if err := rows.Scan(&message); err != nil {
+			return nil, fmt.Errorf("can't scan failed repeat error from db: %w", err)
+		}
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("can't iterate failed repeat errors from db: %w", err)
+	}
+	return model.ErrorsOfClass(messages, errorMessage), nil
 }

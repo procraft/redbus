@@ -74,7 +74,10 @@ export type RepeatStat = {
 };
 
 export type RepeatErrorStat = {
+  /** Error class: the message with volatile values (ids, numbers, hashes) replaced by placeholders. */
   error: string;
+  /** Exact message of the most recent failure in the class. */
+  sample?: string;
   failedCount: number;
   firstFailedAt?: string | null;
   lastFailedAt?: string | null;

@@ -236,6 +236,7 @@ func (c *Client) GetRetryTriage(
 func repeatErrorStatFromProto(errorStat *controlpb.RetryErrorStat) model.RepeatErrorStat {
 	return model.RepeatErrorStat{
 		Error:         errorStat.GetError(),
+		Sample:        errorStat.GetSampleError(),
 		FailedCount:   int(errorStat.GetFailedCount()),
 		FirstFailedAt: timeFromUnixMilli(errorStat.GetFirstFailedAtUnixMs()),
 		LastFailedAt:  timeFromUnixMilli(errorStat.GetLastFailedAtUnixMs()),

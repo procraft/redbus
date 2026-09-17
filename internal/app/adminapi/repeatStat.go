@@ -20,6 +20,7 @@ type repeatStatItemResponse struct {
 
 type repeatErrorStatResponse struct {
 	Error         string    `json:"error"`
+	Sample        string    `json:"sample"`
 	FailedCount   int       `json:"failedCount"`
 	FirstFailedAt time.Time `json:"firstFailedAt"`
 	LastFailedAt  time.Time `json:"lastFailedAt"`
@@ -36,6 +37,7 @@ func (a *AdminApi) repeatStatHandler(ctx context.Context, _ emptyRequest) (*repe
 		for _, errorStat := range item.Errors {
 			errors = append(errors, repeatErrorStatResponse{
 				Error:         errorStat.Error,
+				Sample:        errorStat.Sample,
 				FailedCount:   errorStat.FailedCount,
 				FirstFailedAt: errorStat.FirstFailedAt,
 				LastFailedAt:  errorStat.LastFailedAt,
