@@ -1,5 +1,30 @@
 ## Redbus service scala API and SDK.
 
+### Actor runtime: Pekko
+
+Since **0.3.0** the SDK runs on [Apache Pekko](https://pekko.apache.org) (`org.apache.pekko`
+`pekko-actor` 1.0.3) instead of Akka. Pekko is the actor runtime Play 3.0 ships, so the SDK now
+lines up with a Play 3 host application. The switch is visible in the public API:
+`Client.startProducerDbaFlusher` takes an implicit `org.apache.pekko.actor.ActorSystem`, so a
+caller that still runs on Akka cannot compile against 0.3.0.
+
+Two lines are supported:
+
+| Line | Actor runtime | Host | Scala |
+|---|---|---|---|
+| `0.2.x` (last: `0.2.8`) | Akka 2.6.20 | Play 2.9 | 2.13 |
+| `0.3.x` | Pekko 1.0.3 | Play 3.0 | 2.13 |
+
+They are not interchangeable — pick the one matching the host application, and branch fixes for
+Akka consumers from the `0.2.8` tag instead of from the Pekko line.
+
+The SDK builds its own actor systems with the default configuration (`ConfigFactory.load()`), so it
+picks up the host application's `pekko { … }` section. Pekko 1.0.3 defines no `akka` keys at all and
+silently ignores a leftover `akka { … }` block, so a host that has not renamed its configuration
+just falls back to Pekko defaults — no error, no warning. Keep host-wide settings such as
+`pekko.actor.provider` or a resized `pekko.actor.default-dispatcher` in mind: they now apply to the
+SDK's systems too.
+
 ### Compile
 
 Run to build.

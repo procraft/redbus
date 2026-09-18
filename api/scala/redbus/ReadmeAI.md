@@ -5,6 +5,34 @@ private maven repository. It is consumed by already-deployed services, each pinn
 version, so every behavioural change here is a release: bump `version` in `build.sbt`, publish, then
 report which consumers must raise their pin.
 
+## Actor runtime and release lines
+
+The SDK uses an actor runtime as a scheduler and to serialise the state of two actors
+(`FlusherActor`, `PostgresListener`). Which runtime that is, is part of the published contract:
+
+- `0.2.x` — Akka 2.6.20, for consumers on Play 2.9. `0.2.8` is the last release of that line; a fix
+  for an Akka consumer branches from that tag, not from the Pekko line.
+- `0.3.x` — Apache Pekko 1.0.3 (`org.apache.pekko`), the runtime Play 3.0.11 resolves, still Scala
+  2.13 and still scalapb 0.10.11. Nothing else moved in 0.3.0, so the grpc/protobuf transitives a
+  consumer gets are unchanged.
+
+The split is forced, not cosmetic: `Client.startProducerDbaFlusher(db, …)(implicit as: ActorSystem)`
+takes the *consumer's* system, so its type has to be the host's. A Play 3 service hands over a Pekko
+system and cannot compile against 0.2.x; a Play 2.9 service cannot compile against 0.3.x.
+
+Configuration: `Client` (`ActorSystem.create()`) and `Consumer` (`ActorSystem("ConsumerActorSystem")`)
+build their own systems from `ConfigFactory.load()`, i.e. from the *host's* classpath configuration.
+Pekko 1.0.3's `reference.conf` has a single `pekko` root and contains no `akka` key, and there is no
+akka→pekko fallback, so:
+
+- a host that renamed `akka { … }` to `pekko { … }` (what the Play 3 migration does anyway) keeps the
+  same effective tuning for the SDK's systems as before;
+- a host that left an `akka { … }` block behind gets it silently ignored — HOCON does not reject an
+  unknown root — and the SDK's systems run on Pekko defaults. This is quiet, so it belongs in the
+  migration checklist rather than in a runtime assertion;
+- host-wide settings now reach the SDK: `pekko.actor.provider`, a resized
+  `pekko.actor.default-dispatcher` or `pekko.coordinated-shutdown.*` apply to these systems too.
+
 ## Surfaces
 
 - `Client` — entry point: `produce`, `consume`, `startProducerDbaFlusher`, `close`.
