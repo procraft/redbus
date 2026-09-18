@@ -1,6 +1,6 @@
 package sergiusd.redbus
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import sergiusd.redbus.api._
 import sergiusd.redbus.producer.Flusher
 

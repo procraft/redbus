@@ -1,8 +1,8 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.2.8"
+version := "0.3.0"
 
-ThisBuild / scalaVersion := "2.13.17"
+ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / versionScheme := Some("semver-spec")
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
@@ -10,7 +10,7 @@ Compile / PB.targets := Seq(
   scalapb.gen() -> (Compile / sourceManaged).value,
 )
 
-val akkaVersion = "2.6.20"
+val pekkoVersion = "1.0.3"
 val slickPgVersion = "0.23.1"
 val slickHikaricp = "3.6.1"
 
@@ -18,12 +18,11 @@ libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+  "org.apache.pekko" %% "pekko-actor" % pekkoVersion,
   "com.github.tminglei" %% "slick-pg" % slickPgVersion,
   "com.github.tminglei" %% "slick-pg_play-json" % slickPgVersion,
   "com.typesafe.slick" %% "slick-hikaricp" % slickHikaricp,
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+  "org.apache.pekko" %% "pekko-testkit" % pekkoVersion % Test,
   "org.scalatest" %% "scalatest" % "3.2.19" % Test,
 )
 

@@ -1,8 +1,8 @@
 package sergiusd.redbus.consumer
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.pattern.after
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
 import sergiusd.redbus
