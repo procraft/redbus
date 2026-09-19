@@ -1,8 +1,9 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.3.0"
+version := "0.4.0"
 
 ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.8")
 ThisBuild / versionScheme := Some("semver-spec")
 scalacOptions := Seq("-unchecked", "-deprecation", "-feature", "-encoding", "utf8")
 
@@ -26,15 +27,39 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.2.19" % Test,
 )
 
+val mavenHost = "maven.libicraft.ru"
+val mavenUser = sys.env.get("MAVEN_USER").filter(_.nonEmpty)
+val mavenPassword = sys.env.get("MAVEN_PASSWORD").filter(_.nonEmpty)
+val mavenCredentialsFile = Path.userHome / ".sbt" / "1.0" / "credentials"
+
 publishTo := Some(
-  "Artifactory Realm" at "https://" + sys.env.getOrElse("MAVEN_HOST", "") + "/artifactory/sbt;build.timestamp=" + new java.util.Date().getTime
+  "Artifactory Realm" at s"https://$mavenHost/artifactory/sbt;build.timestamp=${new java.util.Date().getTime}"
 )
-credentials += Credentials(
-    "Artifactory Realm",
-    sys.env.getOrElse("MAVEN_HOST", ""),
-    sys.env.getOrElse("MAVEN_USER", ""),
-    sys.env.getOrElse("MAVEN_PASSWORD", "")
-)
+
+credentials ++= ((mavenUser, mavenPassword) match {
+  case (Some(user), Some(password)) =>
+    Seq(Credentials("Artifactory Realm", mavenHost, user, password))
+  case (None, None) if mavenCredentialsFile.isFile =>
+    Seq(Credentials(mavenCredentialsFile))
+  case _ =>
+    Seq.empty
+})
+
+val validatePublishCredentials = taskKey[Unit]("Validate credentials required to publish the SDK")
+validatePublishCredentials := {
+  (mavenUser, mavenPassword) match {
+    case (Some(_), Some(_)) => ()
+    case (None, None) if mavenCredentialsFile.isFile => ()
+    case (None, None) =>
+      sys.error(
+        s"Publishing requires both MAVEN_USER and MAVEN_PASSWORD, or a credentials file at $mavenCredentialsFile"
+      )
+    case _ =>
+      sys.error("MAVEN_USER and MAVEN_PASSWORD must be set together when publishing")
+  }
+}
+
+publish := publish.dependsOn(validatePublishCredentials).value
 
 doc / sources := Seq.empty
 packageDoc / publishArtifact := false

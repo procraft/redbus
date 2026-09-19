@@ -46,7 +46,7 @@ class PublishingMessages(tag: Tag) extends Table[PublishingMessage](tag, Some("p
 
   def * = (topic, message, options, createdAt, id).<>(
       { case (t: String, m: Array[Byte], o: PublishingMessage.Options, _, id: Long) => PublishingMessage(t, m, o, id) },
-      { pm: PublishingMessage => Some((pm.topic, pm.message, pm.options, Timestamp.from(Instant.now), pm.id)) },
+      { (pm: PublishingMessage) => Some((pm.topic, pm.message, pm.options, Timestamp.from(Instant.now), pm.id)) },
     )
 }
 

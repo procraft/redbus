@@ -12,9 +12,17 @@ The SDK uses an actor runtime as a scheduler and to serialise the state of two a
 
 - `0.2.x` — Akka 2.6.20, for consumers on Play 2.9. `0.2.8` is the last release of that line; a fix
   for an Akka consumer branches from its release commit, not from the Pekko line.
-- `0.3.x` — Apache Pekko 1.0.3 (`org.apache.pekko`), the runtime Play 3.0.11 resolves, still Scala
-  2.13 and still scalapb 0.10.11. Nothing else moved in 0.3.0, so the grpc/protobuf transitives a
-  consumer gets are unchanged.
+- `0.3.x` — Apache Pekko 1.0.3 (`org.apache.pekko`), the runtime Play 3.0.11 resolves, Scala 2.13
+  and ScalaPB 0.10.11. `0.3.0` is the last release of that line.
+- `0.4.x` — the same Pekko public API, cross-published from the same sources for Scala 2.13 and
+  Scala 3.3 LTS. The generator and runtime are aligned on ScalaPB 0.11.17 with sbt-protoc 1.0.8,
+  so both Scala suffixes get the same protobuf definition and grpc/protobuf dependency line.
+
+The ScalaPB upgrade keeps the protobuf wire contract and handwritten client surface, but it removes
+the generated `Message.Builder`/`HasBuilder` JVM API that existed in ScalaPB 0.10.11. Before raising a
+consumer pin from `0.3.0` to `0.4.x`, scan it for those generated builders; normal case-class
+construction, `copy`, message parsing and the Redbus `Client`/producer/consumer APIs are unchanged.
+Do not overwrite `redbus_2.13:0.3.0`; it remains the rollback line for an unconverted consumer.
 
 The split is forced, not cosmetic: `Client.startProducerDbaFlusher(db, …)(implicit as: ActorSystem)`
 takes the *consumer's* system, so its type has to be the host's. A Play 3 service hands over a Pekko
@@ -84,4 +92,8 @@ akka→pekko fallback, so:
 sbt --batch compile test
 ```
 
-Publishing needs `MAVEN_HOST`, `MAVEN_USER`, `MAVEN_PASSWORD` (see `README.md`).
+Publishing uses the fixed `maven.libicraft.ru` host and needs either both `MAVEN_USER` and
+`MAVEN_PASSWORD` or `~/.sbt/1.0/credentials`; validation runs only for the `publish` task (see
+`README.md`).
+Publish both suffixes together with `+publish`, only after checking that neither coordinate for the
+new version exists. Release artifacts are additive and must not be overwritten.

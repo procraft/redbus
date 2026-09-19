@@ -13,10 +13,20 @@ Two lines are supported:
 | Line | Actor runtime | Host | Scala |
 |---|---|---|---|
 | `0.2.x` (last: `0.2.8`) | Akka 2.6.20 | Play 2.9 | 2.13 |
-| `0.3.x` | Pekko 1.0.3 | Play 3.0 | 2.13 |
+| `0.3.x` (last: `0.3.0`) | Pekko 1.0.3 | Play 3.0 | 2.13 |
+| `0.4.x` | Pekko 1.0.3 | Play 3.0 | 2.13, 3.3 LTS |
 
-They are not interchangeable — pick the one matching the host application, and branch fixes for
-Akka consumers from the commit that last released `0.2.8` instead of from the Pekko line.
+The Akka and Pekko lines are not interchangeable — pick the one matching the host application, and
+branch fixes for Akka consumers from the commit that last released `0.2.8` instead of from the
+Pekko line. Starting with `0.4.0`, the Pekko SDK is published for both Scala 2.13 and Scala 3.3 LTS
+from the same sources and protobuf definition. Use the normal `%%` dependency syntax so sbt selects
+`redbus_2.13` or `redbus_3` for the host Scala version.
+
+`0.4.0` also moves generated messages from ScalaPB 0.10.11 to 0.11.17. The wire format and the
+handwritten Redbus client API stay unchanged, but ScalaPB 0.11 no longer generates the legacy
+`Message.Builder`/`HasBuilder` JVM API. Consumers using case-class constructors and `copy` are
+unaffected; a consumer that called those generated builder classes must migrate before raising its
+pin. The old `redbus_2.13:0.3.0` artifact remains available for unchanged consumers.
 
 The SDK builds its own actor systems with the default configuration (`ConfigFactory.load()`), so it
 picks up the host application's `pekko { … }` section. Pekko 1.0.3 defines no `akka` keys at all and
@@ -62,11 +72,15 @@ it is retried on the next pass. Existing positional calls remain compatible; con
 
 ### Publish
 
-Run to update maven package.
+Every release is published as a pair of Scala 2.13 and Scala 3 artifacts. Before publishing, verify
+that neither target coordinate already exists: Artifactory releases are immutable and must not be
+overwritten. The repository host is fixed to `maven.libicraft.ru`. Provide both `MAVEN_USER` and
+`MAVEN_PASSWORD`; if neither is set, sbt falls back to `~/.sbt/1.0/credentials`. Setting only one
+environment variable fails before publishing.
 
 ```shell
 set -a
 . ../../../.env
 set +a
-sbt --batch publish
+sbt --batch +publish
 ```
