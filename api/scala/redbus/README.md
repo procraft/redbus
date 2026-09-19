@@ -22,8 +22,9 @@ Pekko line. Starting with `0.4.0`, the Pekko SDK is published for both Scala 2.1
 from the same sources and protobuf definition. Use the normal `%%` dependency syntax so sbt selects
 `redbus_2.13` or `redbus_3` for the host Scala version.
 
-`0.4.0` also moves generated messages from ScalaPB 0.10.11 to 0.11.17. The wire format and the
-handwritten Redbus client API stay unchanged, but ScalaPB 0.11 no longer generates the legacy
+`0.4.0` also moves generated messages from ScalaPB 0.10.11 to the ScalaPB 0.11 line; `0.4.1`
+aligns the compiler and runtime on 0.11.20 and uses the shaded gRPC Netty transport. The wire format
+and the handwritten Redbus client API stay unchanged, but ScalaPB 0.11 no longer generates the legacy
 `Message.Builder`/`HasBuilder` JVM API. Consumers using case-class constructors and `copy` are
 unaffected; a consumer that called those generated builder classes must migrate before raising its
 pin. The old `redbus_2.13:0.3.0` artifact remains available for unchanged consumers.

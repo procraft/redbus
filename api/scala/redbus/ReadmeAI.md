@@ -15,8 +15,9 @@ The SDK uses an actor runtime as a scheduler and to serialise the state of two a
 - `0.3.x` — Apache Pekko 1.0.3 (`org.apache.pekko`), the runtime Play 3.0.11 resolves, Scala 2.13
   and ScalaPB 0.10.11. `0.3.0` is the last release of that line.
 - `0.4.x` — the same Pekko public API, cross-published from the same sources for Scala 2.13 and
-  Scala 3.3 LTS. The generator and runtime are aligned on ScalaPB 0.11.17 with sbt-protoc 1.0.8,
-  so both Scala suffixes get the same protobuf definition and grpc/protobuf dependency line.
+  Scala 3.3 LTS. Since `0.4.1`, the generator and runtime are aligned on ScalaPB 0.11.20 with
+  sbt-protoc 1.0.8 and use `grpc-netty-shaded`, so both Scala suffixes get the same protobuf
+  definition and grpc/protobuf dependency line without exposing unshaded Netty classes.
 
 The ScalaPB upgrade keeps the protobuf wire contract and handwritten client surface, but it removes
 the generated `Message.Builder`/`HasBuilder` JVM API that existed in ScalaPB 0.10.11. Before raising a

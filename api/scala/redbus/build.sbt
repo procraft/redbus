@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.4.0"
+version := "0.4.1"
 
 ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.8")
@@ -16,7 +16,7 @@ val slickPgVersion = "0.23.1"
 val slickHikaricp = "3.6.1"
 
 libraryDependencies ++= Seq(
-  "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
+  "io.grpc" % "grpc-netty-shaded" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
   "org.apache.pekko" %% "pekko-actor" % pekkoVersion,
