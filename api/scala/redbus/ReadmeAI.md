@@ -11,7 +11,7 @@ The SDK uses an actor runtime as a scheduler and to serialise the state of two a
 (`FlusherActor`, `PostgresListener`). Which runtime that is, is part of the published contract:
 
 - `0.2.x` — Akka 2.6.20, for consumers on Play 2.9. `0.2.8` is the last release of that line; a fix
-  for an Akka consumer branches from that tag, not from the Pekko line.
+  for an Akka consumer branches from its release commit, not from the Pekko line.
 - `0.3.x` — Apache Pekko 1.0.3 (`org.apache.pekko`), the runtime Play 3.0.11 resolves, still Scala
   2.13 and still scalapb 0.10.11. Nothing else moved in 0.3.0, so the grpc/protobuf transitives a
   consumer gets are unchanged.

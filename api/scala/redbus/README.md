@@ -16,7 +16,7 @@ Two lines are supported:
 | `0.3.x` | Pekko 1.0.3 | Play 3.0 | 2.13 |
 
 They are not interchangeable — pick the one matching the host application, and branch fixes for
-Akka consumers from the `0.2.8` tag instead of from the Pekko line.
+Akka consumers from the commit that last released `0.2.8` instead of from the Pekko line.
 
 The SDK builds its own actor systems with the default configuration (`ConfigFactory.load()`), so it
 picks up the host application's `pekko { … }` section. Pekko 1.0.3 defines no `akka` keys at all and
@@ -65,6 +65,8 @@ it is retried on the next pass. Existing positional calls remain compatible; con
 Run to update maven package.
 
 ```shell
-pushd ../../.. && make export-env && popd
-sbt publish
+set -a
+. ../../../.env
+set +a
+sbt --batch publish
 ```
