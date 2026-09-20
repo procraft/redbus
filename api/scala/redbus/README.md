@@ -36,18 +36,18 @@ just falls back to Pekko defaults — no error, no warning. Keep host-wide setti
 `pekko.actor.provider` or a resized `pekko.actor.default-dispatcher` in mind: they now apply to the
 SDK's systems too.
 
-### Compile
+### Verify
 
-Run to build.
+From this directory, compile and test both published Scala lines and generate both release POMs:
 
 ```shell
-sbt compile
+sbt --batch +compile +test +makePom
 ```
 
-### Test
+From the repository root, also compile the Scala example that exercises the SDK's public API:
 
 ```shell
-sbt test
+make scala-proto-compile
 ```
 
 ### Temporary processing failures

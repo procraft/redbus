@@ -85,7 +85,10 @@ hooks:
 	chmod +x .agents/git-hooks/*
 
 scala-proto-compile:
-	make export-env && cd api/scala/redbus && sbt compile
+	cd api/scala/redbus && sbt --batch +compile
+	cd example/scala && sbt --batch clean compile
 
 scala-proto-publish: scala-proto-compile
-	make export-env && cd api/scala/redbus && sbt publish
+	cd api/scala/redbus && sbt --batch +publish
+
+.PHONY: scala-proto-compile scala-proto-publish

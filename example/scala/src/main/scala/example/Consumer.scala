@@ -1,6 +1,6 @@
 package example
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{Await, ExecutionContext, Future}

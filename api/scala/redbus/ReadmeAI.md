@@ -90,8 +90,11 @@ akka→pekko fallback, so:
 ## Checks
 
 ```shell
-sbt --batch compile test
+sbt --batch +compile +test +makePom
 ```
+
+From the repository root, `make scala-proto-compile` additionally compiles the Scala example against
+the SDK from the same checkout.
 
 Publishing uses the fixed `maven.libicraft.ru` host and needs either both `MAVEN_USER` and
 `MAVEN_PASSWORD` or `~/.sbt/1.0/credentials`; validation runs only for the `publish` task (see
