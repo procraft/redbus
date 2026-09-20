@@ -13,6 +13,9 @@ available model and tool configuration.
 - **Bounded worker:** executes one settled, independently verifiable outcome under
   `bounded-worker.md`. Use a client-specific fast adapter when available; otherwise fall back to the
   ordinary repository worker without weakening the rules.
+- **Read-only explorer:** answers a delegated search with a conclusion and `path:line` evidence
+  under `explore-worker.md`. Client explorer adapters run it below coordinator cost; when a client
+  has none, its built-in explorer is used.
 - **Independent reviewer/runtime investigator:** use only through the explicit workflow and
   authorization that owns that capability; neither is a bounded-worker shortcut.
 
