@@ -28,6 +28,13 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   independent review it defines so the lease can reach `ready`. Reuse unchanged focused evidence and
   rerun only checks affected by review corrections. Do not bypass configured Git hooks, and disclose
   checks they execute automatically.
+- **Completed-phase reuse:** a later generic `cleanup`, `review`, or `cleanup/review` request means verify
+  that the recorded successful phase still matches the same base and complete change identity; it does not
+  by itself request another execution. Reuse the result after cheap read-only freshness checks. Repeat the
+  phase only when the user explicitly asks for a fresh/rerun pass, the base/scope/change identity or relevant
+  assumptions changed, the earlier phase was incomplete or failed, findings remain unresolved, or a different
+  requested depth is not already covered. Do not launch another agent, build, or test merely to reproduce
+  current evidence.
 - **Acceptance/E2E:** browser, API, multi-role, and post-implementation acceptance execution requires
   the user's separate `test-change` decision. Implementation evidence and an internal code review do
   not grant that authorization.
