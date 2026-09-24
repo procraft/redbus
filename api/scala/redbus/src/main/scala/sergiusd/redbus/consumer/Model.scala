@@ -1,6 +1,7 @@
 package sergiusd.redbus.consumer
 
 import sergiusd.redbus.api.ConsumeRequest
+import slick.dbio.{DBIOAction, Effect, NoStream}
 import slick.jdbc.PostgresProfile.backend.Database
 import java.time.ZonedDateTime
 import scala.concurrent.Future
@@ -9,10 +10,18 @@ import scala.concurrent.duration.FiniteDuration
 object Model {
 
   private type MessageData = Array[Byte]
+  /**
+   * @param claimDba set only in the `Option.WithTransactionalInbox` mode: the inbox claim for this
+   *                 message ([[IncomeMessages.claim]]). The processor runs it as the first step of its
+   *                 own transaction; on `false` it skips the business logic and completes successfully.
+   */
   case class MessageMeta(
     version: Option[MessageVersion] = None,
     timestamp: Option[MessageTimestamp] = None,
+    claimDba: Option[InboxClaim] = None,
   )
+
+  type InboxClaim = DBIOAction[Boolean, NoStream, Effect.Write]
 
   private type MessageVersion = Long
   type MessageIdempotencyKey = String
@@ -28,6 +37,7 @@ object Model {
     unavailableTimeout: FiniteDuration,
     logger: String => Unit = _ => (),
     checkEventProcessedDatabase: Option[Database] = None,
+    transactionalInbox: Boolean = false,
   )
 
   class RepeatStrategy(

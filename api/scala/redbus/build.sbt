@@ -1,6 +1,6 @@
 name := "redbus"
 organization := "sergiusd"
-version := "0.4.1"
+version := "0.4.4"
 
 ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / crossScalaVersions := Seq("2.13.18", "3.3.8")

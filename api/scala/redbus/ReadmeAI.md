@@ -44,13 +44,18 @@ akka→pekko fallback, so:
 
 ## Surfaces
 
-- `Client` — entry point: `produce`, `consume`, `startProducerDbaFlusher`, `close`.
+- `ProtoClient` (since `0.4.4`) — the recommended entry point: ScalaPB-typed produce/outbox/consume
+  over `Client`, configured by `RedbusSettings` (`fromConfig` reads `host`, `port`,
+  `producerEnabled`, `consumerEnabled`, optional `outboxBatchSize`). It replaces the per-service
+  `RedbusClient` wrappers; invariants below in *Typed client*.
+- `Client` — low-level entry point: `produce`, `consume`, `startProducerDbaFlusher`, `close`.
+  Unchanged for services pinned to older versions.
 - `producer.Producer.produce` — direct gRPC produce. `producer.Producer.produceDba` — transactional
   outbox: a `DBIOAction` that inserts into the client's `redbus_outbox` table (`api/outbox.sql`) so
   the message is committed together with the caller's own writes.
 - `producer.Flusher` / `FlusherActor` — drains `redbus_outbox` into the bus.
 - `consumer.Consumer` — bidirectional `Consume` stream with reconnect and the `consumer.Option.*`
-  settings (repeat strategy, batch size, consume timeout, inbox-based only-once processing).
+  settings (repeat strategy, batch size, consume timeout, inbox dedup — see below).
   It echoes `ConsumeResponse.batchId` back in the result request so the bus can tell the answer to
   the current batch from a late or foreign one, and declares `Connect.consumeTimeoutSec` so the
   bus sizes its own result deadline from the client's real processing budget. Both fields are
@@ -61,6 +66,76 @@ akka→pekko fallback, so:
   without consuming an attempt. Older buses ignore the additive fields and apply their normal retry
   strategy.
 - ScalaPB code is generated from `api/api.proto` at build time; never edit generated sources.
+
+## Typed client
+
+- A disabled side never touches the bus: `produceProto` → `false`, `produceProtoDba` →
+  `DBIOAction.successful(0)`, `consumeProto` → `Future.unit`, `startFlusher` → nothing. The gRPC
+  `Client` (and its actor system) is created lazily and only when a side is enabled.
+- Decoding lives in `ProtoClient.decoding`: a payload that fails `parseFrom` is logged with topic,
+  group and size and acknowledged; a synchronous processor exception becomes a failed future for
+  that message. Only the typed path does this — the byte-level `Client`/`Consumer` keep their
+  behaviour (a synchronous throw still fails the whole batch and reconnects), because deployed
+  services must not see a change.
+- `startFlusher` is guarded by an `AtomicBoolean` per client instance. The SDK flusher actor has a
+  fixed name, so two clients on one actor system still clash.
+- The inbox option is prepended to the caller's consumer options, so a caller option given later
+  wins, the same as for the lower-level `Client`.
+- Database parameters of the new API take `slick.jdbc.JdbcBackend#JdbcDatabaseDef`. Slick types a
+  database by its profile's path (`profile.backend.Database`), so an application's own
+  `PostgresProfile` subclass produced a type that did not match `PostgresProfile.backend.Database`
+  and forced an `asInstanceOf`. All profiles share the `JdbcBackend` object and one erased class, so
+  `JdbcDatabases.postgres` narrows it internally. The older signatures keep
+  `PostgresProfile.backend.Database` for compatibility.
+- `ProtoClient.Transport` is the package-private seam that `ProtoClientSpec` replaces.
+
+## Inbox dedup modes
+
+Both consumer modes use the client's `redbus_inbox` table (`api/inbox.sql`) with the key
+`group|topic|idempotencyKey`, where the message id stands in for an empty idempotency key. The key
+is built only in `IncomeMessages`, so marks written by either mode are visible to the other and a
+consumer can switch modes without a migration. The stream-independent logic lives in
+`consumer.InboxProcessing` (package-private, with a `Store` seam for unit tests).
+
+`Option.WithInbox(db, InboxMode)` (since `0.4.4`) selects the mode in one option: `OnlyOnce`,
+`Transactional` or `Disabled`. `WithOnlyOnceProcessor` and `WithTransactionalInbox` delegate to it and
+set exactly the same `Listener` fields as before. `Inbox.guard(claim, onSkip)(fn)` is the processor
+side of the transactional mode: claim first, skip `fn` on `false`, always run `fn` without a claim.
+
+- `Option.WithOnlyOnceProcessor(db)` — pre-check `isProcessed`, run the processor, then
+  `setProcessed` after success. Three separate database steps: a crash after the processor's commit
+  and before the mark, or a concurrent redelivery (rebalance, batch timeout), processes the message
+  twice. Kept unchanged for existing consumers.
+- `Option.WithTransactionalInbox(db)` (since `0.4.3`) — the same cheap pre-check, but the SDK never
+  writes the mark. The processor gets `MessageMeta.claimDba = Some(IncomeMessages.claim(...))`:
+  `INSERT … (key, created_at) VALUES (…, now()) ON CONFLICT ("key") DO NOTHING`, `true` only when
+  this call inserted the row.
+
+Processor contract in the transactional mode: run `claimDba` as the first step of the **same**
+transaction as the business writes; on `false` skip the business logic and complete successfully
+(the message was already processed). The SDK never opens that transaction, so the host keeps its own
+transaction wrapper and post-commit side effects. A concurrent claim of the same key blocks on the
+primary key until the first transaction ends: it then gets `false` after a commit, or claims the key
+after a rollback. Side effects outside the database (external calls) are not covered by the claim
+and still need their own idempotency.
+
+The two options are mutually exclusive; the last one given wins. `claimDba` stays `None` without the
+transactional option. `IncomeMessages.claim(group, topic, idempotencyKey)` is public for tests and
+for hosts that build the key themselves.
+
+Client tables may differ from `api/inbox.sql`: some were created by renaming an older table, and
+their `created_at` is `NOT NULL` without a default. Every SDK write therefore sets `created_at`
+itself (`setProcessed` from the client clock, `claim` with `now()`). `0.4.2` shipped a `claim` that
+relied on the column default and fails on such tables with a not-null violation; it is published
+and immutable, so consumers of the transactional mode must use `0.4.3` or later.
+
+`IncomeMessagesPostgresSpec` runs the real SQL against a local PostgreSQL, on both table shapes
+(with and without the `created_at` default), and checks that a concurrent claim waits for the
+first transaction. It connects to the maintenance database `postgres`, creates uniquely named
+schemas and drops them afterwards; `REDBUS_PG_SPEC_URL` overrides the JDBC URL and
+`REDBUS_PG_SPEC=false|0|off` turns it off. An unreachable server cancels these tests (look for
+`CANCELED` in the sbt output) instead of failing them. The package-private `…In(schema, …)` variants
+in `IncomeMessages` exist only for this spec; the public API always targets `public.redbus_inbox`.
 
 ## Outbox flusher invariants
 
