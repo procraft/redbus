@@ -1,7 +1,7 @@
 package sergiusd.redbus.producer
 
-import akka.actor.{ActorSystem, Props}
-import akka.testkit.TestKit
+import org.apache.pekko.actor.{ActorSystem, Props}
+import org.apache.pekko.testkit.TestKit
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers

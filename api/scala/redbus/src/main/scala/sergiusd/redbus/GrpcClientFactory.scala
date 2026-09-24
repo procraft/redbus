@@ -1,6 +1,6 @@
 package sergiusd.redbus
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import io.grpc.stub.AbstractStub
 import io.grpc.{ManagedChannel, ManagedChannelBuilder}
 

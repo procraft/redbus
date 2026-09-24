@@ -1,9 +1,10 @@
 # Scala REDBus example
 
-You should have published [API and SDK packages](../../api/scala/redbus/README.md).
+The example builds against the Scala SDK from this checkout, so publishing the SDK first is not required.
+Run the SDK and example compile gate from the repository root:
 
 ```shell
-cd ../.. && make export-env
+make scala-proto-compile
 ```
 
 ## Consumer

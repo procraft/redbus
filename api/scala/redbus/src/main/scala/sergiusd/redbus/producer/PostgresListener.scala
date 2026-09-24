@@ -2,7 +2,7 @@ package sergiusd.redbus.producer
 
 import java.sql.Connection
 import slick.jdbc.PostgresProfile.backend.Database
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import org.apache.pekko.actor.{Actor, ActorRef, ActorSystem, Props}
 import org.postgresql.PGConnection
 
 import scala.concurrent.duration._

@@ -1,11 +1,10 @@
 package sergiusd.redbus.consumer
 
-import akka.Done
-import akka.actor.ActorSystem
-import akka.pattern.after
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.pattern.after
 import io.grpc.stub.StreamObserver
 import sergiusd.redbus.api._
-import sergiusd.redbus
 import sergiusd.redbus.consumer.Model.MessageMeta
 
 import java.time.ZonedDateTime
@@ -13,7 +12,6 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
-import slick.jdbc.PostgresProfile.backend.Database
 
 class Consumer(
   grpcClient: RedbusServiceGrpc.RedbusServiceStub,
@@ -43,6 +41,8 @@ class Consumer(
     )
     options.foldLeft(init)((x, fn) => fn(x))
   }
+  private val inboxStore: Option[InboxProcessing.Store] =
+    listener.checkEventProcessedDatabase.map(new InboxProcessing.SlickStore(_))
   private var requestObserver: Option[(Long, StreamObserver[ConsumeRequest])] = None
   private val connectRequest = ConsumeRequest(
     connect = Some(
@@ -181,45 +181,22 @@ class Consumer(
   }
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
-    val zonedDateTime: ZonedDateTime = if (message.timestamp.nonEmpty) {
-      Try(ZonedDateTime.parse(message.timestamp)) match {
-        case Success(value) =>
-          value
-        case Failure(e: Throwable) =>
-          log(s"Can't parse timestamp '${message.timestamp}': ${e.getMessage}")
-          ZonedDateTime.now
-      }
-    } else ZonedDateTime.now
     runWithTimeout(listener.consumeTimeout) {
       val idempotencyKey = if (message.idempotencyKey.nonEmpty) message.idempotencyKey else message.id
-      for {
-        isProcessed <- listener.checkEventProcessedDatabase match {
-          case Some(db) if idempotencyKey.nonEmpty =>
-            isEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
-          case _ =>
-            Future.successful(false)
-        }
-        result <- if (isProcessed) {
-          log(s"Skip already processed message $group / $topic / $idempotencyKey")
-          Future.successful(Right(()))
-        } else {
-          val meta = MessageMeta(
-            version = if (message.version == 0) None else Some(message.version),
-            timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
-          )
-          for {
-            result <- processor(message.data.toByteArray, meta)
-              .map(_ => Right(()))
-              .recover(e => Left(e))
-            _ <- (result, listener.checkEventProcessedDatabase) match {
-              case (Right(_), Some(db)) if idempotencyKey.nonEmpty =>
-                setEventProcessed(db, redbus.consumer.Option.EventKey(topic, group, idempotencyKey, zonedDateTime))
-              case _ =>
-                Future.unit
-            }
-          } yield result
-        }
-      } yield result
+      InboxProcessing.process(
+        store = inboxStore,
+        transactional = listener.transactionalInbox,
+        group = group,
+        topic = topic,
+        idempotencyKey = idempotencyKey,
+        data = message.data.toByteArray,
+        meta = MessageMeta(
+          version = if (message.version == 0) None else Some(message.version),
+          timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
+        ),
+        processor = processor,
+        log = log,
+      )
     }
   }
 
@@ -237,14 +214,6 @@ class Consumer(
       Future.failed(new TimeoutException("Future timed out"))
     )
     Future.firstCompletedOf(Seq(f, timeoutFuture))
-  }
-
-  private def isEventProcessed(db: Database, eventKey: redbus.consumer.Option.EventKey): Future[Boolean] = {
-    db.run(IncomeMessages.isProcessed(eventKey.group, eventKey.topic, eventKey.idempotencyKey))
-  }
-
-  private def setEventProcessed(db: Database, eventKey: redbus.consumer.Option.EventKey): Future[_] = {
-    db.run(IncomeMessages.setProcessed(eventKey.group, eventKey.topic, eventKey.idempotencyKey))
   }
 
 }

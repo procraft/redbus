@@ -1,6 +1,6 @@
 package sergiusd.redbus.producer
 
-import akka.actor.{Actor, ActorSystem, Props}
+import org.apache.pekko.actor.{Actor, ActorSystem, Props}
 import com.google.protobuf.ByteString
 import slick.jdbc.PostgresProfile.api._
 import sergiusd.redbus.api
