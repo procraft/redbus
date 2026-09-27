@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ func TestToPBResultListConvertsRetryLaterError(t *testing.T) {
 	result := toPBResultList([]ProcessResult{{
 		id:  "message-id",
 		err: NewRetryLaterError(errors.New("provider throttled"), 1500*time.Millisecond),
-	}})[0]
+	}}, slog.Default())[0]
 
 	require.False(t, result.Ok)
 	require.Equal(t, "provider throttled", result.Message)
@@ -21,7 +22,7 @@ func TestToPBResultListConvertsRetryLaterError(t *testing.T) {
 }
 
 func TestToPBResultListKeepsOrdinaryErrorsBackwardCompatible(t *testing.T) {
-	result := toPBResultList([]ProcessResult{{id: "message-id", err: errors.New("failed")}})[0]
+	result := toPBResultList([]ProcessResult{{id: "message-id", err: errors.New("failed")}}, slog.Default())[0]
 
 	require.False(t, result.Ok)
 	require.False(t, result.PreserveAttempt)

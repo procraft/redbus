@@ -1,12 +1,24 @@
 package consumer
 
-import "time"
+import (
+	"log/slog"
+	"time"
+
+	"github.com/prokraft/redbus/api/golang/inbox"
+)
 
 type ServiceOptionFn = func(c *Service)
 
 func WithServiceUnavailableTimeout(unavailableTimeout time.Duration) ServiceOptionFn {
 	return func(c *Service) {
 		c.unavailableTimeout = unavailableTimeout
+	}
+}
+
+// WithServiceLogger sets the logger of the consumer (default slog.Default()).
+func WithServiceLogger(log *slog.Logger) ServiceOptionFn {
+	return func(c *Service) {
+		c.log = log
 	}
 }
 
@@ -39,5 +51,17 @@ func WithRepeatStrategyProgressive(maxAttempts int, intervalSec int, multiplier 
 func WithBatchSize(batchSize int) OptionFn {
 	return func(l *Listener) {
 		l.batchSize = batchSize
+	}
+}
+
+// WithInbox selects the inbox dedup mode over the client's redbus_inbox table in db (see
+// inbox.Mode). It replaces any inbox option given before it; inbox.Disabled ignores db.
+func WithInbox(db inbox.DB, mode inbox.Mode) OptionFn {
+	return func(l *Listener) {
+		l.inboxDB = db
+		l.inboxMode = mode
+		if mode == inbox.Disabled {
+			l.inboxDB = nil
+		}
 	}
 }

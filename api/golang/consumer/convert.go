@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"math"
 	"time"
 
@@ -44,14 +44,32 @@ func fromPBMessageIds(messageList []*pb.ConsumeResponse_Message) []string {
 	return ret
 }
 
-func toPBResultList(resultList []ProcessResult) []*pb.ConsumeRequest_Result {
+func fromPBMessage(m *pb.ConsumeResponse_Message, log *slog.Logger) Message {
+	msg := Message{
+		ID:             m.Id,
+		Data:           m.Data,
+		IdempotencyKey: m.IdempotencyKey,
+		Version:        m.Version,
+	}
+	if m.Timestamp != "" {
+		ts, err := time.Parse(time.RFC3339, m.Timestamp)
+		if err != nil {
+			log.Warn("redbus: unparsable message timestamp", "id", m.Id, "timestamp", m.Timestamp, "error", err)
+		} else {
+			msg.Timestamp = ts
+		}
+	}
+	return msg
+}
+
+func toPBResultList(resultList []ProcessResult, log *slog.Logger) []*pb.ConsumeRequest_Result {
 	ret := make([]*pb.ConsumeRequest_Result, 0, len(resultList))
 	for _, v := range resultList {
 		if v.err == nil {
-			log.Printf("[%v] Process payload success\n", v.id)
+			log.Debug("redbus: process payload success", "id", v.id)
 			ret = append(ret, &pb.ConsumeRequest_Result{Id: v.id, Ok: true})
 		} else {
-			log.Printf("[%v] Process payload error: %v\n", v.id, v.err)
+			log.Warn("redbus: process payload error", "id", v.id, "error", v.err)
 			result := &pb.ConsumeRequest_Result{Id: v.id, Ok: false, Message: v.err.Error()}
 			var retryLater *RetryLaterError
 			if errors.As(v.err, &retryLater) {
