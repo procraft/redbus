@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/prokraft/redbus/api/golang/inbox"
+	"github.com/prokraft/redbus/api/golang/pb"
 )
 
 func New(host string, port int, options ...ServiceOptionFn) *Service {
@@ -21,6 +22,7 @@ func New(host string, port int, options ...ServiceOptionFn) *Service {
 		host:               host,
 		port:               port,
 		unavailableTimeout: 60 * time.Second,
+		log:                slog.Default(),
 	}
 	for _, o := range options {
 		o(&c)
@@ -28,7 +30,17 @@ func New(host string, port int, options ...ServiceOptionFn) *Service {
 	return &c
 }
 
+// Consume is ConsumeMessages for a handler that needs only the payload.
 func (c *Service) Consume(ctx context.Context, topic, group string, processor ConsumeProcessor, options ...OptionFn) error {
+	return c.ConsumeMessages(ctx, topic, group, func(ctx context.Context, msg Message) error {
+		return processor(ctx, msg.Data)
+	}, options...)
+}
+
+// ConsumeMessages consumes topic as group until ctx is cancelled, reconnecting after every
+// failure. Messages of one batch are handled concurrently; the batch result is sent after all of
+// them finish. It returns nil after cancellation, once the stream loop has stopped.
+func (c *Service) ConsumeMessages(ctx context.Context, topic, group string, handler Handler, options ...OptionFn) error {
 	listener := Listener{
 		consumeTimeout: 60 * time.Second,
 		batchSize:      1,
@@ -36,8 +48,14 @@ func (c *Service) Consume(ctx context.Context, topic, group string, processor Co
 	for _, o := range options {
 		o(&listener)
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	if listener.inboxMode != inbox.Disabled && listener.inboxDB == nil {
+		return fmt.Errorf("redbus: inbox mode %v needs a database", listener.inboxMode)
+	}
+	var store inboxStore
+	if listener.inboxDB != nil {
+		store = sqlInboxStore{db: listener.inboxDB}
+	}
+	log := c.log.With("topic", topic, "group", group)
 
 	// bus client
 	busConn, err := grpc.Dial(
@@ -47,6 +65,7 @@ func (c *Service) Consume(ctx context.Context, topic, group string, processor Co
 	if err != nil {
 		return err
 	}
+	defer busConn.Close()
 	busClient := pb.NewRedbusServiceClient(busConn)
 
 	connectPayload := pb.ConsumeRequest{Connect: &pb.ConsumeRequest_Connect{
@@ -60,33 +79,41 @@ func (c *Service) Consume(ctx context.Context, topic, group string, processor Co
 		ConsumeTimeoutSec: consumeTimeoutSec(listener.consumeTimeout),
 	}}
 
+	s := session{
+		service:  c,
+		listener: listener,
+		topic:    topic,
+		group:    group,
+		handler:  handler,
+		store:    store,
+		log:      log,
+	}
+
 	// Один стрим — один обслуживающий цикл. Стрим передаётся параметром, а не через общую
 	// переменную: иначе реконнект и обслуживание гонялись бы за одним значением, а результат
 	// батча мог уйти уже в другой стрим.
-	go func() {
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			stream, ok := c.waitConnectedStream(ctx, busClient, &connectPayload)
-			if !ok {
-				return
-			}
-			log.Printf("Connect to %v:%v, id = %v\n", c.host, c.port, connectPayload.Connect.Id)
-			c.serveStream(ctx, stream, listener, processor)
-			if ctx.Err() != nil {
-				return
-			}
-			log.Printf("Connection to %v:%v not available, %v waiting...\n", c.host, c.port, c.unavailableTimeout)
-			if !sleepCtx(ctx, c.unavailableTimeout) {
-				return
-			}
+	log.Info("redbus: start consumer")
+	for {
+		stream, ok := c.waitConnectedStream(ctx, busClient, &connectPayload, log)
+		if !ok {
+			break
 		}
-	}()
-
-	<-ctx.Done()
-	log.Printf("Disconnected\n")
+		log.Info("redbus: connected", "addr", c.addr(), "id", connectPayload.Connect.Id)
+		s.serve(ctx, stream)
+		if ctx.Err() != nil {
+			break
+		}
+		log.Warn("redbus: connection not available", "addr", c.addr(), "wait", c.unavailableTimeout)
+		if !sleepCtx(ctx, c.unavailableTimeout) {
+			break
+		}
+	}
+	log.Info("redbus: consumer stopped")
 	return nil
+}
+
+func (c *Service) addr() string {
+	return fmt.Sprintf("%v:%v", c.host, c.port)
 }
 
 // waitConnectedStream открывает стрим и подтверждает подключение, повторяя попытки до отмены ctx.
@@ -94,6 +121,7 @@ func (c *Service) waitConnectedStream(
 	ctx context.Context,
 	busClient pb.RedbusServiceClient,
 	connectPayload *pb.ConsumeRequest,
+	log *slog.Logger,
 ) (pb.RedbusService_ConsumeClient, bool) {
 	var attempt int
 	for {
@@ -105,7 +133,10 @@ func (c *Service) waitConnectedStream(
 		if err == nil {
 			return stream, true
 		}
-		log.Printf("Connect to %v:%v error: %v, attempt %v, %v waiting...\n", c.host, c.port, err, attempt, c.unavailableTimeout)
+		if ctx.Err() != nil {
+			return nil, false
+		}
+		log.Warn("redbus: connect error", "addr", c.addr(), "error", err, "attempt", attempt, "wait", c.unavailableTimeout)
 		if !sleepCtx(ctx, c.unavailableTimeout) {
 			return nil, false
 		}
@@ -137,13 +168,19 @@ func (c *Service) connectStream(
 	return stream, nil
 }
 
-// serveStream обслуживает один стрим до его завершения.
-func (c *Service) serveStream(
-	ctx context.Context,
-	stream pb.RedbusService_ConsumeClient,
-	listener Listener,
-	processor ConsumeProcessor,
-) {
+// session holds what serving one consumer needs; the gRPC stream itself is passed per call.
+type session struct {
+	service  *Service
+	listener Listener
+	topic    string
+	group    string
+	handler  Handler
+	store    inboxStore
+	log      *slog.Logger
+}
+
+// serve обслуживает один стрим до его завершения.
+func (s *session) serve(ctx context.Context, stream pb.RedbusService_ConsumeClient) {
 	for {
 		if ctx.Err() != nil {
 			return
@@ -155,46 +192,46 @@ func (c *Service) serveStream(
 			return
 		}
 		if err != nil {
-			log.Printf("Can't receive payload: %v\n", err)
+			if ctx.Err() == nil {
+				s.log.Warn("redbus: can't receive payload", "error", err)
+			}
 			return
 		}
 		if len(payloadResponse.MessageList) == 0 {
 			continue
 		}
 		messageIdList := fromPBMessageIds(payloadResponse.MessageList)
-		log.Printf("Receive messages: %v\n", strings.Join(messageIdList, ","))
+		s.log.Debug("redbus: receive messages", "ids", strings.Join(messageIdList, ","))
 
 		// process messages
-		processResultMap := c.processMessageList(ctx, listener, processor, payloadResponse.MessageList)
+		processResultMap := s.processMessageList(ctx, payloadResponse.MessageList)
 
 		// send result of process messages
-		resultList := toPBResultList(processResultMap)
+		resultList := toPBResultList(processResultMap, s.log)
 		// batchId возвращается шине как есть: по нему она отличает ответ на текущий батч от
 		// позднего или чужого. Старые шины поле игнорируют.
 		if err := stream.Send(&pb.ConsumeRequest{BatchId: payloadResponse.BatchId, ResultList: resultList}); err != nil {
-			log.Printf("Can't send result of process messages: %v, error: %v\n", strings.Join(messageIdList, ","), err)
+			if ctx.Err() != nil {
+				return
+			}
+			s.log.Warn("redbus: can't send result of process messages", "ids", strings.Join(messageIdList, ","), "error", err)
 			return
 		}
 	}
 }
 
-func (c *Service) processMessageList(
-	ctx context.Context,
-	listener Listener,
-	processor ConsumeProcessor,
-	messageList []*pb.ConsumeResponse_Message,
-) []ProcessResult {
+func (s *session) processMessageList(ctx context.Context, messageList []*pb.ConsumeResponse_Message) []ProcessResult {
 	if len(messageList) == 0 {
 		return nil
 	}
 	if len(messageList) == 1 {
-		err := c.processMessage(ctx, listener, processor, messageList[0])
+		err := s.processMessage(ctx, messageList[0])
 		return []ProcessResult{{id: messageList[0].Id, err: err}}
 	}
 	resultCh := make(chan ProcessResult, len(messageList))
 	for i := range messageList {
 		go func(m *pb.ConsumeResponse_Message) {
-			err := c.processMessage(ctx, listener, processor, m)
+			err := s.processMessage(ctx, m)
 			resultCh <- ProcessResult{id: m.Id, err: err}
 		}(messageList[i])
 	}
@@ -206,13 +243,8 @@ func (c *Service) processMessageList(
 	return ret
 }
 
-func (c *Service) processMessage(
-	ctx context.Context,
-	listener Listener,
-	processor ConsumeProcessor,
-	message *pb.ConsumeResponse_Message,
-) error {
-	processCtx, processCancel := context.WithTimeout(ctx, listener.consumeTimeout)
+func (s *session) processMessage(ctx context.Context, message *pb.ConsumeResponse_Message) error {
+	processCtx, processCancel := context.WithTimeout(ctx, s.listener.consumeTimeout)
 	defer processCancel()
 	// Канал буферизован и не закрывается: после сработавшего таймаута обработчик всё ещё жив и
 	// однажды запишет результат. Закрытый или небуферизованный канал давал бы здесь панику
@@ -225,7 +257,9 @@ func (c *Service) processMessage(
 				processErrCh <- fmt.Errorf("Recovered: %v", r)
 			}
 		}()
-		processErrCh <- processor(processCtx, message.Data)
+		processErrCh <- processWithInbox(
+			processCtx, s.store, s.listener.inboxMode, s.group, s.topic, fromPBMessage(message, s.log), s.handler, s.log,
+		)
 	}()
 
 	select {
@@ -235,7 +269,7 @@ func (c *Service) processMessage(
 		if ctx.Err() != nil {
 			return fmt.Errorf("Consumer stopped while processing %v", message.Id)
 		}
-		return fmt.Errorf("Execution timeout %v limit for %v", listener.consumeTimeout, message.Id)
+		return fmt.Errorf("Execution timeout %v limit for %v", s.listener.consumeTimeout, message.Id)
 	}
 }
 
