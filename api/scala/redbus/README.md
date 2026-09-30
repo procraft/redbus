@@ -47,7 +47,7 @@ import sergiusd.redbus.{ProtoClient, RedbusSettings}
 import sergiusd.redbus.consumer.{Inbox, InboxMode}
 
 val bus = ProtoClient(
-  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize]
+  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize, produceTimeout, produceBatchTimeout]
   db,                                  // any Slick JdbcProfile database, no cast needed
   lifecycle.addStopHook,               // consumer shutdown registration
   ProtoClient.Log(debug = log.debug(_), info = log.info(_), error = log.error(_, _)),
@@ -75,6 +75,29 @@ bus.consumeProto[Request]("topic", "group", InboxMode.Transactional, consumer.Op
   message was already processed, and always runs `fn` when there is no claim (a call path that does
   not come from the bus).
 - The flusher actor has a fixed name, so start it from one client per actor system.
+
+### Produce deadlines
+
+Since **0.4.5**, a direct produce and every batch request of the outbox flusher have a deadline, so
+a bus that stops answering yields a failed future instead of one that never completes.
+
+| Setting | Default | Bounds |
+|---------|---------|--------|
+| `produceTimeout` | 30 seconds | one `Client.produce` / `ProtoClient.produceProto` call |
+| `produceBatchTimeout` | 30 seconds | one batch request of the outbox flusher |
+
+Set them on `RedbusSettings` (config keys `produceTimeout` and `produceBatchTimeout`, for example
+`produceTimeout = 10s`) or on the lower-level client:
+`Client(host, port, logger, produceTimeout = 10.seconds, produceBatchTimeout = 1.minute)`.
+
+When the deadline passes, the future fails with `producer.ProduceTimeoutException`, whose `cause` is
+the gRPC `DEADLINE_EXCEEDED` status; other gRPC errors are passed through unchanged. A timeout means
+the outcome is unknown: the bus may have written the message already, so retry only with a stable
+`producer.Option.WithIdempotencyKey` and an idempotent consumer. The flusher keeps a timed-out batch
+in `redbus_outbox` and sends it again on the next pass.
+
+Upgrading from 0.4.4 needs no code change; the only behavioural difference is that a call which used
+to wait forever now fails after 30 seconds.
 
 Migrating a service wrapper: build `RedbusSettings` from the existing config section (or construct it
 from the service's typed config), replace the private `redbus.Client` with `ProtoClient`, delete the
@@ -149,8 +172,8 @@ start and then every `sweepInterval` (default 30 seconds, `startProducerDbaFlush
 The sweep delivers rows left over from a restart or a missed notification. The flusher fetches at
 most `batchSize` rows (default 100) in `id` order, publishes the same-topic prefix with one confirmed
 batch request, and deletes all confirmed ids in one database operation. It immediately fetches the
-next bounded batch until the table is empty. A publish failure keeps the whole batch in the table and
-it is retried on the next pass. Existing positional calls remain compatible; configure the limit with
+next bounded batch until the table is empty. A publish failure, including a batch request that
+exceeds `produceBatchTimeout`, keeps the whole batch in the table and it is retried on the next pass. Existing positional calls remain compatible; configure the limit with
 `startProducerDbaFlusher(db, sweepInterval, batchSize)` or the named `batchSize` argument.
 
 ### Publish

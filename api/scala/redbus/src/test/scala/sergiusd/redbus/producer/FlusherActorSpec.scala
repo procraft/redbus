@@ -10,6 +10,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import sergiusd.redbus.api
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 
 class FlusherActorSpec
@@ -149,6 +150,29 @@ class FlusherActorSpec
         attempts.get() shouldBe 2
         store.rows shouldBe empty
       }
+    }
+
+    "keep the batch when the bus does not answer in time and send it on a later pass" in {
+      val bus = new HangingBus
+      try {
+        val store = new InMemoryStore(Seq(message(1), message(2)))
+        @volatile var logged = Vector.empty[String]
+        val logger: String => Unit = line => synchronized { logged = logged :+ line }
+        val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] =
+          Producer.produceBatch(bus.stub, _, 300.millis)(Flusher.ec)
+        val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, logger, batchSize = 100)))
+
+        actor ! ProcessMessage("notify")
+        eventually(logged.exists(_.contains("ProduceTimeoutException")) shouldBe true)
+        store.rows.map(_.id) shouldBe Seq(1L, 2L)
+        store.deleteCalls shouldBe empty
+
+        bus.hanging = false
+        actor ! ProcessMessage("sweep")
+        eventually(store.rows shouldBe empty)
+        store.deleteCalls shouldBe Seq(Seq(1L, 2L))
+        bus.batchCalls.get() shouldBe 2
+      } finally bus.close()
     }
 
     "reject a non-positive batch size before starting resources" in {

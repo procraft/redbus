@@ -187,6 +187,21 @@ class ProtoClientSpec extends AnyWordSpec with Matchers with org.scalatest.LoneE
       RedbusSettings.fromConfig(com.typesafe.config.ConfigFactory.parseString("outboxBatchSize = 20").withFallback(base))
         .outboxBatchSize shouldBe 20
     }
+
+    "default the produce deadlines to 30 seconds and read them as durations" in {
+      val base = com.typesafe.config.ConfigFactory.parseString(
+        "host = bus, port = 50005, producerEnabled = yes, consumerEnabled = false"
+      )
+      val defaults = RedbusSettings.fromConfig(base)
+      defaults.produceTimeout shouldBe 30.seconds
+      defaults.produceBatchTimeout shouldBe 30.seconds
+
+      val tuned = RedbusSettings.fromConfig(
+        com.typesafe.config.ConfigFactory.parseString("produceTimeout = 5s, produceBatchTimeout = 2m").withFallback(base)
+      )
+      tuned.produceTimeout shouldBe 5.seconds
+      tuned.produceBatchTimeout shouldBe 2.minutes
+    }
   }
 
   "consumer.Option.WithInbox" should {

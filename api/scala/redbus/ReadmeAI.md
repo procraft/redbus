@@ -50,7 +50,8 @@ akka→pekko fallback, so:
   `RedbusClient` wrappers; invariants below in *Typed client*.
 - `Client` — low-level entry point: `produce`, `consume`, `startProducerDbaFlusher`, `close`.
   Unchanged for services pinned to older versions.
-- `producer.Producer.produce` — direct gRPC produce. `producer.Producer.produceDba` — transactional
+- `producer.Producer.produce` — direct gRPC produce, bounded by a deadline (see *Produce
+  deadlines*). `producer.Producer.produceDba` — transactional
   outbox: a `DBIOAction` that inserts into the client's `redbus_outbox` table (`api/outbox.sql`) so
   the message is committed together with the caller's own writes.
 - `producer.Flusher` / `FlusherActor` — drains `redbus_outbox` into the bus.
@@ -137,6 +138,34 @@ schemas and drops them afterwards; `REDBUS_PG_SPEC_URL` overrides the JDBC URL a
 `CANCELED` in the sbt output) instead of failing them. The package-private `…In(schema, …)` variants
 in `IncomeMessages` exist only for this spec; the public API always targets `public.redbus_inbox`.
 
+## Produce deadlines
+
+Since `0.4.5` every unary call has a gRPC deadline; before that a bus that accepted the connection
+but never answered left the caller's `Future` incomplete forever and froze the flusher in its first
+pass (`inProgress` never reset, so sweeps only set `pending`).
+
+- `Client.produceTimeout` bounds a direct `produce`, `Client.produceBatchTimeout` bounds one
+  `ProduceBatch` request of the flusher. Both default to 30 s (`Producer.defaultProduceTimeout`,
+  `Producer.defaultProduceBatchTimeout`) and must be positive. `RedbusSettings` carries the same two
+  fields; `fromConfig` reads the optional `produceTimeout` / `produceBatchTimeout` durations.
+- The deadline is a client setting, not a `producer.Option`: `producer.Option.Fn` is
+  `ProduceRequest => ProduceRequest`, shared with `produceDba`, and cannot carry call settings without
+  breaking that published type. `Producer.produceWithTimeout` / `Producer.produceBatch` take the
+  timeout explicitly for a host that works with the stub directly.
+- gRPC deadlines are absolute, so `withDeadlineAfter` is applied to a per-call copy of the stub,
+  never to the shared one.
+- On expiry the future fails with `producer.ProduceTimeoutException(topic, timeout, cause)`; `cause`
+  is the gRPC `DEADLINE_EXCEEDED` status. Other gRPC failures (`UNAVAILABLE`, …) pass through
+  unchanged. A timeout is an **unknown outcome**, not a rejection: the deadline also travels to the
+  bus and cancels its Kafka write, which may already have been accepted, so a retry can duplicate.
+- The batch has the same default as a single message on purpose. The bus writes a batch with one
+  synchronous Kafka write, whose cost is dominated by the writer's flush interval and retry budget
+  rather than by the row count, and the Go SDK flusher uses the same 30 s. Raise
+  `produceBatchTimeout` together with the batch size or the payload size, not by default.
+- The flusher treats a timeout like any publish failure: the batch stays in `redbus_outbox`, the
+  pass ends and the next trigger or sweep sends it again. With the default sweep interval a hung bus
+  therefore costs about one batch attempt per 30 s.
+
 ## Outbox flusher invariants
 
 - Triggers: `pg_notify('redbus_outbox')` from the table trigger (polled every 100 ms by
@@ -153,7 +182,7 @@ in `IncomeMessages` exist only for this spec; the public API always targets `pub
   topic change, is sent through one confirmed `ProduceBatch` call, and its ids are deleted together
   only after the whole call succeeds. The same pass keeps fetching bounded batches until the outbox
   is empty.
-- A Kafka partial error or context cancellation is ambiguous: the whole selected batch stays in the
+- A Kafka partial error, a context cancellation or a produce deadline is ambiguous: the whole selected batch stays in the
   outbox and may produce duplicates on retry, so consumer idempotency remains required. `batchSize`
   bounds row count, not serialized bytes; with the server's current default gRPC receive limit, a
   request above 4 MiB is rejected and retried until configuration or batching policy changes.

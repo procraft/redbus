@@ -33,7 +33,11 @@ final class ProtoClient private[redbus] (
 
   private val flusherStarted = new AtomicBoolean(false)
 
-  /** Publishes directly over gRPC; `false` when the producer is disabled or the bus rejected it. */
+  /**
+   * Publishes directly over gRPC; `false` when the producer is disabled or the bus rejected it. Fails
+   * with `producer.ProduceTimeoutException` when the bus does not answer within
+   * `settings.produceTimeout`; the outcome of such a call is unknown.
+   */
   def produceProto[T <: GeneratedMessage](topic: String, message: T, options: producer.Option.Fn*): Future[Boolean] =
     bus match {
       case Some(b) if settings.producerEnabled => b.produce(topic, message.toByteArray, options: _*)
@@ -106,7 +110,9 @@ object ProtoClient {
     addStopHook: consumer.Model.StopHook,
     log: Log = Log(),
   )(implicit ec: ExecutionContext): ProtoClient =
-    new ProtoClient(settings, database, addStopHook, log, new ClientTransport(Client(settings.host, settings.port, log.debug)))
+    new ProtoClient(settings, database, addStopHook, log, new ClientTransport(
+      Client(settings.host, settings.port, log.debug, settings.produceTimeout, settings.produceBatchTimeout)
+    ))
 
   /** Log sinks of the client; each defaults to discarding. */
   final case class Log(
