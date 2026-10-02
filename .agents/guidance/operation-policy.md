@@ -45,7 +45,11 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   hand the user one ready command. Any command that writes must use `$SOHOLMS_PROD_PG_RW_URL`
   (role `libicraft`, password entered interactively by the user), never `-U libicraft` on the read
   string: a role inside the URL silently wins over `-U` and `PGUSER`.
-  See `.agents/docs/postgres-prod-access.md`.
+  See `.agents/docs/postgres-prod-access.md`. Do not source `prod.env` or run `psql` with a
+  `SOHOLMS_PROD_PG_*` string in the session shell: the safety gate denies it deterministically, and
+  a retry cannot change that. A question that needs production data goes to the explicit-only
+  `runtime-investigate-problem` (isolated read-only session); a plain SELECT batch is one file plus
+  one ready command for the user (`dev-tools/tunnel/ReadmeAI.md`, «Read-only SQL batch»).
 - **Loki:** read stage logs without asking. Read production logs when the user requested that
   investigation, or ask once before agent-initiated production access. Permission to read logs
   does not authorize database access, changing environments or running a repair.
@@ -55,6 +59,48 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   to the unambiguously identified ticket without asking for approval of the text or repeating the
   posting confirmation. Clarify only missing material facts or an ambiguous target. A draft-only
   request does not authorize posting. Avoid duplicate comments after an uncertain API response.
+
+## Context and session discipline
+
+Long context slows every turn and blurs the focus (measured 2026-09: about 270k tokens re-read per
+turn, a hundred sessions longer than eight hours), so:
+
+- Cut the coordinator session at the phase boundaries in `phase-handoff.md`, at the latest once the
+  context is above roughly 200k tokens and the next phase is long. Write the handoff artifact, then
+  start fresh. Prefer a fresh session for `review-before-push` and `test-change` after a long
+  implementation; a bounded review defined by an explicitly invoked workflow stays in its session.
+- Delegate reading to `Explore` agents (or the client's read-only explorer): searches, call-site
+  sweeps, and reading large files return a conclusion with `path:line`, not file dumps.
+- Keep browser sessions, screenshots, and log dumps inside a bounded worker; the coordinator receives
+  the outcome. Send long tool output to a file in the scratchpad and read the relevant part.
+- Run a command that may take longer than a minute with the client's background mode
+  (`run_in_background` and a completion notification, or `Monitor` for an event stream), never with
+  foreground `sleep`/`until`/`pgrep` polling loops: two weeks of such loops idled 12 hours inside tool
+  calls. Backend builds go only through `sh dev-tools/back-sbt.sh` (`--service <name>` for
+  `services/*`), which also enforces the machine-wide sbt concurrency gate
+  (`BACK_SBT_MAX_CONCURRENT`, `BACK_SBT_MAX_LOAD`); raw `sbt` bypasses it.
+- Ticket work in `lms-back`/`lms-front` happens only in a task workspace from
+  `wt task SL-N <slug> --repo back|front|both` (branch `wt/sl-n-<slug>` from fresh `origin/master`),
+  is delivered from that branch, and is retired with `wt done` (coordinator
+  `.agents/guidance/task-workspace.md`). Do not commit in a detached HEAD, a prime checkout, a legacy
+  `lmsN` slot, or another task's tree. A scratchpad worktree is only a detached throwaway copy; the
+  safety gate denies `git worktree add` elsewhere and branch creation there: raw trees inside slots,
+  `~/ws/tmp`, and scratchpad delivery trees left dozens of orphans and unmerged branches.
+
+## Respect developer time
+
+Before asking the developer for information or a manual command, use the conversation, repository,
+available read-only tools, and already granted authority to resolve what can be resolved safely.
+Ask only for a material decision, missing fact, approval, or human-only action that actually blocks
+progress; do not ask the developer to repeat context, assemble arguments, or run a check the agent
+is authorized and able to run. Keep the request short and state why it is needed.
+
+When a manual command or explicit-only skill invocation is unavoidable, provide one exact,
+copy-pasteable command with the resolved target, environment, flags, time window, and task
+description. Do not leave placeholders such as `$ARGUMENTS` or ask the developer to compose the
+prompt. State where to run it only when that matters, and what result to return. Bundle related
+human steps when safe. This does not relax permission, production-access, or explicit-invocation
+boundaries; make the required user action as small and precise as those boundaries allow.
 
 ## Existing E2E coverage during development
 
@@ -183,6 +229,10 @@ unless fresher evidence is needed. One agent owns shared runtime/DB diagnostics 
 
 Use stable command forms and a tool's working-directory argument instead of changing prefixes with
 `git -C`, shell wrappers or arbitrary inline Python. Prefer the standard ticket/attachment scripts.
+Parallelize agents only up to the machine's build capacity: at most a few concurrent sbt or full
+frontend typecheck/test runs; more concurrency produced load averages above the core count, flaky
+tests and manual reruns. The sbt gate in `back-sbt.sh` waits instead of failing, so a queued build is
+the normal signal to stop adding workers.
 Run ordinary workspace commands in the sandbox; escalate only when technically necessary. When
 escalation is unavoidable, use a narrow reusable rule where safe, not a global shell/SQL allowance.
 
