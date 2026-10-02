@@ -48,11 +48,17 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   See `.agents/docs/postgres-prod-access.md`. Do not source `prod.env` or run `psql` with a
   `SOHOLMS_PROD_PG_*` string in the session shell: the safety gate denies it deterministically, and
   a retry cannot change that. A question that needs production data goes to the explicit-only
-  `runtime-investigate-problem` (isolated read-only session); a plain SELECT batch is one file plus
-  one ready command for the user (`dev-tools/tunnel/ReadmeAI.md`, «Read-only SQL batch»).
+  `runtime-investigate-problem` (isolated read-only session). For a plain SELECT batch, write one SQL
+  file and hand the user exactly this command, with absolute paths, then read the `.out` file yourself:
+  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql.sh prod|stage /abs/path/query.sql`.
+  The script loads `prod.env`/`stage.env` and enforces read-only; never hand-assemble
+  `psql "$SOHOLMS_…"`: without the env file it connects to an empty URL.
 - **Loki:** read stage logs without asking. Read production logs when the user requested that
   investigation, or ask once before agent-initiated production access. Permission to read logs
-  does not authorize database access, changing environments or running a repair.
+  does not authorize database access, changing environments or running a repair. When the user
+  runs the query, hand over
+  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/loki.sh prod|stage '<LogQL>' /abs/path/out.txt --since 14d`
+  rather than a hand-built curl.
 - **Processes:** inspect processes, ports and readiness without asking. This does not authorize
   killing, restarting or reconfiguring processes belonging to the user or another task.
 - **YouTrack comments:** when the user requests a comment, compose and post a concise factual comment
@@ -86,6 +92,13 @@ turn, a hundred sessions longer than eight hours), so:
   `lmsN` slot, or another task's tree. A scratchpad worktree is only a detached throwaway copy; the
   safety gate denies `git worktree add` elsewhere and branch creation there: raw trees inside slots,
   `~/ws/tmp`, and scratchpad delivery trees left dozens of orphans and unmerged branches.
+  In a standalone `lms-back`/`lms-front` session, check `git branch --show-current` before the first
+  ticket edit: on `master` or a detached HEAD, stop and ask for a `wt task` workspace instead of
+  editing. Other repositories keep ticket work on a `wt/<ticket>-<slug>` branch in their own checkout.
+- Durable project knowledge goes into the repository the whole team reads: module facts into the
+  nearest `ReadmeAI.md`, working rules into `AGENTS.md`/guidance, hard decisions into ADRs. Tool-private
+  memory holds only the user's personal preferences and this machine's access details; a fact a
+  teammate would need is not a memory.
 
 ## Respect developer time
 
