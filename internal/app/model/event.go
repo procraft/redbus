@@ -19,8 +19,9 @@ func (e EventConsumers) GetData() string {
 }
 
 type EventRepeater struct {
-	AllCount    int `json:"allCount"`
-	FailedCount int `json:"failedCount"`
+	AllCount      int `json:"allCount"`
+	FailedCount   int `json:"failedCount"`
+	DeferredCount int `json:"deferredCount"`
 }
 
 func (e EventRepeater) GetName() string { return "repeater" }

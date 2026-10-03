@@ -198,7 +198,7 @@ func New() *Metrics {
 		m.grpcServerDuration,
 		m.grpcServerActiveStreams,
 	)
-	m.SetRetryRecords(0, 0)
+	m.SetRetryRecords(0, 0, 0)
 	return m
 }
 
@@ -292,8 +292,11 @@ func (m *Metrics) ObserveRetrySkipped(topic, group, reason string) {
 	m.retrySkipped.WithLabelValues(topic, group, reason).Inc()
 }
 
-func (m *Metrics) SetRetryRecords(pending, exhausted int) {
+// SetRetryRecords publishes the disjoint record states: pending retries after an ordinary failure,
+// deferred retries postponed by the consumer, and exhausted (finished) retries.
+func (m *Metrics) SetRetryRecords(pending, deferred, exhausted int) {
 	m.retryRecords.WithLabelValues("pending").Set(float64(pending))
+	m.retryRecords.WithLabelValues("deferred").Set(float64(deferred))
 	m.retryRecords.WithLabelValues("exhausted").Set(float64(exhausted))
 }
 

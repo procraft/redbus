@@ -190,11 +190,11 @@ func (a *App) initBackground(_ context.Context) error {
 	}, a.conf.Repeat.Interval.Duration)
 	if a.conf.Metrics.ServerPort > 0 {
 		a.background.Add("metrics_retry_records", func(ctx context.Context) error {
-			allCount, failedCount, err := a.repeaterService.GetCount(ctx)
+			count, err := a.repeaterService.GetCount(ctx)
 			if err != nil {
 				return err
 			}
-			a.metrics.SetRetryRecords(allCount-failedCount, failedCount)
+			a.metrics.SetRetryRecords(count.All-count.Failed-count.Deferred, count.Deferred, count.Failed)
 			return nil
 		}, a.conf.Repeat.Interval.Duration)
 	}

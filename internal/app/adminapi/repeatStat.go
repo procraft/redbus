@@ -10,12 +10,15 @@ type repeatStatResponse struct {
 }
 
 type repeatStatItemResponse struct {
-	Topic       string                    `json:"topic"`
-	Group       string                    `json:"group"`
-	AllCount    int                       `json:"allCount"`
-	FailedCount int                       `json:"failedCount"`
-	LastError   string                    `json:"lastError"`
-	Errors      []repeatErrorStatResponse `json:"errors"`
+	Topic       string `json:"topic"`
+	Group       string `json:"group"`
+	AllCount    int    `json:"allCount"`
+	FailedCount int    `json:"failedCount"`
+	// DeferredCount is part of AllCount and never part of FailedCount.
+	DeferredCount      int                       `json:"deferredCount"`
+	LastError          string                    `json:"lastError"`
+	LastDeferredReason string                    `json:"lastDeferredReason"`
+	Errors             []repeatErrorStatResponse `json:"errors"`
 }
 
 type repeatErrorStatResponse struct {
@@ -44,12 +47,14 @@ func (a *AdminApi) repeatStatHandler(ctx context.Context, _ emptyRequest) (*repe
 			})
 		}
 		list = append(list, repeatStatItemResponse{
-			Topic:       item.Topic,
-			Group:       item.Group,
-			AllCount:    item.AllCount,
-			FailedCount: item.FailedCount,
-			LastError:   item.LastError,
-			Errors:      errors,
+			Topic:              item.Topic,
+			Group:              item.Group,
+			AllCount:           item.AllCount,
+			FailedCount:        item.FailedCount,
+			DeferredCount:      item.DeferredCount,
+			LastError:          item.LastError,
+			LastDeferredReason: item.LastDeferredReason,
+			Errors:             errors,
 		})
 	}
 	return &repeatStatResponse{List: list}, nil

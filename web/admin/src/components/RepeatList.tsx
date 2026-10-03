@@ -251,7 +251,8 @@ export function RepeatList() {
         <Stack gap={2}>
           <Title order={2}>Repeater statistics</Title>
           <Text c="dimmed" size="sm">
-            Failed messages grouped by topic and consumer group
+            Failed messages grouped by topic and consumer group. Deferred messages were postponed
+            by their consumer (for example by a rate limiter) and are not errors.
           </Text>
         </Stack>
         <Tooltip label="Refresh">
@@ -278,7 +279,12 @@ export function RepeatList() {
               <Table.Tr>
                 <Table.Th w={42} />
                 <Table.Th>Topic / group</Table.Th>
-                <Table.Th>Failed / total</Table.Th>
+                <Table.Th>
+                  <Tooltip label="Permanently failed / all retries except deferred">
+                    <span>Failed / retries</span>
+                  </Tooltip>
+                </Table.Th>
+                <Table.Th>Deferred</Table.Th>
                 <Table.Th>Last error</Table.Th>
                 <Table.Th ta="right">Actions</Table.Th>
               </Table.Tr>
@@ -288,6 +294,7 @@ export function RepeatList() {
                 const key = `${item.topic}\u0000${item.group}`;
                 const groupRestartKey = `group:${key}`;
                 const errors = item.errors ?? [];
+                const deferredCount = item.deferredCount ?? 0;
                 const isExpanded = errors.length > 0 && expanded.has(key);
                 return (
                   <Fragment key={key}>
@@ -312,8 +319,26 @@ export function RepeatList() {
                       </Table.Td>
                       <Table.Td>
                         <Badge color={item.failedCount > 0 ? 'red' : 'teal'} variant="light">
-                          {item.failedCount} / {item.allCount}
+                          {item.failedCount} / {item.allCount - deferredCount}
                         </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        {deferredCount > 0 ? (
+                          <Tooltip
+                            disabled={!item.lastDeferredReason}
+                            label={item.lastDeferredReason}
+                            maw={420}
+                            multiline
+                          >
+                            <Badge color="gray" variant="outline">
+                              {deferredCount}
+                            </Badge>
+                          </Tooltip>
+                        ) : (
+                          <Text c="dimmed" size="sm">
+                            —
+                          </Text>
+                        )}
                       </Table.Td>
                       <Table.Td maw={520}>
                         <Text lineClamp={3} size="sm">
@@ -337,7 +362,7 @@ export function RepeatList() {
                     </Table.Tr>
                     {errors.length > 0 && (
                       <Table.Tr>
-                        <Table.Td colSpan={5} p={0}>
+                        <Table.Td colSpan={6} p={0}>
                           <Collapse expanded={isExpanded}>
                             <Box p="md" bg="var(--mantine-color-default-hover)">
                               <Table withTableBorder verticalSpacing="xs">
@@ -432,7 +457,7 @@ export function RepeatList() {
               })}
               {items.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={5}>
+                  <Table.Td colSpan={6}>
                     <Text c="dimmed" ta="center" py="lg">
                       No repeat records reported
                     </Text>

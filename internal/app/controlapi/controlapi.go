@@ -42,10 +42,11 @@ func (a *ControlApi) GetStateSnapshot(ctx context.Context, _ *admincontrol.Empty
 		return nil, status.Errorf(codes.Internal, "get state snapshot: %v", err)
 	}
 	return &admincontrol.StateSnapshot{
-		ConsumeTopicCount: int32(stat.ConsumeTopicCount),
-		ConsumerCount:     int32(stat.ConsumerCount),
-		RepeatAllCount:    int32(stat.RepeatAllCount),
-		RepeatFailedCount: int32(stat.RepeatFailedCount),
+		ConsumeTopicCount:   int32(stat.ConsumeTopicCount),
+		ConsumerCount:       int32(stat.ConsumerCount),
+		RepeatAllCount:      int32(stat.RepeatAllCount),
+		RepeatFailedCount:   int32(stat.RepeatFailedCount),
+		RepeatDeferredCount: int32(stat.RepeatDeferredCount),
 	}, nil
 }
 
@@ -153,12 +154,14 @@ func (a *ControlApi) GetRetryStats(ctx context.Context, _ *admincontrol.Empty) (
 			errors = append(errors, retryErrorStatToProto(errorStat))
 		}
 		result = append(result, &admincontrol.RetryStat{
-			Topic:       item.Topic,
-			Group:       item.Group,
-			AllCount:    int32(item.AllCount),
-			FailedCount: int32(item.FailedCount),
-			LastError:   item.LastError,
-			Errors:      errors,
+			Topic:              item.Topic,
+			Group:              item.Group,
+			AllCount:           int32(item.AllCount),
+			FailedCount:        int32(item.FailedCount),
+			DeferredCount:      int32(item.DeferredCount),
+			LastError:          item.LastError,
+			LastDeferredReason: item.LastDeferredReason,
+			Errors:             errors,
 		})
 	}
 	return &admincontrol.RetryStats{List: result}, nil

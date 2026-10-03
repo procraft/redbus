@@ -95,12 +95,24 @@ The server tags every batch with `ConsumeResponse.batchId`; a client echoes it b
 instead of shifting the request/response phase of the stream. Both fields are optional, so clients
 built before they existed keep working against a newer bus.
 
-A failed result may also set `ConsumeRequest.Result.preserveAttempt` and `retryAfterSec`.
-`preserveAttempt = true` keeps the current retry attempt from being exhausted, while a positive
-`retryAfterSec` overrides the next delay. A non-positive delay falls back to the consumer's repeat
-strategy, which prevents a malformed response from creating a busy retry loop. The Go and Scala SDKs
-expose this combination as `NewRetryLaterError` and `RetryLaterException` respectively. Older clients
-leave both fields at their protobuf defaults and retain the original retry behaviour.
+A result with `ok = false` may also set `ConsumeRequest.Result.retryLater` and `retryAfterSec`.
+`retryLater = true` means deferred processing rather than a failure: the consumer could not take the
+message yet (a rate limiter, a busy provider) and asks for a later delivery. The bus keeps the current
+retry attempt, never finishes the retry because of a deferral and stores it as *deferred*, so the
+admin UI and the statistics count it apart from errors. A positive `retryAfterSec` overrides the next
+delay; a non-positive delay falls back to the consumer's repeat strategy, which prevents a malformed
+response from creating a busy retry loop. The Go and Scala SDKs expose this as `NewRetryLaterError`
+and `RetryLaterException` respectively. Older clients leave both fields at their protobuf defaults and
+retain the original retry behaviour. (`retryLater` was called `preserveAttempt` before; the field
+number and wire format are unchanged.)
+
+A retry record is therefore in one of three states:
+
+| State | Meaning | Shown as |
+|-------|---------|----------|
+| pending | waiting for the next attempt after an ordinary failure | part of the retries |
+| deferred | waiting after a `retryLater` result; an ordinary failure clears the mark | *Deferred*, never an error |
+| failed | attempts exhausted (`finished_at` set); waits for a manual restart | *Failed* |
 
 ## Prometheus metrics
 
@@ -120,6 +132,9 @@ scrape_configs:
 The endpoint includes Go/process metrics and Redbus metrics for produce/consume throughput, consumer state,
 processing latency, Kafka reconnects, retry processing, gRPC calls, and the PostgreSQL connection pool. Labels are
 limited to bounded values such as topic, group, result, and state; message and consumer identifiers are not exported.
+Deferrals have their own label values: `redbus_consumed_messages_total{result="deferred"}`,
+`redbus_retry_attempts_total{outcome="deferred"}` and `redbus_retry_records{state="deferred"}` (which is not part of
+`state="pending"`).
 
 Import [`deploy/grafana/redbus-overview.json`](./deploy/grafana/redbus-overview.json) into Grafana and select the
 Prometheus data source to get the starter dashboard.

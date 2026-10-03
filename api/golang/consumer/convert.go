@@ -69,12 +69,16 @@ func toPBResultList(resultList []ProcessResult, log *slog.Logger) []*pb.ConsumeR
 			log.Debug("redbus: process payload success", "id", v.id)
 			ret = append(ret, &pb.ConsumeRequest_Result{Id: v.id, Ok: true})
 		} else {
-			log.Warn("redbus: process payload error", "id", v.id, "error", v.err)
 			result := &pb.ConsumeRequest_Result{Id: v.id, Ok: false, Message: v.err.Error()}
 			var retryLater *RetryLaterError
 			if errors.As(v.err, &retryLater) {
-				result.PreserveAttempt = true
+				// A deferral is backpressure, not a failure: the bus keeps the attempt and
+				// redelivers after the delay, so it is not logged as an error.
+				log.Debug("redbus: process payload deferred", "id", v.id, "delay", retryLater.Delay, "reason", v.err)
+				result.RetryLater = true
 				result.RetryAfterSec = durationSeconds(retryLater.Delay)
+			} else {
+				log.Warn("redbus: process payload error", "id", v.id, "error", v.err)
 			}
 			ret = append(ret, result)
 		}

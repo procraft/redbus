@@ -123,8 +123,12 @@ make scala-proto-compile
 
 Return a failed future with `consumer.RetryLaterException(cause, delay)` when an external provider
 asks the consumer to wait (for example, a rate limit). A compatible Redbus server schedules the next
-delivery after the requested delay without consuming a retry attempt. Servers older than this SDK
-ignore the additive result fields and use their configured repeat strategy.
+delivery after the requested delay without consuming a retry attempt and reports the message as
+deferred rather than failed. Servers older than this SDK ignore the additive result fields and use
+their configured repeat strategy.
+
+Since **0.4.6** the generated result field is `retryLater` (formerly `preserveAttempt`); the wire
+format is unchanged, so only code that built `ConsumeRequest.Result` by hand needs the rename.
 
 ### Transactional inbox
 

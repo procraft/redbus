@@ -63,9 +63,10 @@ akka→pekko fallback, so:
   optional on the wire: a bus that predates them ignores them. See
   `internal/pkg/stream/ReadmeAI.md` for the server side of that protocol.
   A processor may fail with `RetryLaterException(cause, delay)` for a temporary provider condition:
-  the SDK sends `preserveAttempt = true` and a rounded-up `retryAfterSec`, so a compatible bus waits
-  without consuming an attempt. Older buses ignore the additive fields and apply their normal retry
-  strategy.
+  the SDK sends `retryLater = true` (named `preserveAttempt` up to 0.4.5, same wire field) and a
+  rounded-up `retryAfterSec`, so a compatible bus waits without consuming an attempt and shows the
+  message as deferred, not failed. The deferral gets its own diagnostic logger line. Older buses
+  ignore the additive fields and apply their normal retry strategy.
 - ScalaPB code is generated from `api/api.proto` at build time; never edit generated sources.
 
 ## Typed client

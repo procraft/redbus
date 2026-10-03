@@ -538,11 +538,14 @@ type ConsumeRequest_Result struct {
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Ok      bool                   `protobuf:"varint,2,opt,name=ok,proto3" json:"ok,omitempty"`
 	Message string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	// Keep the current retry attempt when processing failed. This is intended for temporary
-	// external throttling or billing failures which should not exhaust the retry strategy.
-	PreserveAttempt bool `protobuf:"varint,4,opt,name=preserveAttempt,proto3" json:"preserveAttempt,omitempty"`
+	// Deferred processing, not a failure: the consumer could not take the message yet (for
+	// example a rate limiter or a temporarily busy provider) and asks to deliver it again later.
+	// Only meaningful with ok = false. The bus keeps the current retry attempt, never finishes
+	// the retry because of it and reports the message as deferred rather than as an error.
+	// Formerly named preserveAttempt; the field number and type are unchanged.
+	RetryLater bool `protobuf:"varint,4,opt,name=retryLater,proto3" json:"retryLater,omitempty"`
 	// Consumer-requested delay before the next delivery. Values <= 0 use the configured
-	// repeat strategy. This field only affects failed results.
+	// repeat strategy. This field only affects results with ok = false.
 	RetryAfterSec int32 `protobuf:"varint,5,opt,name=retryAfterSec,proto3" json:"retryAfterSec,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -599,9 +602,9 @@ func (x *ConsumeRequest_Result) GetMessage() string {
 	return ""
 }
 
-func (x *ConsumeRequest_Result) GetPreserveAttempt() bool {
+func (x *ConsumeRequest_Result) GetRetryLater() bool {
 	if x != nil {
-		return x.PreserveAttempt
+		return x.RetryLater
 	}
 	return false
 }
@@ -921,7 +924,7 @@ const file_api_proto_rawDesc = "" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12F\n" +
 	"\vmessageList\x18\x02 \x03(\v2$.sergiusd.redbus.ProduceBatchMessageR\vmessageList\"&\n" +
 	"\x14ProduceBatchResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xd5\a\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"\xcb\a\n" +
 	"\x0eConsumeRequest\x12A\n" +
 	"\aconnect\x18\x01 \x01(\v2'.sergiusd.redbus.ConsumeRequest.ConnectR\aconnect\x12F\n" +
 	"\n" +
@@ -948,12 +951,14 @@ const file_api_proto_rawDesc = "" +
 	"\vintervalSec\x18\x01 \x01(\x05R\vintervalSec\x12\x1e\n" +
 	"\n" +
 	"multiplier\x18\x02 \x01(\x02R\n" +
-	"multiplier\x1a\x92\x01\n" +
+	"multiplier\x1a\x88\x01\n" +
 	"\x06Result\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x0e\n" +
 	"\x02ok\x18\x02 \x01(\bR\x02ok\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\x12(\n" +
-	"\x0fpreserveAttempt\x18\x04 \x01(\bR\x0fpreserveAttempt\x12$\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1e\n" +
+	"\n" +
+	"retryLater\x18\x04 \x01(\bR\n" +
+	"retryLater\x12$\n" +
 	"\rretryAfterSec\x18\x05 \x01(\x05R\rretryAfterSec\"\x80\x03\n" +
 	"\x0fConsumeResponse\x12B\n" +
 	"\aconnect\x18\x01 \x01(\v2(.sergiusd.redbus.ConsumeResponse.ConnectR\aconnect\x12J\n" +

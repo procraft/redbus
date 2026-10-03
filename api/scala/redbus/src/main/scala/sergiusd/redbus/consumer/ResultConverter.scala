@@ -11,7 +11,7 @@ private[consumer] object ResultConverter {
         ok = false,
         message = e.getMessage,
         id = id,
-        preserveAttempt = true,
+        retryLater = true,
         retryAfterSec = durationSeconds(e.delay),
       )
     case Left(e) => ConsumeRequest.Result(ok = false, message = e.getMessage, id = id)

@@ -92,7 +92,8 @@ func TestControlApi(t *testing.T) {
 	lastFailedAt := time.Date(2026, 9, 3, 9, 0, 0, 0, time.UTC)
 	repeater := &repeaterStub{
 		stat: model.RepeatStat{{
-			Topic: "orders", Group: "billing", AllCount: 4, FailedCount: 1, LastError: "failed",
+			Topic: "orders", Group: "billing", AllCount: 4, FailedCount: 1, DeferredCount: 2,
+			LastError: "failed", LastDeferredReason: "busy",
 			Errors: []model.RepeatErrorStat{{
 				Error: "failed", FailedCount: 1, FirstFailedAt: firstFailedAt, LastFailedAt: lastFailedAt,
 			}},
@@ -105,7 +106,7 @@ func TestControlApi(t *testing.T) {
 		}}},
 	}
 	api := New(dataBusStub{
-		stat: model.Stat{ConsumeTopicCount: 2, ConsumerCount: 3, RepeatAllCount: 4, RepeatFailedCount: 1},
+		stat: model.Stat{ConsumeTopicCount: 2, ConsumerCount: 3, RepeatAllCount: 4, RepeatFailedCount: 1, RepeatDeferredCount: 2},
 		topics: model.StatTopicList{{
 			Name:          "orders",
 			PartitionList: []model.StatPartition{{N: 1, FirstOffset: 10, LastOffset: 20}},
@@ -131,6 +132,7 @@ func TestControlApi(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(3), snapshot.GetConsumerCount())
 	require.Equal(t, int32(1), snapshot.GetRepeatFailedCount())
+	require.Equal(t, int32(2), snapshot.GetRepeatDeferredCount())
 
 	topics, err := api.GetTopicStats(context.Background(), &admincontrol.Empty{})
 	require.NoError(t, err)
@@ -142,6 +144,9 @@ func TestControlApi(t *testing.T) {
 	retries, err := api.GetRetryStats(context.Background(), &admincontrol.Empty{})
 	require.NoError(t, err)
 	require.Equal(t, "failed", retries.GetList()[0].GetLastError())
+	require.Equal(t, int32(1), retries.GetList()[0].GetFailedCount())
+	require.Equal(t, int32(2), retries.GetList()[0].GetDeferredCount())
+	require.Equal(t, "busy", retries.GetList()[0].GetLastDeferredReason())
 	require.Equal(t, int32(1), retries.GetList()[0].GetErrors()[0].GetFailedCount())
 	require.Equal(t, firstFailedAt.UnixMilli(), retries.GetList()[0].GetErrors()[0].GetFirstFailedAtUnixMs())
 	require.Equal(t, lastFailedAt.UnixMilli(), retries.GetList()[0].GetErrors()[0].GetLastFailedAtUnixMs())

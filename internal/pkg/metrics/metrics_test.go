@@ -13,7 +13,7 @@ func TestHandlerExposesDomainAndRuntimeMetrics(t *testing.T) {
 	m.ObserveConsumed("orders", "billing", "success", 4)
 	m.ObserveConsumerBatch("orders", "billing", 4, 100*time.Millisecond)
 	m.ObserveRetryEnqueued("orders", "billing", "success")
-	m.SetRetryRecords(3, 1)
+	m.SetRetryRecords(3, 2, 1)
 
 	recorder := httptest.NewRecorder()
 	m.Handler().ServeHTTP(recorder, httptest.NewRequest("GET", "/metrics", nil))
@@ -29,6 +29,7 @@ func TestHandlerExposesDomainAndRuntimeMetrics(t *testing.T) {
 		`redbus_retry_enqueued_total{group="billing",result="success",topic="orders"} 1`,
 		`redbus_retry_records{state="pending"} 3`,
 		`redbus_retry_records{state="exhausted"} 1`,
+		`redbus_retry_records{state="deferred"} 2`,
 		`go_goroutines`,
 		`process_cpu_seconds_total`,
 	} {

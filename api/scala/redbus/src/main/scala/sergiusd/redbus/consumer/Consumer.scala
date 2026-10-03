@@ -174,6 +174,12 @@ class Consumer(
     for {
       results <- Future.sequence(messageList.map(processMessage))
       resultResponse = messageList.zip(results).map { case (message, result) =>
+        result match {
+          // A deferral is backpressure, not a failure: the bus keeps the attempt and redelivers
+          // after the delay, so it gets its own diagnostic line instead of an error.
+          case Left(e: RetryLaterException) => log(s"Message ${message.id} deferred for ${e.delay}: ${e.getMessage}")
+          case _ => ()
+        }
         ResultConverter.toPB(message.id, result)
       }
       _ = sendRequest(ConsumeRequest(resultList = resultResponse, batchId = batchId), epoch)

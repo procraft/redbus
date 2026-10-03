@@ -3,6 +3,8 @@ export type DashboardStat = {
   consumeTopicCount: number;
   repeatAllCount: number;
   repeatFailedCount: number;
+  /** Pending retries postponed by the consumer (retryLater): part of repeatAllCount, never failed. */
+  repeatDeferredCount: number;
 };
 
 export type ConsumerState = 'connecting' | 'connected' | 'reconnecting' | string;
@@ -69,7 +71,12 @@ export type RepeatStat = {
   group: string;
   allCount: number;
   failedCount: number;
+  /** Pending retries postponed by the consumer (retryLater): part of allCount, never failed. */
+  deferredCount: number;
+  /** Most recent error, ignoring deferrals. */
   lastError: string;
+  /** Reason reported by the most recent deferral. */
+  lastDeferredReason: string;
   errors?: RepeatErrorStat[] | null;
 };
 
@@ -87,4 +94,5 @@ export type ConsumersEvent = Pick<DashboardStat, 'consumerCount' | 'consumeTopic
 export type RepeaterEvent = {
   allCount: number;
   failedCount: number;
+  deferredCount: number;
 };

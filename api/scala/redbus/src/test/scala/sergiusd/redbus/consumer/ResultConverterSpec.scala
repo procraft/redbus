@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 class ResultConverterSpec extends AnyWordSpec with Matchers {
 
   "ResultConverter" should {
-    "preserve the attempt and round a retry-later delay up to seconds" in {
+    "mark a retry-later result as deferred and round its delay up to seconds" in {
       val result = ResultConverter.toPB(
         "message-id",
         Left(RetryLaterException(new RuntimeException("provider throttled"), 1500.millis)),
@@ -16,7 +16,7 @@ class ResultConverterSpec extends AnyWordSpec with Matchers {
 
       result.ok shouldBe false
       result.message shouldBe "provider throttled"
-      result.preserveAttempt shouldBe true
+      result.retryLater shouldBe true
       result.retryAfterSec shouldBe 2
     }
 
@@ -24,7 +24,7 @@ class ResultConverterSpec extends AnyWordSpec with Matchers {
       val result = ResultConverter.toPB("message-id", Left(new RuntimeException("failed")))
 
       result.ok shouldBe false
-      result.preserveAttempt shouldBe false
+      result.retryLater shouldBe false
       result.retryAfterSec shouldBe 0
     }
   }

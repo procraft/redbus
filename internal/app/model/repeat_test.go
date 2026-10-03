@@ -20,6 +20,7 @@ func TestRepeatApplyFailurePreservesAttemptAndUsesConsumerDelay(t *testing.T) {
 
 	require.Equal(t, 5, repeat.Attempt)
 	require.Nil(t, repeat.FinishedAt)
+	require.True(t, repeat.Deferred)
 	require.Equal(t, "2026-09-09T10:17:00Z", repeat.StartedAt.Format(time.RFC3339))
 }
 
@@ -48,4 +49,28 @@ func TestRepeatApplyFailureKeepsLegacyAttemptSemantics(t *testing.T) {
 
 	require.Equal(t, 5, repeat.Attempt)
 	require.NotNil(t, repeat.FinishedAt)
+	require.False(t, repeat.Deferred)
+}
+
+func TestRepeatOrdinaryFailureClearsDeferred(t *testing.T) {
+	runtime.SetStatic("2026-09-09T10:00:00Z")
+	t.Cleanup(runtime.ResetNowFn)
+
+	repeat := Repeat{Attempt: 2, Deferred: true}
+	strategy := NewRepeatStrategyEven(5, Duration{Duration: time.Minute})
+
+	repeat.ApplyFailure(strategy, false, 0)
+
+	require.Equal(t, 3, repeat.Attempt)
+	require.Nil(t, repeat.FinishedAt)
+	require.False(t, repeat.Deferred)
+}
+
+func TestRepeatEmptyResultClearsDeferred(t *testing.T) {
+	repeat := Repeat{Attempt: 2, Deferred: true}
+
+	repeat.ApplyNextAttempt(NewRepeatStrategyEven(5, Duration{Duration: time.Minute}))
+
+	require.Equal(t, 3, repeat.Attempt)
+	require.False(t, repeat.Deferred)
 }

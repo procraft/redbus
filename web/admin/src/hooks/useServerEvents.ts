@@ -9,9 +9,10 @@ type EventHandlers = {
   onOpen: () => void;
 };
 
-type LegacyRepeaterEvent = Omit<RepeaterEvent, 'failedCount'> & {
+type LegacyRepeaterEvent = Omit<RepeaterEvent, 'failedCount' | 'deferredCount'> & {
   failedCount?: number;
   failedount?: number;
+  deferredCount?: number;
 };
 
 export function useServerEvents({ onConsumers, onRepeater, onOpen }: EventHandlers): void {
@@ -34,6 +35,7 @@ export function useServerEvents({ onConsumers, onRepeater, onOpen }: EventHandle
         onRepeater({
           allCount: data.allCount,
           failedCount: data.failedCount ?? data.failedount ?? 0,
+          deferredCount: data.deferredCount ?? 0,
         });
       } catch (error) {
         console.error('Cannot parse repeater event', error);

@@ -106,7 +106,7 @@ func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 	require.False(t, byID["m3"].Ok)
 	require.Contains(t, byID["m3"].Message, "boom")
 	require.False(t, byID["m4"].Ok)
-	require.True(t, byID["m4"].PreserveAttempt)
+	require.True(t, byID["m4"].RetryLater)
 	require.Equal(t, int32(3), byID["m4"].RetryAfterSec)
 
 	close(seen)

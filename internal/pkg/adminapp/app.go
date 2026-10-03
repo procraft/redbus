@@ -146,11 +146,13 @@ func (a *App) getStatPoller(ctx context.Context) func() error {
 					}
 				})
 			}
-			if !initialized || stat.RepeatAllCount != previous.RepeatAllCount || stat.RepeatFailedCount != previous.RepeatFailedCount {
+			if !initialized || stat.RepeatAllCount != previous.RepeatAllCount || stat.RepeatFailedCount != previous.RepeatFailedCount ||
+				stat.RepeatDeferredCount != previous.RepeatDeferredCount {
 				a.eventSource.Publish(func() model.Event {
 					return model.EventRepeater{
-						AllCount:    stat.RepeatAllCount,
-						FailedCount: stat.RepeatFailedCount,
+						AllCount:      stat.RepeatAllCount,
+						FailedCount:   stat.RepeatFailedCount,
+						DeferredCount: stat.RepeatDeferredCount,
 					}
 				})
 			}

@@ -19,6 +19,9 @@ type Repeat struct {
 	Attempt    int
 	Strategy   *RepeatStrategy
 	Error      string
+	// Deferred marks a pending retry whose last delivery the consumer postponed (retryLater):
+	// it is waiting for its turn, not failing. A deferred repeat is never finished.
+	Deferred   bool
 	CreatedAt  time.Time
 	StartedAt  time.Time
 	FinishedAt *time.Time
@@ -55,7 +58,9 @@ func (r *Repeat) SetZeroAttempt(defaultStrategy *RepeatStrategy) {
 	r.Attempt = 0
 }
 
+// ApplyNextAttempt records an ordinary failure: it spends an attempt and clears Deferred.
 func (r *Repeat) ApplyNextAttempt(defaultStrategy *RepeatStrategy) {
+	r.Deferred = false
 	var strategy = defaultStrategy
 	if r.Strategy != nil {
 		strategy = r.Strategy
@@ -69,14 +74,16 @@ func (r *Repeat) ApplyNextAttempt(defaultStrategy *RepeatStrategy) {
 	r.StartedAt = strategy.GetNextStartedAt(r.Attempt)
 }
 
-// ApplyFailure schedules another delivery. A preserved attempt cannot exhaust the repeat and a
-// positive consumer delay overrides the configured strategy without changing that strategy.
-func (r *Repeat) ApplyFailure(defaultStrategy *RepeatStrategy, preserveAttempt bool, retryAfter time.Duration) {
-	if preserveAttempt {
+// ApplyFailure schedules another delivery. A deferred result (retryLater) keeps the attempt, cannot
+// exhaust the repeat and marks it Deferred; an ordinary failure spends an attempt and clears the
+// mark. A positive consumer delay overrides the configured strategy without changing that strategy.
+func (r *Repeat) ApplyFailure(defaultStrategy *RepeatStrategy, retryLater bool, retryAfter time.Duration) {
+	if retryLater {
 		var strategy = defaultStrategy
 		if r.Strategy != nil {
 			strategy = r.Strategy
 		}
+		r.Deferred = true
 		r.FinishedAt = nil
 		// A malformed/legacy zero delay still uses the configured strategy and cannot busy-loop.
 		r.StartedAt = strategy.GetNextStartedAt(r.Attempt + 1)
@@ -98,13 +105,24 @@ func (tg TopicGroupList) String(delimiter string) []string {
 	return ret
 }
 
+// RepeatStatItem counts the retries of one topic/group. AllCount includes both FailedCount
+// (finished) and DeferredCount (pending, postponed by the consumer); LastError ignores deferrals.
 type RepeatStatItem struct {
-	Topic       string
-	Group       string
-	AllCount    int
-	FailedCount int
-	LastError   string
-	Errors      []RepeatErrorStat
+	Topic              string
+	Group              string
+	AllCount           int
+	FailedCount        int
+	DeferredCount      int
+	LastError          string
+	LastDeferredReason string
+	Errors             []RepeatErrorStat
+}
+
+// RepeatCount is the repository-wide retry summary, split the same way as RepeatStatItem.
+type RepeatCount struct {
+	All      int
+	Failed   int
+	Deferred int
 }
 
 // RepeatErrorStat describes one error class (see ErrorClass). Error is the class and Sample is

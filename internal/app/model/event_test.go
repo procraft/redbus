@@ -21,16 +21,17 @@ func TestEventConsumersGetData(t *testing.T) {
 }
 
 func TestEventRepeaterGetData(t *testing.T) {
-	event := EventRepeater{AllCount: 8, FailedCount: 2}
+	event := EventRepeater{AllCount: 8, FailedCount: 2, DeferredCount: 3}
 
 	var data struct {
-		AllCount    int `json:"allCount"`
-		FailedCount int `json:"failedCount"`
+		AllCount      int `json:"allCount"`
+		FailedCount   int `json:"failedCount"`
+		DeferredCount int `json:"deferredCount"`
 	}
 	if err := json.Unmarshal([]byte(event.GetData()), &data); err != nil {
 		t.Fatalf("unmarshal event data: %v", err)
 	}
-	if data.AllCount != event.AllCount || data.FailedCount != event.FailedCount {
+	if data != event {
 		t.Fatalf("unexpected event data: %+v", data)
 	}
 }

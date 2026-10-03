@@ -25,8 +25,10 @@ func (s *repositoryStub) FindForRepeat(context.Context, model.TopicGroupList) (m
 }
 func (s *repositoryStub) Delete(context.Context, int64) error                { return nil }
 func (s *repositoryStub) UpdateAttempt(context.Context, *model.Repeat) error { return nil }
-func (s *repositoryStub) GetCount(context.Context) (int, int, error)         { return 0, 0, nil }
-func (s *repositoryStub) GetStat(context.Context) (model.RepeatStat, error)  { return nil, nil }
+func (s *repositoryStub) GetCount(context.Context) (model.RepeatCount, error) {
+	return model.RepeatCount{}, nil
+}
+func (s *repositoryStub) GetStat(context.Context) (model.RepeatStat, error) { return nil, nil }
 func (s *repositoryStub) GetTriageStat(context.Context, time.Time, time.Time, string, string) (model.RepeatTriageStat, error) {
 	return model.RepeatTriageStat{}, nil
 }
@@ -67,11 +69,33 @@ func TestAddUsesConsumerRetryDelayForInitialFailure(t *testing.T) {
 		metricsStub{},
 	)
 
-	err := service.Add(context.Background(), model.RepeatData{}, "provider throttled", 17*time.Minute)
+	err := service.Add(context.Background(), model.RepeatData{}, "provider throttled", true, 17*time.Minute)
 
 	require.NoError(t, err)
 	require.NotNil(t, repo.inserted)
 	require.Equal(t, 0, repo.inserted.Attempt)
+	require.True(t, repo.inserted.Deferred)
 	require.Equal(t, "provider throttled", repo.inserted.Error)
 	require.Equal(t, "2026-09-09T10:17:00Z", repo.inserted.StartedAt.Format(time.RFC3339))
+}
+
+func TestAddStoresOrdinaryFailureAsNotDeferred(t *testing.T) {
+	repo := &repositoryStub{}
+	service := New(
+		model.NewRepeatStrategyEven(5, model.Duration{Duration: time.Minute}),
+		connStoreStub{},
+		repo,
+		metricsStub{},
+	)
+
+	require.NoError(t, service.Add(context.Background(), model.RepeatData{}, "broken", false, 0))
+	require.NotNil(t, repo.inserted)
+	require.False(t, repo.inserted.Deferred)
+}
+
+func TestRepeatOutcomeSeparatesDeferredFromFailed(t *testing.T) {
+	finishedAt := time.Now()
+	require.Equal(t, "exhausted", repeatOutcome(&model.Repeat{FinishedAt: &finishedAt}))
+	require.Equal(t, "deferred", repeatOutcome(&model.Repeat{Deferred: true}))
+	require.Equal(t, "failed", repeatOutcome(&model.Repeat{}))
 }

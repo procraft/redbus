@@ -24,7 +24,7 @@ type IRepository interface {
 	FindForRepeat(ctx context.Context, topicGroupList model.TopicGroupList) (model.RepeatList, error)
 	Delete(ctx context.Context, repeatId int64) error
 	UpdateAttempt(ctx context.Context, repeat *model.Repeat) error
-	GetCount(ctx context.Context) (int, int, error)
+	GetCount(ctx context.Context) (model.RepeatCount, error)
 	GetStat(ctx context.Context) (model.RepeatStat, error)
 	GetTriageStat(ctx context.Context, since, until time.Time, topic, group string) (model.RepeatTriageStat, error)
 	RestartFailed(ctx context.Context, topic, group string) error
@@ -54,7 +54,9 @@ func New(defaultStrategy *model.RepeatStrategy, connStore IConnStore, repo IRepo
 	}
 }
 
-func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg string, retryAfter time.Duration) error {
+// Add stores the first failed delivery of a Kafka message. retryLater marks a deferral requested by
+// the consumer: the repeat starts as deferred instead of as an error.
+func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg string, retryLater bool, retryAfter time.Duration) error {
 	repeat := model.Repeat{
 		Topic:      data.Topic,
 		Group:      data.Group,
@@ -65,6 +67,7 @@ func (r *Repeater) Add(ctx context.Context, data model.RepeatData, errorMsg stri
 		Data:       data.Message,
 		Headers:    data.Headers,
 		Strategy:   data.Strategy,
+		Deferred:   retryLater,
 		CreatedAt:  runtime.Now(),
 	}
 	repeat.SetZeroAttempt(r.defaultStrategy)
@@ -111,7 +114,7 @@ func (r *Repeater) Repeat(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repeater) GetCount(ctx context.Context) (int, int, error) {
+func (r *Repeater) GetCount(ctx context.Context) (model.RepeatCount, error) {
 	return r.repo.GetCount(ctx)
 }
 
@@ -194,7 +197,7 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 			err = r.repo.Delete(ctx, repeat.Id)
 		} else {
 			result := data.ResultList[0]
-			repeat.ApplyFailure(r.defaultStrategy, result.PreserveAttempt, retryAfter(result.RetryAfterSec))
+			repeat.ApplyFailure(r.defaultStrategy, result.RetryLater, retryAfter(result.RetryAfterSec))
 			repeat.Error = data.ResultList[0].Message
 			err = r.repo.UpdateAttempt(ctx, repeat)
 		}
@@ -219,6 +222,9 @@ func retryAfter(seconds int32) time.Duration {
 func repeatOutcome(repeat *model.Repeat) string {
 	if repeat.FinishedAt != nil {
 		return "exhausted"
+	}
+	if repeat.Deferred {
+		return "deferred"
 	}
 	return "failed"
 }

@@ -43,6 +43,8 @@ type TopicOverviewItem = {
   rate: number;
   lastMessageAt: string | null;
   errorCount: number;
+  /** Retries postponed by the consumer; informational, never part of the status. */
+  deferredCount: number;
   status: TopicStatus;
 };
 
@@ -62,8 +64,10 @@ const statusLabel: Record<TopicStatus, string> = {
 
 function buildOverview(topics: TopicStat[], repeats: RepeatStat[]): TopicOverviewItem[] {
   const errorsByTopic = new Map<string, number>();
+  const deferredByTopic = new Map<string, number>();
   for (const repeat of repeats) {
     errorsByTopic.set(repeat.topic, (errorsByTopic.get(repeat.topic) ?? 0) + repeat.failedCount);
+    deferredByTopic.set(repeat.topic, (deferredByTopic.get(repeat.topic) ?? 0) + (repeat.deferredCount ?? 0));
   }
 
   return topics
@@ -95,6 +99,7 @@ function buildOverview(topics: TopicStat[], repeats: RepeatStat[]): TopicOvervie
         rate,
         lastMessageAt,
         errorCount,
+        deferredCount: deferredByTopic.get(topic.name) ?? 0,
         status:
           errorCount > ERROR_LIMIT
             ? 'critical'
@@ -140,6 +145,7 @@ function TopicTile({ topic, onOpen }: { topic: TopicOverviewItem; onOpen: () => 
       </Text>
       <Text size="xs">Total lag: {numberFormatter.format(topic.totalLag)}</Text>
       <Text size="xs">Failed repeats: {numberFormatter.format(topic.errorCount)}</Text>
+      <Text size="xs">Deferred: {numberFormatter.format(topic.deferredCount)}</Text>
       <Text size="xs">Last message: {formatDate(topic.lastMessageAt)}</Text>
     </Stack>
   );
@@ -170,10 +176,16 @@ function TopicTile({ topic, onOpen }: { topic: TopicOverviewItem; onOpen: () => 
           <Text size="xs" fw={600} c={topic.totalLag > 0 ? 'orange' : undefined} className="topic-tile-metric">
             Lag {compactNumber(topic.totalLag)}
           </Text>
-          {topic.errorCount > 0 && (
+          {topic.errorCount > 0 ? (
             <Text size="xs" fw={700} className="topic-tile-metric topic-tile-errors">
               {compactNumber(topic.errorCount)} err
             </Text>
+          ) : (
+            topic.deferredCount > 0 && (
+              <Text size="xs" className="topic-tile-metric topic-tile-muted">
+                {compactNumber(topic.deferredCount)} deferred
+              </Text>
+            )
           )}
         </Group>
         <Text size="xs" className="topic-tile-metric topic-tile-muted" truncate>
@@ -230,8 +242,11 @@ export function TopicOverview() {
   const columns = gridColumns(width, height, visibleTopics.length);
 
   const counters = useMemo(() => {
-    const byStatus = { critical: 0, warning: 0, active: 0, idle: 0 };
-    for (const topic of overview) byStatus[topic.status] += 1;
+    const byStatus = { critical: 0, warning: 0, active: 0, idle: 0, deferred: 0 };
+    for (const topic of overview) {
+      byStatus[topic.status] += 1;
+      if (topic.deferredCount > 0) byStatus.deferred += 1;
+    }
     return byStatus;
   }, [overview]);
 
@@ -256,6 +271,13 @@ export function TopicOverview() {
               <Badge color="red" variant="light">
                 {counters.critical} critical
               </Badge>
+            )}
+            {counters.deferred > 0 && (
+              <Tooltip label="Topics with retries postponed by their consumers; not errors">
+                <Badge color="gray" variant="outline">
+                  {counters.deferred} deferred
+                </Badge>
+              </Tooltip>
             )}
           </Group>
         </Stack>

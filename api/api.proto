@@ -74,11 +74,14 @@ message ConsumeRequest {
     string id = 1;
     bool ok = 2;
     string message = 3;
-    // Keep the current retry attempt when processing failed. This is intended for temporary
-    // external throttling or billing failures which should not exhaust the retry strategy.
-    bool preserveAttempt = 4;
+    // Deferred processing, not a failure: the consumer could not take the message yet (for
+    // example a rate limiter or a temporarily busy provider) and asks to deliver it again later.
+    // Only meaningful with ok = false. The bus keeps the current retry attempt, never finishes
+    // the retry because of it and reports the message as deferred rather than as an error.
+    // Formerly named preserveAttempt; the field number and type are unchanged.
+    bool retryLater = 4;
     // Consumer-requested delay before the next delivery. Values <= 0 use the configured
-    // repeat strategy. This field only affects failed results.
+    // repeat strategy. This field only affects results with ok = false.
     int32 retryAfterSec = 5;
   }
 

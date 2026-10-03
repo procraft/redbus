@@ -63,8 +63,10 @@ type StateSnapshot struct {
 	ConsumerCount     int32                  `protobuf:"varint,2,opt,name=consumer_count,json=consumerCount,proto3" json:"consumer_count,omitempty"`
 	RepeatAllCount    int32                  `protobuf:"varint,3,opt,name=repeat_all_count,json=repeatAllCount,proto3" json:"repeat_all_count,omitempty"`
 	RepeatFailedCount int32                  `protobuf:"varint,4,opt,name=repeat_failed_count,json=repeatFailedCount,proto3" json:"repeat_failed_count,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Pending retries the consumer deferred (retryLater); included in repeat_all_count, never failed.
+	RepeatDeferredCount int32 `protobuf:"varint,5,opt,name=repeat_deferred_count,json=repeatDeferredCount,proto3" json:"repeat_deferred_count,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *StateSnapshot) Reset() {
@@ -121,6 +123,13 @@ func (x *StateSnapshot) GetRepeatAllCount() int32 {
 func (x *StateSnapshot) GetRepeatFailedCount() int32 {
 	if x != nil {
 		return x.RepeatFailedCount
+	}
+	return 0
+}
+
+func (x *StateSnapshot) GetRepeatDeferredCount() int32 {
+	if x != nil {
+		return x.RepeatDeferredCount
 	}
 	return 0
 }
@@ -742,15 +751,20 @@ func (x *RetryStats) GetList() []*RetryStat {
 }
 
 type RetryStat struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
-	Group         string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
-	AllCount      int32                  `protobuf:"varint,3,opt,name=all_count,json=allCount,proto3" json:"all_count,omitempty"`
-	FailedCount   int32                  `protobuf:"varint,4,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
-	LastError     string                 `protobuf:"bytes,5,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
-	Errors        []*RetryErrorStat      `protobuf:"bytes,6,rep,name=errors,proto3" json:"errors,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Topic       string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	Group       string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
+	AllCount    int32                  `protobuf:"varint,3,opt,name=all_count,json=allCount,proto3" json:"all_count,omitempty"`
+	FailedCount int32                  `protobuf:"varint,4,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
+	// Most recent error, ignoring deferred retries.
+	LastError string            `protobuf:"bytes,5,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`
+	Errors    []*RetryErrorStat `protobuf:"bytes,6,rep,name=errors,proto3" json:"errors,omitempty"`
+	// Pending retries the consumer deferred (retryLater); included in all_count, never failed.
+	DeferredCount int32 `protobuf:"varint,7,opt,name=deferred_count,json=deferredCount,proto3" json:"deferred_count,omitempty"`
+	// Reason reported by the most recent deferral.
+	LastDeferredReason string `protobuf:"bytes,8,opt,name=last_deferred_reason,json=lastDeferredReason,proto3" json:"last_deferred_reason,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *RetryStat) Reset() {
@@ -823,6 +837,20 @@ func (x *RetryStat) GetErrors() []*RetryErrorStat {
 		return x.Errors
 	}
 	return nil
+}
+
+func (x *RetryStat) GetDeferredCount() int32 {
+	if x != nil {
+		return x.DeferredCount
+	}
+	return 0
+}
+
+func (x *RetryStat) GetLastDeferredReason() string {
+	if x != nil {
+		return x.LastDeferredReason
+	}
+	return ""
 }
 
 type RetryErrorStat struct {
@@ -1345,12 +1373,13 @@ var File_internal_api_admincontrol_admincontrol_proto protoreflect.FileDescripto
 const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\n" +
 	",internal/api/admincontrol/admincontrol.proto\x12\x16redbus.admincontrol.v1\"\a\n" +
-	"\x05Empty\"\xc0\x01\n" +
+	"\x05Empty\"\xf4\x01\n" +
 	"\rStateSnapshot\x12.\n" +
 	"\x13consume_topic_count\x18\x01 \x01(\x05R\x11consumeTopicCount\x12%\n" +
 	"\x0econsumer_count\x18\x02 \x01(\x05R\rconsumerCount\x12(\n" +
 	"\x10repeat_all_count\x18\x03 \x01(\x05R\x0erepeatAllCount\x12.\n" +
-	"\x13repeat_failed_count\x18\x04 \x01(\x05R\x11repeatFailedCount\"?\n" +
+	"\x13repeat_failed_count\x18\x04 \x01(\x05R\x11repeatFailedCount\x122\n" +
+	"\x15repeat_deferred_count\x18\x05 \x01(\x05R\x13repeatDeferredCount\"?\n" +
 	"\n" +
 	"TopicStats\x121\n" +
 	"\x04list\x18\x01 \x03(\v2\x1d.redbus.admincontrol.v1.TopicR\x04list\"\x95\x01\n" +
@@ -1414,7 +1443,7 @@ const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\tcommitted\x18\b \x01(\bR\tcommitted\"C\n" +
 	"\n" +
 	"RetryStats\x125\n" +
-	"\x04list\x18\x01 \x03(\v2!.redbus.admincontrol.v1.RetryStatR\x04list\"\xd6\x01\n" +
+	"\x04list\x18\x01 \x03(\v2!.redbus.admincontrol.v1.RetryStatR\x04list\"\xaf\x02\n" +
 	"\tRetryStat\x12\x14\n" +
 	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x14\n" +
 	"\x05group\x18\x02 \x01(\tR\x05group\x12\x1b\n" +
@@ -1422,7 +1451,9 @@ const file_internal_api_admincontrol_admincontrol_proto_rawDesc = "" +
 	"\ffailed_count\x18\x04 \x01(\x05R\vfailedCount\x12\x1d\n" +
 	"\n" +
 	"last_error\x18\x05 \x01(\tR\tlastError\x12>\n" +
-	"\x06errors\x18\x06 \x03(\v2&.redbus.admincontrol.v1.RetryErrorStatR\x06errors\"\xd6\x01\n" +
+	"\x06errors\x18\x06 \x03(\v2&.redbus.admincontrol.v1.RetryErrorStatR\x06errors\x12%\n" +
+	"\x0edeferred_count\x18\a \x01(\x05R\rdeferredCount\x120\n" +
+	"\x14last_deferred_reason\x18\b \x01(\tR\x12lastDeferredReason\"\xd6\x01\n" +
 	"\x0eRetryErrorStat\x12\x14\n" +
 	"\x05error\x18\x01 \x01(\tR\x05error\x12!\n" +
 	"\ffailed_count\x18\x02 \x01(\x05R\vfailedCount\x124\n" +

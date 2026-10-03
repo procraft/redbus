@@ -22,6 +22,8 @@ message StateSnapshot {
   int32 consumer_count = 2;
   int32 repeat_all_count = 3;
   int32 repeat_failed_count = 4;
+  // Pending retries the consumer deferred (retryLater); included in repeat_all_count, never failed.
+  int32 repeat_deferred_count = 5;
 }
 
 message TopicStats {
@@ -94,8 +96,13 @@ message RetryStat {
   string group = 2;
   int32 all_count = 3;
   int32 failed_count = 4;
+  // Most recent error, ignoring deferred retries.
   string last_error = 5;
   repeated RetryErrorStat errors = 6;
+  // Pending retries the consumer deferred (retryLater); included in all_count, never failed.
+  int32 deferred_count = 7;
+  // Reason reported by the most recent deferral.
+  string last_deferred_reason = 8;
 }
 
 message RetryErrorStat {

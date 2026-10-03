@@ -91,6 +91,7 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 		byID := list.IndexByID()
 		successCount := 0
 		retryCount := 0
+		deferredCount := 0
 		matchedCount := 0
 		for i := range data.ResultList {
 			result := data.ResultList[i]
@@ -119,15 +120,20 @@ func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {
 					MessageId:  m.Id,
 					Headers:    m.Headers,
 					Strategy:   b.dataBus.FindRepeatStrategy(c.GetTopic(), c.GetGroup(), c.GetID()),
-				}, result.Message, retryAfter(result.RetryAfterSec)); err != nil {
+				}, result.Message, result.RetryLater, retryAfter(result.RetryAfterSec)); err != nil {
 					b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry_enqueue_error", len(list))
 					return fmt.Errorf("%w: %v", model.ErrHandler, err)
 				}
-				retryCount++
+				if result.RetryLater {
+					deferredCount++
+				} else {
+					retryCount++
+				}
 			}
 		}
 		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "success", successCount)
 		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "retry", retryCount)
+		b.metrics.ObserveConsumed(string(c.GetTopic()), string(c.GetGroup()), "deferred", deferredCount)
 		if matchedCount == 0 && len(list) > 0 {
 			// Ни один результат не относится к отправленному батчу: фаза "батч ↔ ответ"
 			// разошлась, дальше молча терялись бы сообщения. Закрываем стрим.

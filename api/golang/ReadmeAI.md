@@ -31,7 +31,8 @@ Both SDKs write the same client tables, so a service may switch SDKs without mig
 `ConsumeMessages` runs the stream loop in the caller's goroutine and closes its gRPC connection on
 return. One stream — one serving loop; the stream is passed as a parameter, never shared. The batch
 result echoes `batchId` and declares `consumeTimeoutSec`; `RetryLaterError` maps to
-`preserveAttempt`/`retryAfterSec` (see `internal/pkg/stream/ReadmeAI.md` for the server rules).
+`retryLater`/`retryAfterSec` and is logged at debug level as a deferral, not as a processing error
+(see `internal/pkg/stream/ReadmeAI.md` for the server rules).
 The handler goroutine outlives a timeout and may outlive `ConsumeMessages`, so its result channel
 is buffered and never closed. A failed send after cancellation is shutdown, not an error.
 

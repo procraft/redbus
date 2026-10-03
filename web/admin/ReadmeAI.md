@@ -32,6 +32,8 @@ Dashboard помимо счётчиков показывает плиточны�
 считаются на клиенте из вложенных consumers, а количество ошибок — сумма `failedCount` по всем группам
 topic. Цвет плитки: красный при более чем `ERROR_LIMIT` (100) окончательно упавших сообщений, жёлтый при
 меньшем ненулевом количестве, зелёный при подключённых consumers и серый, если topic никто не слушает.
+Отложенные consumer'ом retry (`deferredCount`, результат `retryLater`) — не ошибка: на цвет и сортировку
+плитки они не влияют, показываются нейтральной подписью `N deferred` и серым бейджем в шапке обзора.
 Количество колонок подбирается в `gridColumns` под ширину контейнера и высоту viewport, чтобы по
 возможности показать все плитки без прокрутки; ширина плитки ограничена диапазоном
 `MIN_TILE_WIDTH`…`MAX_TILE_WIDTH`. Клик по плитке ведёт на `#/topics?topic=<name>`, где `TopicList`
@@ -49,6 +51,13 @@ topic. Цвет плитки: красный при более чем `ERROR_LIM
 - `/repeat/repeatTopicGroupSince`;
 - `/repeat/repeatError`;
 - `/repeat/deleteError`.
+
+Retry-запись бывает в трёх непересекающихся состояниях: failed (попытки исчерпаны, `finished_at`), deferred
+(consumer попросил повторить позже, `retryLater`; не ошибка) и прочие pending. `/dashboard/stat` отдаёт
+`repeatAllCount` (всё), `repeatFailedCount` и `repeatDeferredCount`; `/repeat/stat` для каждой пары — `allCount`,
+`failedCount`, `deferredCount`, `lastError` (без учёта отложенных) и `lastDeferredReason`. Dashboard показывает
+карточку `Failed repeat` как `failed / (all − deferred)` и отдельную нейтральную карточку `Deferred`; список
+retry — колонки `Failed / retries` и `Deferred` (серый бейдж, причина последней отсрочки в tooltip).
 
 `/repeat/stat` возвращает для каждой пары topic/group вложенный триаж окончательно упавших сообщений,
 сгруппированный по классу ошибки, с количеством и первым/последним `finished_at` в каждом классе.
@@ -94,7 +103,7 @@ admin завершается на старте, поэтому один и то�
 Live-статистика приходит из `/api/events` через native `EventSource`:
 
 - событие `consumers`: `consumerCount`, `consumeTopicCount`;
-- событие `repeater`: `allCount`, `failedCount`.
+- событие `repeater`: `allCount`, `failedCount`, `deferredCount` (у admin backend без поля клиент считает его 0).
 
 Исторически Vue-клиент слушал ошибочное имя `customers`, а сервер отправлял поле `failedount`. Серверный
 контракт исправлен в `internal/app/model/event.go`; React-клиент пока принимает и `failedount` для плавного

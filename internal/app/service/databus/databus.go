@@ -57,8 +57,8 @@ type IConnStore interface {
 }
 
 type IRepeater interface {
-	Add(ctx context.Context, data model.RepeatData, errorMsg string, retryAfter time.Duration) error
-	GetCount(ctx context.Context) (int, int, error)
+	Add(ctx context.Context, data model.RepeatData, errorMsg string, retryLater bool, retryAfter time.Duration) error
+	GetCount(ctx context.Context) (model.RepeatCount, error)
 }
 
 type IKafkaProvider interface {

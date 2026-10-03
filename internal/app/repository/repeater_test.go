@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -181,5 +182,163 @@ func TestDeleteFailedByErrorDeletesOnlyFinishedRepeatsOfClass(t *testing.T) {
 	errors := client.arguments[2].([]string)
 	if client.arguments[0] != "orders" || client.arguments[1] != "billing" || len(errors) != 1 || errors[0] != "task 1 has no message" {
 		t.Fatalf("unexpected delete filters: %#v", client.arguments)
+	}
+}
+
+func TestRepeatCountSQLSeparatesDeferredFromFailed(t *testing.T) {
+	normalizedSQL := strings.Join(strings.Fields(repeatCountSQL), " ")
+	for _, clause := range []string{
+		`COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS failed_count`,
+		`COUNT(*) FILTER (WHERE finished_at IS NULL AND deferred) AS deferred_count`,
+	} {
+		if !strings.Contains(normalizedSQL, clause) {
+			t.Fatalf("count query must contain %q: %s", clause, normalizedSQL)
+		}
+	}
+}
+
+func TestRepeatStatSQLKeepsDeferralsOutOfErrors(t *testing.T) {
+	normalizedSQL := strings.Join(strings.Fields(repeatStatSQL), " ")
+	for _, clause := range []string{
+		`COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS failed_count`,
+		`COUNT(*) FILTER (WHERE finished_at IS NULL AND deferred) AS deferred_count`,
+		`FILTER (WHERE finished_at IS NOT NULL OR NOT deferred))[1], '') AS last_error`,
+		`FILTER (WHERE finished_at IS NULL AND deferred))[1], '') AS last_deferred_reason`,
+	} {
+		if !strings.Contains(normalizedSQL, clause) {
+			t.Fatalf("stat query must contain %q: %s", clause, normalizedSQL)
+		}
+	}
+	// Error classes describe finished failures only; a deferral can never be listed there.
+	errorStats := normalizedSQL[strings.Index(normalizedSQL, "error_stats AS"):]
+	if !strings.Contains(errorStats, `WHERE finished_at IS NOT NULL GROUP BY topic, "group", error`) {
+		t.Fatalf("error classes must be limited to finished repeats: %s", errorStats)
+	}
+}
+
+func TestUpdateAttemptPersistsDeferred(t *testing.T) {
+	client := &execRecorder{}
+	ctx := db.AddToContext(context.Background(), client)
+
+	err := (&Repository{}).UpdateAttempt(ctx, &model.Repeat{Id: 7, Attempt: 2, Error: "busy", Deferred: true})
+	if err != nil {
+		t.Fatalf("update attempt: %v", err)
+	}
+
+	normalizedSQL := strings.Join(strings.Fields(client.sql), " ")
+	if !strings.Contains(normalizedSQL, `deferred = $5 WHERE id = $6`) {
+		t.Fatalf("update must persist the deferred flag: %s", normalizedSQL)
+	}
+	if client.arguments[4] != true || client.arguments[5] != int64(7) {
+		t.Fatalf("unexpected update arguments: %#v", client.arguments)
+	}
+}
+
+type statRows struct {
+	values [][]any
+	index  int
+}
+
+func (r *statRows) Close()                                         {}
+func (r *statRows) Err() error                                     { return nil }
+func (r *statRows) CommandTag() pgconn.CommandTag                  { return nil }
+func (r *statRows) FieldDescriptions() []pgproto3.FieldDescription { return nil }
+func (r *statRows) Values() ([]interface{}, error)                 { return nil, nil }
+func (r *statRows) RawValues() [][]byte                            { return nil }
+
+func (r *statRows) Next() bool {
+	r.index++
+	return r.index < len(r.values)
+}
+
+func (r *statRows) Scan(dest ...interface{}) error {
+	row := r.values[r.index]
+	if len(dest) != len(row) {
+		return fmt.Errorf("scan destinations %d, row values %d", len(dest), len(row))
+	}
+	for i, value := range row {
+		switch target := dest[i].(type) {
+		case *string:
+			*target = value.(string)
+		case *int:
+			*target = value.(int)
+		case **string:
+			*target = value.(*string)
+		case **time.Time:
+			*target = value.(*time.Time)
+		default:
+			return fmt.Errorf("unexpected scan destination %T", dest[i])
+		}
+	}
+	return nil
+}
+
+type statRecorder struct {
+	execRecorder
+	rows *statRows
+}
+
+func (r *statRecorder) Query(context.Context, string, ...interface{}) (pgx.Rows, error) {
+	return r.rows, nil
+}
+
+func TestGetStatReadsDeferredSeparately(t *testing.T) {
+	failedError := "broken"
+	failedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	client := &statRecorder{rows: &statRows{index: -1, values: [][]any{
+		{"orders", "billing", "broken", "busy, retry after 500 ms", 10, 1, 7, &failedError, 1, &failedAt, &failedAt},
+		{"orders", "mailing", "", "busy", 3, 0, 3, (*string)(nil), 0, (*time.Time)(nil), (*time.Time)(nil)},
+	}}}
+	ctx := db.AddToContext(context.Background(), client)
+
+	stat, err := (&Repository{}).GetStat(ctx)
+	if err != nil {
+		t.Fatalf("get stat: %v", err)
+	}
+	if len(stat) != 2 {
+		t.Fatalf("unexpected stat: %#v", stat)
+	}
+	billing := stat[0]
+	if billing.AllCount != 10 || billing.FailedCount != 1 || billing.DeferredCount != 7 ||
+		billing.LastError != "broken" || billing.LastDeferredReason != "busy, retry after 500 ms" || len(billing.Errors) != 1 {
+		t.Fatalf("unexpected billing stat: %#v", billing)
+	}
+	mailing := stat[1]
+	if mailing.FailedCount != 0 || mailing.DeferredCount != 3 || mailing.LastError != "" || len(mailing.Errors) != 0 {
+		t.Fatalf("a deferred-only group must report no errors: %#v", mailing)
+	}
+}
+
+type insertRecorder struct {
+	execRecorder
+}
+
+type idRow struct{}
+
+func (idRow) Scan(dest ...interface{}) error {
+	*dest[0].(*int64) = 1
+	return nil
+}
+
+func (r *insertRecorder) QueryRow(_ context.Context, sql string, arguments ...interface{}) pgx.Row {
+	r.sql = sql
+	r.arguments = arguments
+	return idRow{}
+}
+
+func TestInsertPersistsDeferred(t *testing.T) {
+	client := &insertRecorder{}
+	ctx := db.AddToContext(context.Background(), client)
+
+	if err := (&Repository{}).Insert(ctx, model.Repeat{Error: "busy", Deferred: true}); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	normalizedSQL := strings.Join(strings.Fields(client.sql), " ")
+	if !strings.Contains(normalizedSQL, `started_at, deferred) VALUES (`) || !strings.Contains(normalizedSQL, `$12, $13)`) {
+		t.Fatalf("insert must persist the deferred flag: %s", normalizedSQL)
+	}
+	if client.arguments[12] != true {
+		t.Fatalf("unexpected insert arguments: %#v", client.arguments)
 	}
 }

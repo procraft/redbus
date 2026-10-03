@@ -51,10 +51,11 @@ func (c *Client) GetStateSnapshot(ctx context.Context) (model.Stat, error) {
 		return model.Stat{}, err
 	}
 	return model.Stat{
-		ConsumeTopicCount: int(response.GetConsumeTopicCount()),
-		ConsumerCount:     int(response.GetConsumerCount()),
-		RepeatAllCount:    int(response.GetRepeatAllCount()),
-		RepeatFailedCount: int(response.GetRepeatFailedCount()),
+		ConsumeTopicCount:   int(response.GetConsumeTopicCount()),
+		ConsumerCount:       int(response.GetConsumerCount()),
+		RepeatAllCount:      int(response.GetRepeatAllCount()),
+		RepeatFailedCount:   int(response.GetRepeatFailedCount()),
+		RepeatDeferredCount: int(response.GetRepeatDeferredCount()),
 	}, nil
 }
 
@@ -185,12 +186,14 @@ func (c *Client) GetRetryStats(ctx context.Context) (model.RepeatStat, error) {
 			errors = append(errors, repeatErrorStatFromProto(errorStat))
 		}
 		result = append(result, model.RepeatStatItem{
-			Topic:       item.GetTopic(),
-			Group:       item.GetGroup(),
-			AllCount:    int(item.GetAllCount()),
-			FailedCount: int(item.GetFailedCount()),
-			LastError:   item.GetLastError(),
-			Errors:      errors,
+			Topic:              item.GetTopic(),
+			Group:              item.GetGroup(),
+			AllCount:           int(item.GetAllCount()),
+			FailedCount:        int(item.GetFailedCount()),
+			DeferredCount:      int(item.GetDeferredCount()),
+			LastError:          item.GetLastError(),
+			LastDeferredReason: item.GetLastDeferredReason(),
+			Errors:             errors,
 		})
 	}
 	return result, nil

@@ -10,7 +10,62 @@ import (
 	"github.com/prokraft/redbus/internal/pkg/runtime"
 )
 
-const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, created_at, started_at, finished_at`
+const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, deferred, created_at, started_at, finished_at`
+
+// repeatCountSQL splits the queue the same way as repeatStatSQL: failed means finished, deferred
+// means pending and postponed by the consumer. Both are subsets of all_count and never overlap.
+const repeatCountSQL = `SELECT
+		COUNT(*) AS all_count,
+		COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS failed_count,
+		COUNT(*) FILTER (WHERE finished_at IS NULL AND deferred) AS deferred_count
+	FROM repeat`
+
+// repeatStatSQL returns one row per topic/group/finished error. A deferral is not an error, so
+// last_error ignores deferred rows and their latest reason is reported separately.
+const repeatStatSQL = `WITH group_stats AS (
+		SELECT
+			topic,
+			"group",
+			COUNT(*) AS all_count,
+			COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS failed_count,
+			COUNT(*) FILTER (WHERE finished_at IS NULL AND deferred) AS deferred_count,
+			COALESCE((ARRAY_AGG(error ORDER BY (finished_at IS NOT NULL) DESC, started_at DESC, id DESC)
+				FILTER (WHERE finished_at IS NOT NULL OR NOT deferred))[1], '') AS last_error,
+			COALESCE((ARRAY_AGG(error ORDER BY started_at DESC, id DESC)
+				FILTER (WHERE finished_at IS NULL AND deferred))[1], '') AS last_deferred_reason
+		FROM repeat
+		GROUP BY topic, "group"
+	), error_stats AS (
+		SELECT
+			topic,
+			"group",
+			error,
+			COUNT(*) AS failed_count,
+			MIN(finished_at) AS first_failed_at,
+			MAX(finished_at) AS last_failed_at
+		FROM repeat
+		WHERE finished_at IS NOT NULL
+		GROUP BY topic, "group", error
+	)
+	SELECT
+		group_stats.topic,
+		group_stats."group",
+		group_stats.last_error,
+		group_stats.last_deferred_reason,
+		group_stats.all_count,
+		group_stats.failed_count,
+		group_stats.deferred_count,
+		error_stats.error,
+		COALESCE(error_stats.failed_count, 0),
+		error_stats.first_failed_at,
+		error_stats.last_failed_at
+	FROM group_stats
+	LEFT JOIN error_stats USING (topic, "group")
+	ORDER BY
+		group_stats.topic,
+		group_stats."group",
+		error_stats.failed_count DESC,
+		error_stats.error`
 
 const repeatTriageSQL = `SELECT
 		topic,
@@ -30,18 +85,18 @@ const repeatTriageSQL = `SELECT
 func repeatScanDest(r *model.Repeat) []any {
 	return []any{
 		&r.Id, &r.Topic, &r.Group, &r.ConsumerId, &r.MessageId, &r.Key, &r.Data,
-		&r.Headers, &r.Attempt, &r.Strategy, &r.Error, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
+		&r.Headers, &r.Attempt, &r.Strategy, &r.Error, &r.Deferred, &r.CreatedAt, &r.StartedAt, &r.FinishedAt,
 	}
 }
 
 func (r *Repository) Insert(ctx context.Context, repeat model.Repeat) error {
 	conn := db.FromContext(ctx)
 	return conn.QueryRow(ctx, `INSERT INTO repeat
-		(topic, "group", consumer_id, message_id, key, data, headers, error, attempt, repeat_strategy, created_at, started_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		(topic, "group", consumer_id, message_id, key, data, headers, error, attempt, repeat_strategy, created_at, started_at, deferred)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id`,
 		repeat.Topic, repeat.Group, repeat.ConsumerId, repeat.MessageId, repeat.Key, repeat.Data, repeat.Headers,
-		repeat.Error, repeat.Attempt, repeat.Strategy, repeat.CreatedAt, repeat.StartedAt,
+		repeat.Error, repeat.Attempt, repeat.Strategy, repeat.CreatedAt, repeat.StartedAt, repeat.Deferred,
 	).Scan(&repeat.Id)
 }
 
@@ -81,67 +136,25 @@ func (r *Repository) Delete(ctx context.Context, repeatId int64) error {
 func (r *Repository) UpdateAttempt(ctx context.Context, repeat *model.Repeat) error {
 	conn := db.FromContext(ctx)
 	_, err := conn.Exec(ctx, `UPDATE repeat
-		SET started_at = $1, attempt = $2, error = $3, finished_at = $4
-		WHERE id = $5`,
-		repeat.StartedAt, repeat.Attempt, repeat.Error, repeat.FinishedAt, repeat.Id)
+		SET started_at = $1, attempt = $2, error = $3, finished_at = $4, deferred = $5
+		WHERE id = $6`,
+		repeat.StartedAt, repeat.Attempt, repeat.Error, repeat.FinishedAt, repeat.Deferred, repeat.Id)
 	return err
 }
 
-func (r *Repository) GetCount(ctx context.Context) (int, int, error) {
+func (r *Repository) GetCount(ctx context.Context) (model.RepeatCount, error) {
 	conn := db.FromContext(ctx)
-	allCount, failedCount := 0, 0
-	sql := `SELECT
-    	COUNT(*) as all_count,
-		COALESCE(SUM(CASE WHEN finished_at IS NULL THEN 0 ELSE 1 END), 0) AS failed_count
-	FROM repeat`
-	err := conn.QueryRow(ctx, sql).Scan(&allCount, &failedCount)
+	var count model.RepeatCount
+	err := conn.QueryRow(ctx, repeatCountSQL).Scan(&count.All, &count.Failed, &count.Deferred)
 	if err != nil {
-		return 0, 0, fmt.Errorf("Can't get all repeat count from db: %w", err)
+		return model.RepeatCount{}, fmt.Errorf("Can't get all repeat count from db: %w", err)
 	}
-	return allCount, failedCount, nil
+	return count, nil
 }
 
 func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 	conn := db.FromContext(ctx)
-	sql := `WITH group_stats AS (
-		SELECT
-			topic,
-			"group",
-			COUNT(*) AS all_count,
-			COUNT(*) FILTER (WHERE finished_at IS NOT NULL) AS failed_count,
-			(ARRAY_AGG(error ORDER BY (finished_at IS NOT NULL) DESC, started_at DESC, id DESC))[1] AS last_error
-		FROM repeat
-		GROUP BY topic, "group"
-	), error_stats AS (
-		SELECT
-			topic,
-			"group",
-			error,
-			COUNT(*) AS failed_count,
-			MIN(finished_at) AS first_failed_at,
-			MAX(finished_at) AS last_failed_at
-		FROM repeat
-		WHERE finished_at IS NOT NULL
-		GROUP BY topic, "group", error
-	)
-	SELECT
-		group_stats.topic,
-		group_stats."group",
-		group_stats.last_error,
-		group_stats.all_count,
-		group_stats.failed_count,
-		error_stats.error,
-		COALESCE(error_stats.failed_count, 0),
-		error_stats.first_failed_at,
-		error_stats.last_failed_at
-	FROM group_stats
-	LEFT JOIN error_stats USING (topic, "group")
-	ORDER BY
-		group_stats.topic,
-		group_stats."group",
-		error_stats.failed_count DESC,
-		error_stats.error`
-	rows, err := conn.Query(ctx, sql)
+	rows, err := conn.Query(ctx, repeatStatSQL)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get repeat stat from db: %w", err)
 	}
@@ -158,8 +171,10 @@ func (r *Repository) GetStat(ctx context.Context) (model.RepeatStat, error) {
 			&item.Topic,
 			&item.Group,
 			&item.LastError,
+			&item.LastDeferredReason,
 			&item.AllCount,
 			&item.FailedCount,
+			&item.DeferredCount,
 			&errorMessage,
 			&errorFailedCount,
 			&firstFailedAt,
