@@ -1,9 +1,11 @@
 ## Redbus service Go SDK
 
-The Go SDK lives in the main module: `github.com/prokraft/redbus/api/golang/...`. It covers the same
+The Go SDK lives in the main module: `github.com/procraft/redbus/api/golang/...`. It covers the same
 needs as the Scala SDK (`api/scala/redbus`): direct and batch produce, the transactional outbox
 with its flusher, consumers with repeat strategies, deferred retries and inbox dedup, and a typed
 client for protobuf messages.
+
+Install with `go get github.com/procraft/redbus@v0.1.0`; the module requires Go 1.27 or newer.
 
 | Package | Purpose |
 |---|---|
@@ -21,10 +23,10 @@ The database API is `database/sql` (`*sql.DB`, `*sql.Tx`). A pgx pool works thro
 
 ```go
 import (
-	"github.com/prokraft/redbus/api/golang/consumer"
-	"github.com/prokraft/redbus/api/golang/inbox"
-	"github.com/prokraft/redbus/api/golang/producer"
-	"github.com/prokraft/redbus/api/golang/redbus"
+	"github.com/procraft/redbus/api/golang/consumer"
+	"github.com/procraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/producer"
+	"github.com/procraft/redbus/api/golang/redbus"
 )
 
 bus, err := redbus.New(

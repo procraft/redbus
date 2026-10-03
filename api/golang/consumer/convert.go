@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 func toPBRepeatStrategy(strategy *RepeatStrategy) *pb.ConsumeRequest_Connect_RepeatStrategy {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/config"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

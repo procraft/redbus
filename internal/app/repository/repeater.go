@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/db"
-	"github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/db"
+	"github.com/procraft/redbus/internal/pkg/runtime"
 )
 
 const repeatFields = `id, topic, "group", consumer_id, message_id, key, data, headers, attempt, repeat_strategy, error, deferred, created_at, started_at, finished_at`

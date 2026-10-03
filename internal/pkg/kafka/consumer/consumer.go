@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	kpkg "github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
-	"github.com/prokraft/redbus/internal/pkg/logger"
-	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
+	kpkg "github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/kafka/credential"
+	"github.com/procraft/redbus/internal/pkg/logger"
+	redbusruntime "github.com/procraft/redbus/internal/pkg/runtime"
 
 	"github.com/segmentio/kafka-go"
 )

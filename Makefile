@@ -20,7 +20,7 @@ $(LOCAL_BIN)/%:
 
 fmt: $(LOCAL_BIN) | $(GOIMPORTS)
 	$(GOFMT) -l -w $(PKGS)
-	$(GOIMPORTS) -l -w -local 'github.com/prokraft/redbus' $(PKGS)
+	$(GOIMPORTS) -l -w -local 'github.com/procraft/redbus' $(PKGS)
 
 gen:
 	GOBIN=$(LOCAL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -38,9 +38,9 @@ gen:
 		--plugin=protoc-gen-go=$(LOCAL_BIN)/protoc-gen-go \
 		--plugin=protoc-gen-go-grpc=$(LOCAL_BIN)/protoc-gen-go-grpc \
 		--go_out=. \
-		--go_opt=module=github.com/prokraft/redbus \
+		--go_opt=module=github.com/procraft/redbus \
 		--go-grpc_out=. \
-		--go-grpc_opt=module=github.com/prokraft/redbus,require_unimplemented_servers=false \
+		--go-grpc_opt=module=github.com/procraft/redbus,require_unimplemented_servers=false \
 		internal/api/admincontrol/admincontrol.proto
 
 build: build-redbus build-redbus-admin

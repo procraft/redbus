@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/prokraft/redbus/api/golang/outbox"
+	"github.com/procraft/redbus/api/golang/outbox"
 )
 
 // Settings are the connection and switches of a bus client. The bus is used at all only when at

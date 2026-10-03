@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	controlpb "github.com/prokraft/redbus/internal/api/admincontrol"
-	"github.com/prokraft/redbus/internal/app/model"
+	controlpb "github.com/procraft/redbus/internal/api/admincontrol"
+	"github.com/procraft/redbus/internal/app/model"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

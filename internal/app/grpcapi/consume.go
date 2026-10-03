@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
-	"github.com/prokraft/redbus/internal/pkg/logger"
-	"github.com/prokraft/redbus/internal/pkg/stream"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/kafka/credential"
+	"github.com/procraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/pkg/stream"
 )
 
 func (b *GrpcApi) Consume(server pb.RedbusService_ConsumeServer) error {

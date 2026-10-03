@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/db"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/db"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgproto3/v2"

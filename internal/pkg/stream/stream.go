@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 // batchSeq нумерует батчи в пределах процесса. Один и тот же consume-стрим обслуживают и цикл

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type ProducerStore struct {

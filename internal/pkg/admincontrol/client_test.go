@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	controlpb "github.com/prokraft/redbus/internal/api/admincontrol"
 	"github.com/stretchr/testify/require"
+
+	controlpb "github.com/procraft/redbus/internal/api/admincontrol"
 )
 
 func TestConsumerFromProto(t *testing.T) {

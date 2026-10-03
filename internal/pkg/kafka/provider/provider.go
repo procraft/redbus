@@ -7,9 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/kafka/credential"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/kafka/credential"
 )
 
 type Provider struct {

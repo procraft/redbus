@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/pkg/runtime"
 )
 
 func TestRepeatApplyFailurePreservesAttemptAndUsesConsumerDelay(t *testing.T) {

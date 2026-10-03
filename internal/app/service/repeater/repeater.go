@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/app/service/connstore"
-	"github.com/prokraft/redbus/internal/pkg/logger"
-	"github.com/prokraft/redbus/internal/pkg/runtime"
-	"github.com/prokraft/redbus/internal/pkg/stream"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/service/connstore"
+	"github.com/procraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/pkg/stream"
 )
 
 type Repeater struct {

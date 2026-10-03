@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/prokraft/redbus/internal/config"
-	"github.com/prokraft/redbus/internal/pkg/adminapp"
+	"github.com/procraft/redbus/internal/config"
+	"github.com/procraft/redbus/internal/pkg/adminapp"
 )
 
 func main() {

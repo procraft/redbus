@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 func (b *DataBus) Produce(

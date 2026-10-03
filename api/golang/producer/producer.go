@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 // ErrRejected is returned when the bus answered a produce request with ok = false.

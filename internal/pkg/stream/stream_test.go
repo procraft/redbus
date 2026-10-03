@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type recvItem struct {

@@ -13,8 +13,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/prokraft/redbus/api/golang/inbox"
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 func New(host string, port int, options ...ServiceOptionFn) *Service {

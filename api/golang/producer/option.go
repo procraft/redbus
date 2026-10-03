@@ -3,7 +3,7 @@ package producer
 import (
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 type OptionFn = func(c *pb.ProduceRequest)

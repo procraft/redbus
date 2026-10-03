@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prokraft/redbus/internal/api/admincontrol"
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/api/admincontrol"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/runtime"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

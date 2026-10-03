@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/prokraft/redbus/api/golang/consumer"
-	"github.com/prokraft/redbus/api/golang/inbox"
-	"github.com/prokraft/redbus/api/golang/outbox"
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/api/golang/producer"
+	"github.com/procraft/redbus/api/golang/consumer"
+	"github.com/procraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/outbox"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/producer"
 )
 
 type fakeTransport struct {

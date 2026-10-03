@@ -11,7 +11,7 @@ RUN yarn install --immutable
 COPY ./web/admin .
 RUN yarn build
 
-FROM golang:1.24-alpine3.20 AS go-builder
+FROM golang:1.27-alpine3.24 AS go-builder
 
 WORKDIR /app
 COPY ./go.mod ./go.sum ./

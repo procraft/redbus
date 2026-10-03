@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/prokraft/redbus/internal/config"
+	"github.com/procraft/redbus/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

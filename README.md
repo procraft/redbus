@@ -1,6 +1,6 @@
 # Reliable Easy Data BUS
 
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/prokraft/redbus/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/procraft/redbus/blob/master/LICENSE)
 
 <img src="./doc/logo.png" height="347" alt="RED Bus logo"/>
 

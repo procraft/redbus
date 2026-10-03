@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/inbox"
 )
 
 type Service struct {

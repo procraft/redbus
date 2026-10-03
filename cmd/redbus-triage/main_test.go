@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 func TestValidateLoopbackAddress(t *testing.T) {

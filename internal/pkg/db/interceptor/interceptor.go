@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/prokraft/redbus/internal/pkg/db"
+	"github.com/procraft/redbus/internal/pkg/db"
 
 	"google.golang.org/grpc"
 )

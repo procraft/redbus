@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
+
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type kafkaClientStub struct {

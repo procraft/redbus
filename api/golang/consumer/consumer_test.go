@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 // fakeBus accepts one consumer, sends one batch and hands the result request to the test.

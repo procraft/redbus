@@ -8,7 +8,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type writerStub struct {

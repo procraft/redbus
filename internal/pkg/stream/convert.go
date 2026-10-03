@@ -1,9 +1,10 @@
 package stream
 
 import (
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
 	"strconv"
+
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 func toPBMessageList(list model.MessageList) []*pb.ConsumeResponse_Message {

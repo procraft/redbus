@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 func (b *DataBus) GetTopicList(ctx context.Context) (model.StatTopicList, error) {

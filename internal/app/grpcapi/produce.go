@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 func (b *GrpcApi) Produce(ctx context.Context, req *pb.ProduceRequest) (*pb.ProduceResponse, error) {

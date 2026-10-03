@@ -5,10 +5,10 @@ import (
 	"errors"
 	"log"
 
-	"github.com/prokraft/redbus/internal/config"
+	"github.com/procraft/redbus/internal/config"
 
-	"github.com/prokraft/redbus/internal/pkg/app"
-	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/pkg/app"
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 func main() {

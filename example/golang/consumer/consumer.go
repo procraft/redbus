@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prokraft/redbus/api/golang/consumer"
+	"github.com/procraft/redbus/api/golang/consumer"
 )
 
 const dataBusServerPort = 50005

@@ -11,8 +11,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/pkg/admincontrol"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/admincontrol"
 )
 
 type response struct {

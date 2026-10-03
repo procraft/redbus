@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/pkg/runtime"
 )
 
 type Repeat struct {

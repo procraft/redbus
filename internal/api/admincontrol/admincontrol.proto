@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package redbus.admincontrol.v1;
 
-option go_package = "github.com/prokraft/redbus/internal/api/admincontrol";
+option go_package = "github.com/procraft/redbus/internal/api/admincontrol";
 
 service AdminControlService {
   rpc GetStateSnapshot(Empty) returns (StateSnapshot) {}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/prokraft/redbus/api/golang/consumer"
-	"github.com/prokraft/redbus/api/golang/outbox"
-	"github.com/prokraft/redbus/api/golang/producer"
+	"github.com/procraft/redbus/api/golang/consumer"
+	"github.com/procraft/redbus/api/golang/outbox"
+	"github.com/procraft/redbus/api/golang/producer"
 )
 
 // transport is what Client needs from the bus; replaced in unit tests.

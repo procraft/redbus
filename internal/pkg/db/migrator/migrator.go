@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 
-	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/pkg/logger"
 
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/postgres"

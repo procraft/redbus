@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/internal/app/model"
-	"github.com/prokraft/redbus/internal/config"
-	"github.com/prokraft/redbus/internal/pkg/stream"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/config"
+	"github.com/procraft/redbus/internal/pkg/stream"
 )
 
 type consumerStub struct {

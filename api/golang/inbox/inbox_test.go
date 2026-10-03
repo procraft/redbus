@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/api/golang/inbox"
-	"github.com/prokraft/redbus/api/golang/internal/pgtest"
+	"github.com/procraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/internal/pgtest"
 )
 
 func TestKeyMatchesScalaSDK(t *testing.T) {

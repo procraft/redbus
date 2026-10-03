@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/prokraft/redbus/api/golang/producer"
+	"github.com/procraft/redbus/api/golang/producer"
 )
 
 // Execer is satisfied by *sql.DB, *sql.Tx and *sql.Conn.

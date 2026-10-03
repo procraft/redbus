@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/prokraft/redbus/internal/pkg/logger"
+	"github.com/procraft/redbus/internal/pkg/logger"
 
-	"github.com/prokraft/redbus/internal/pkg/db/migrator"
+	"github.com/procraft/redbus/internal/pkg/db/migrator"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"

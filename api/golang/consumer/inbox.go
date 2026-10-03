@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/prokraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/inbox"
 )
 
 // inboxStore is the database side of the inbox modes; replaced in unit tests.

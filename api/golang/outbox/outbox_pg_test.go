@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/api/golang/internal/pgtest"
-	"github.com/prokraft/redbus/api/golang/outbox"
-	"github.com/prokraft/redbus/api/golang/pb"
-	"github.com/prokraft/redbus/api/golang/producer"
+	"github.com/procraft/redbus/api/golang/internal/pgtest"
+	"github.com/procraft/redbus/api/golang/outbox"
+	"github.com/procraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/producer"
 )
 
 type collector struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/api/golang/inbox"
+	"github.com/procraft/redbus/api/golang/inbox"
 )
 
 type fakeInboxStore struct {

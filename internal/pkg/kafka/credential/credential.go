@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/sasl"
-	"github.com/segmentio/kafka-go/sasl/scram"
 	"os"
 	"strings"
 
-	"github.com/prokraft/redbus/internal/config"
+	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl"
+	"github.com/segmentio/kafka-go/sasl/scram"
+
+	"github.com/procraft/redbus/internal/config"
 )
 
 type Algo string

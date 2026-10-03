@@ -2,8 +2,9 @@ package recovery
 
 import (
 	"encoding/json"
-	"github.com/prokraft/redbus/internal/pkg/logger"
 	"net/http"
+
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 func ServerMiddleware(next http.Handler) http.Handler {

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prokraft/redbus/internal/api/admincontrol"
-	"github.com/prokraft/redbus/internal/app/model"
-	redruntime "github.com/prokraft/redbus/internal/pkg/runtime"
+	"github.com/procraft/redbus/internal/api/admincontrol"
+	"github.com/procraft/redbus/internal/app/model"
+	redruntime "github.com/procraft/redbus/internal/pkg/runtime"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"

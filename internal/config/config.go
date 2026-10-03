@@ -7,7 +7,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type Config struct {

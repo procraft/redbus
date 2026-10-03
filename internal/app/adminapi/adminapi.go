@@ -3,7 +3,7 @@ package adminapi
 import (
 	"context"
 
-	"github.com/prokraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 type IService interface {

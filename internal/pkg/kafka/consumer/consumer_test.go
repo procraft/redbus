@@ -7,8 +7,8 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 
-	kpkg "github.com/prokraft/redbus/internal/app/model"
-	redbusruntime "github.com/prokraft/redbus/internal/pkg/runtime"
+	kpkg "github.com/procraft/redbus/internal/app/model"
+	redbusruntime "github.com/procraft/redbus/internal/pkg/runtime"
 )
 
 func TestSetOffsetStoresNextCommittedPosition(t *testing.T) {

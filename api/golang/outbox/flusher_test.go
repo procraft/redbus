@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/prokraft/redbus/api/golang/pb"
+	"github.com/procraft/redbus/api/golang/pb"
 )
 
 // memStore keeps rows in id order; a transaction sees the committed rows and applies deletes on

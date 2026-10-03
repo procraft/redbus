@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prokraft/redbus/internal/app/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/procraft/redbus/internal/app/model"
 )
 
 func TestMergeGroupStatsCombinesBrokerAssignmentsWithRuntimeMetrics(t *testing.T) {
