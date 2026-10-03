@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/prokraft/redbus/internal/app/model"
@@ -18,6 +19,22 @@ type response struct {
 	SinceUnixMs int64          `json:"sinceUnixMs"`
 	UntilUnixMs int64          `json:"untilUnixMs"`
 	List        []responseItem `json:"list"`
+	// Queue is a snapshot of retries that are still waiting, taken when the command runs. It lets
+	// the triage tell a queue or a consumer deferral apart from failures in the window.
+	Queue []queueItem `json:"queue"`
+}
+
+// queueItem describes the current retry queue of one topic/group. PendingCount waits after an
+// ordinary failure, DeferredCount was postponed by the consumer (retryLater), FailedCount is the
+// all-time number of exhausted retries, not limited to the triage window.
+type queueItem struct {
+	Topic              string `json:"topic"`
+	Group              string `json:"group"`
+	PendingCount       int    `json:"pendingCount"`
+	DeferredCount      int    `json:"deferredCount"`
+	FailedCount        int    `json:"failedCount"`
+	LastError          string `json:"lastError"`
+	LastDeferredReason string `json:"lastDeferredReason"`
 }
 
 type responseItem struct {
@@ -73,7 +90,14 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("get retry triage: %w", err)
 	}
-	return json.NewEncoder(os.Stdout).Encode(toResponse(stat))
+	// A bus without deferral support reports zero deferred retries; they then count as pending.
+	retryStats, err := client.GetRetryStats(context.Background())
+	if err != nil {
+		return fmt.Errorf("get retry stats: %w", err)
+	}
+	result := toResponse(stat)
+	result.Queue = toQueue(retryStats, *topic, *group)
+	return json.NewEncoder(os.Stdout).Encode(result)
 }
 
 func validateLoopbackAddress(address string) error {
@@ -96,6 +120,7 @@ func toResponse(stat model.RepeatTriageStat) response {
 		SinceUnixMs: stat.Since.UnixMilli(),
 		UntilUnixMs: stat.Until.UnixMilli(),
 		List:        make([]responseItem, 0, len(stat.List)),
+		Queue:       make([]queueItem, 0),
 	}
 	for _, item := range stat.List {
 		errors := make([]responseError, 0, len(item.Errors))
@@ -115,5 +140,40 @@ func toResponse(stat model.RepeatTriageStat) response {
 			Errors:      errors,
 		})
 	}
+	return result
+}
+
+// toQueue keeps the topic/groups matching the exact filters that still have waiting retries,
+// largest queue first.
+func toQueue(stat model.RepeatStat, topic, group string) []queueItem {
+	result := make([]queueItem, 0)
+	for _, item := range stat {
+		if (topic != "" && item.Topic != topic) || (group != "" && item.Group != group) {
+			continue
+		}
+		pending := max(item.AllCount-item.FailedCount-item.DeferredCount, 0)
+		if pending+item.DeferredCount <= 0 {
+			continue
+		}
+		result = append(result, queueItem{
+			Topic:              item.Topic,
+			Group:              item.Group,
+			PendingCount:       pending,
+			DeferredCount:      item.DeferredCount,
+			FailedCount:        item.FailedCount,
+			LastError:          item.LastError,
+			LastDeferredReason: item.LastDeferredReason,
+		})
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		left, right := result[i].PendingCount+result[i].DeferredCount, result[j].PendingCount+result[j].DeferredCount
+		if left != right {
+			return left > right
+		}
+		if result[i].Topic != result[j].Topic {
+			return result[i].Topic < result[j].Topic
+		}
+		return result[i].Group < result[j].Group
+	})
 	return result
 }

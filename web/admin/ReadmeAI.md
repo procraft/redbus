@@ -157,8 +157,12 @@ Rspack может предупреждать о raw-размере общего 
 - DTO статистики проходят через внутренний protobuf-контракт `internal/api/admincontrol/admincontrol.proto`.
   При добавлении полей или RPC сначала выкатывай Redbus, затем admin backend: новый admin может вызвать RPC,
   которого ещё нет в старом Redbus. Откатывай в обратном порядке.
-- Agent/runtime-триаж не добавляет HTTP route в admin backend: он обращается к read-only
-  `GetRetryTriage` напрямую через доверенный `kubectl port-forward` к internal control gRPC API.
+- Agent/runtime-триаж не добавляет HTTP route в admin backend: `cmd/redbus-triage` обращается к read-only
+  `GetRetryTriage` и `GetRetryStats` напрямую через доверенный `kubectl port-forward` к internal control gRPC API.
+  Кроме окна упавших (`list`) он отдаёт снимок текущей очереди `queue`: по topic/group `pendingCount`
+  (`allCount − failedCount − deferredCount`, не меньше 0), `deferredCount`, `failedCount` за всё время, `lastError`,
+  `lastDeferredReason`; только пары с ожидающими повторами, крупные первыми. Шина без поля deferred отдаёт 0 —
+  тогда отложенные видны как pending.
 - Production-образ получает `REDBUS_API_HOST` только при запуске контейнера; host не вшивается в assets.
   `docker-run-admin` передаёт runtime env из обязательного `ADMIN_API_HOST`. Для production значение —
   `https://redbus-api.sohoup.ru`; Kubernetes/CI/CD должен задать `REDBUS_API_HOST` контейнеру, а DNS, TLS и
