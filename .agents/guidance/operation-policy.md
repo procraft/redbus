@@ -7,14 +7,22 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 
 ## Standing authorization
 
-- **YouTrack reading:** read known tickets, comments, linked tickets and attachments whenever useful,
-  without asking. User-requested search is authorized too. Ask before initiating a new YouTrack search
-  on the agent's own initiative; do not disguise a broad search as reading a known ticket.
-- **Git reading:** inspect local/remote history, refs, status and diffs, and fetch without asking.
+- **YouTrack:** read tickets, comments, linked tickets and attachments, search, move a ticket being
+  worked on between Stages and record its work item without asking. Comments and new tickets still
+  need an explicit user request.
+- **Git:** inspect local/remote history, refs, status and diffs, fetch, and do local work (add, commit,
+  rebase, switch, cherry-pick, checkout, restore, reset, clean, branch -D) without asking. Discard
+  only work that belongs to the current task: another task's or the user's uncommitted changes stay
+  untouched. Force-push and `rebase --exec` stay blocked by the safety gate.
   Push only after an explicit user request, to the requested repository/branch. Do not ask again for
-  the same authorized push. Reading does not authorize reset, cleanup, force-push or discarding work.
+  the same authorized push.
   After a confirmed push, sync the task-owned source checkout to the delivered commit so the delivered
   change stops existing as a local diff (see `master-sync.md`, «Leave the source checkout clean»).
+- **Git delivery is the agent's work:** once push or cleanup is requested, the agent itself runs commit,
+  fetch, rebase, push, fast-forward of the source checkout and lease/branch cleanup; never hand the
+  developer a chain of git commands. When one step is denied by the safety gate, reach the same result
+  without discarding work (commit first, then resolve the rebase conflict in favour of upstream, or add a
+  follow-up commit). Only if no such route exists, hand over exactly that one step and continue the rest.
 - **Local implementation verification:** an explicit implementation, bug-fix, refactoring, cleanup,
   documentation, or conveyor request authorizes the cheapest deterministic local checks needed to
   validate that scoped work: focused regression tests, targeted compile/typecheck/lint, and required
@@ -41,10 +49,14 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 - **Local database reading:** read whenever necessary without asking. Resolve the actual endpoint:
   a localhost tunnel to stage/prod is not a local database. No implicit writes, migrations, fixture
   changes, clones, new databases or permission grants.
-- **Production database:** agents do not execute production SQL. Put the statements in a file and
-  hand the user one ready command. Any command that writes must use `$SOHOLMS_PROD_PG_RW_URL`
-  (role `libicraft`, password entered interactively by the user), never `-U libicraft` on the read
-  string: a role inside the URL silently wins over `-U` and `PGUSER`.
+- **Production database:** agents do not execute production SQL. The one exception is a query plan:
+  one plain `EXPLAIN` (no `ANALYZE`) runs without asking through
+  `/<workspace>/lms-ai-multi-repo/.agents/tools/prod-access/explain.sh prod|stage /abs/path/query.sql`,
+  which plans without reading data. Otherwise put the statements in a file and
+  hand the user one ready command. A write goes through
+  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql-rw.sh prod|stage /abs/path/change.sql`: it picks
+  `SOHOLMS_PROD_PG_RW_URL` (role `libicraft`, password typed by the user at psql's prompt) or the
+  stage URL itself, never `-U libicraft` on the read string (a role inside the URL wins over `-U`).
   See `.agents/docs/postgres-prod-access.md`. Do not source `prod.env` or run `psql` with a
   `SOHOLMS_PROD_PG_*` string in the session shell: the safety gate denies it deterministically, and
   a retry cannot change that. A question that needs production data goes to the explicit-only
@@ -53,8 +65,15 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql.sh prod|stage /abs/path/query.sql`.
   The script loads `prod.env`/`stage.env` and enforces read-only; never hand-assemble
   `psql "$SOHOLMS_…"`: without the env file it connects to an empty URL.
-- **Loki:** read stage logs without asking. Read production logs when the user requested that
-  investigation, or ask once before agent-initiated production access. Permission to read logs
+- **User-run commands:** when the user must run a database command, hand over exactly one line calling
+  `sql.sh` (read) or `sql-rw.sh` (write) with absolute paths. Never hand-assemble `psql`, env-file
+  sourcing or variable names; never ask the user to paste a URL, password, token or other secret into
+  chat; never ask the user to run a git command the agent can run itself.
+- **Separate sessions:** when the user lists two or more independent items to do "в отдельных
+  сессиях", create one `spawn_task` chip per item, each with a self-contained prompt naming its
+  repository and slot/worktree; keep each `tldr` to one short sentence.
+- **Loki:** read stage and production logs without asking (read-only transport: the `loki-prod`/
+  `loki-stage` MCP servers, `check-loki.sh`, `run-triage.sh`). Permission to read logs
   does not authorize database access, changing environments or running a repair. When the user
   runs the query, hand over
   `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/loki.sh prod|stage '<LogQL>' /abs/path/out.txt --since 14d`
@@ -114,6 +133,12 @@ description. Do not leave placeholders such as `$ARGUMENTS` or ask the developer
 prompt. State where to run it only when that matters, and what result to return. Bundle related
 human steps when safe. This does not relax permission, production-access, or explicit-invocation
 boundaries; make the required user action as small and precise as those boundaries allow.
+
+Shape commands so standing permissions match them instead of raising an approval prompt. Edit files
+with the editor tools, not `python3 - <<EOF` or `sed -i` scripts: those are arbitrary code and always
+ask. Run one command per call from the working directory instead of `cd <dir>; a && b | c` chains,
+whose every part must match a rule. Use the exact form a rule names (`git fetch origin`, `make <target>`,
+`git -C` only when the directory differs).
 
 ## Existing E2E coverage during development
 
