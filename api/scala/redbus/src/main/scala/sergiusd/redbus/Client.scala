@@ -10,6 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
  * @param produceTimeout      deadline of one direct `produce` call (default 30 s)
  * @param produceBatchTimeout deadline of one batch request of the outbox flusher (default 30 s)
+ * @param errorLogger         receives every failed outbox flush pass with its cause; when absent
+ *                            the report goes to `logger`, as in releases before 0.4.7
  */
 case class Client(
   host: String,
@@ -17,6 +19,7 @@ case class Client(
   logger: String => Unit = _ => (),
   produceTimeout: FiniteDuration = Producer.defaultProduceTimeout,
   produceBatchTimeout: FiniteDuration = Producer.defaultProduceBatchTimeout,
+  errorLogger: scala.Option[(String, Throwable) => Unit] = None,
 )(implicit ec: ExecutionContext) {
   require(produceTimeout.length > 0, "produceTimeout must be positive")
   require(produceBatchTimeout.length > 0, "produceBatchTimeout must be positive")
@@ -41,13 +44,21 @@ case class Client(
    * Besides reacting to `pg_notify`, it sweeps `redbus_outbox` every `sweepInterval` (default 30 s)
    * and publishes ordered, bounded batches (default 100 rows). Each batch request is bounded by
    * `produceBatchTimeout`; a timed-out batch stays in the outbox and is sent again on the next pass.
+   * A failed pass is reported through `errorLogger` (or `logger` when it is absent).
    */
   def startProducerDbaFlusher(
     db: slick.jdbc.PostgresProfile.backend.Database,
     sweepInterval: FiniteDuration = Flusher.defaultSweepInterval,
     batchSize: Int = Flusher.defaultBatchSize,
   )(implicit as: ActorSystem): Unit = {
-    Flusher.start(db, Producer.produceBatch(grpc, _, produceBatchTimeout), logger, sweepInterval, batchSize)
+    Flusher.start(
+      db,
+      Producer.produceBatch(grpc, _, produceBatchTimeout),
+      logger,
+      sweepInterval,
+      batchSize,
+      errorLogger,
+    )
   }
 
   def consume(

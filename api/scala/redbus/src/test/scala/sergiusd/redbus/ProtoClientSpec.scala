@@ -101,6 +101,24 @@ class ProtoClientSpec extends AnyWordSpec with Matchers with org.scalatest.LoneE
 
       transport.flusherStarts shouldBe Vector(7)
     }
+
+    "report failed flush passes through Log.error and routine lines through Log.debug" in {
+      @volatile var debug = Vector.empty[String]
+      @volatile var errors = Vector.empty[(String, Throwable)]
+      val log = ProtoClient.Log(
+        debug = line => debug = debug :+ line,
+        error = (line, e) => errors = errors :+ (line -> e),
+      )
+      val c = ProtoClient.client(settings(producer = true, consumer = true), log)
+      val cause = new RuntimeException("produce failed")
+
+      c.logger("Flushed batch topic / 1")
+      c.errorLogger shouldBe defined
+      c.errorLogger.foreach(_("Flush failed (sweep)", cause))
+
+      debug shouldBe Vector("Flushed batch topic / 1")
+      errors shouldBe Vector("Flush failed (sweep)" -> cause)
+    }
   }
 
   "ProtoClient.consumeProto" should {

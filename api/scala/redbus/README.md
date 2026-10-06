@@ -180,6 +180,12 @@ next bounded batch until the table is empty. A publish failure, including a batc
 exceeds `produceBatchTimeout`, keeps the whole batch in the table and it is retried on the next pass. Existing positional calls remain compatible; configure the limit with
 `startProducerDbaFlusher(db, sweepInterval, batchSize)` or the named `batchSize` argument.
 
+Since **0.4.7**, a failed flush pass (database fetch, publish failure, `ok = false`, delete mismatch)
+is reported once per pass, with its cause, through an error sink: `ProtoClient` sends it to
+`Log.error`, the lower-level client to `Client(…, errorLogger = Some((message, cause) => …))`.
+Without `errorLogger` the report still goes to `logger`, as before. Successful batches
+(`Flushed batch …`) stay on `logger`, which `ProtoClient` maps to `Log.debug`.
+
 ### Publish
 
 Every release is published as a pair of Scala 2.13 and Scala 3 artifacts. Before publishing, verify

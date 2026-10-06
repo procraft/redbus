@@ -131,6 +131,54 @@ class FlusherActorSpec
       store.deleteCalls shouldBe Seq(Seq(1L, 2L))
     }
 
+    "report a failed pass with its cause through the error sink, not the debug logger" in {
+      val store = new InMemoryStore(Seq(message(1), message(2)))
+      val cause = new RuntimeException("[29] TOPIC_AUTHORIZATION_FAILED")
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] =
+        _ => Future.failed(cause)
+      @volatile var debug = Vector.empty[String]
+      @volatile var errors = Vector.empty[(String, Throwable)]
+      val logger: String => Unit = line => synchronized { debug = debug :+ line }
+      val errorLogger: Flusher.ErrorLogger = (line, e) => synchronized { errors = errors :+ (line -> e) }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, logger, errorLogger, batchSize = 100)))
+
+      actor ! ProcessMessage("notify")
+      eventually(errors should have size 1)
+      val (line, reported) = errors.head
+      line should include("Flush failed (notify)")
+      reported shouldBe theSameInstanceAs(cause)
+      debug.filter(_.contains("Flush failed")) shouldBe empty
+      store.rows.map(_.id) shouldBe Seq(1L, 2L)
+    }
+
+    "report a rejected batch through the error sink" in {
+      val store = new InMemoryStore(Seq(message(1)))
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] =
+        _ => Future.successful(api.ProduceBatchResponse(ok = false))
+      @volatile var errors = Vector.empty[(String, Throwable)]
+      val errorLogger: Flusher.ErrorLogger = (line, e) => synchronized { errors = errors :+ (line -> e) }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, _ => (), errorLogger, batchSize = 100)))
+
+      actor ! ProcessMessage("sweep")
+      eventually(errors should have size 1)
+      errors.head._2 shouldBe an[IllegalStateException]
+      errors.head._2.getMessage should include("Bus rejected batch topic / 1")
+    }
+
+    "send a failed pass to the plain logger when no error sink is given" in {
+      val store = new InMemoryStore(Seq(message(1)))
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] =
+        _ => Future.failed(new RuntimeException("bus unavailable"))
+      @volatile var logged = Vector.empty[String]
+      val logger: String => Unit = line => synchronized { logged = logged :+ line }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, logger, batchSize = 100)))
+
+      actor ! ProcessMessage("notify")
+      eventually(logged.exists(line =>
+        line.startsWith("Flush failed (notify)") && line.contains("bus unavailable")
+      ) shouldBe true)
+    }
+
     "keep the whole batch when the bus rejects the response" in {
       val store = new InMemoryStore(Seq(message(1), message(2)))
       val attempts = new AtomicInteger(0)

@@ -21,22 +21,33 @@ private case object ProcessingFinished
  * pass is in progress is remembered (`pending`) and starts another pass right after the current
  * one finishes, so no notification is lost. A produce failure ends the pass, keeps the row in
  * the table and is retried on the next trigger or sweep.
+ *
+ * `logger` gets routine diagnostics (each flushed batch); `errorLogger` gets one report with the
+ * cause for every failed pass (fetch, produce, `ok = false`, delete mismatch).
  */
 class FlusherActor private[producer] (
   store: Flusher.Store,
   produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
   logger: String => Unit,
+  errorLogger: Flusher.ErrorLogger,
   batchSize: Int,
 ) extends Actor {
   import Flusher.ec
   require(batchSize > 0, "batchSize must be positive")
+
+  private[producer] def this(
+    store: Flusher.Store,
+    produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
+    logger: String => Unit,
+    batchSize: Int,
+  ) = this(store, produceBatch, logger, Flusher.errorsToLogger(logger), batchSize)
 
   def this(
     db: Database,
     produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse],
     logger: String => Unit = _ => (),
     batchSize: Int = Flusher.defaultBatchSize,
-  ) = this(new Flusher.SlickStore(db), produceBatch, logger, batchSize)
+  ) = this(new Flusher.SlickStore(db), produceBatch, logger, Flusher.errorsToLogger(logger), batchSize)
 
   private var inProgress = false
   private var pending = false
@@ -64,7 +75,7 @@ class FlusherActor private[producer] (
       case Success(_) =>
         self ! ProcessingFinished
       case Failure(e) =>
-        logger(s"Flush failed ($data), rows stay in outbox until the next pass: $e")
+        errorLogger(s"Flush failed ($data), rows stay in outbox until the next pass", e)
         self ! ProcessingFinished
     }
   }
@@ -111,6 +122,15 @@ object Flusher {
   /** Default maximum number of outbox rows fetched in one query and batch request. */
   val defaultBatchSize: Int = 100
 
+  /** Receives a failed flush pass: a message and its cause. */
+  type ErrorLogger = (String, Throwable) => Unit
+
+  /**
+   * Error sink used when none is given: the report goes to the plain `logger` with the cause
+   * appended, as before error sinks existed.
+   */
+  def errorsToLogger(logger: String => Unit): ErrorLogger = (message, cause) => logger(s"$message: $cause")
+
   /** Outbox storage used by [[FlusherActor]]; rows are returned in `id` order. */
   trait Store {
     def fetchBatch(batchSize: Int): Future[Seq[PublishingMessage]]
@@ -129,6 +149,9 @@ object Flusher {
    * Starts the outbox flusher: listens to `pg_notify('redbus_outbox')` and additionally sweeps
    * the table every `sweepInterval`, starting immediately, so rows left over from a restart or
    * a missed notification are still delivered.
+   *
+   * @param errorLogger receives every failed pass with its cause; without it the report goes to
+   *                    `logger`, the same as before this parameter existed
    */
   def start(
     db: Database,
@@ -136,9 +159,14 @@ object Flusher {
     logger: String => Unit = _ => (),
     sweepInterval: FiniteDuration = defaultSweepInterval,
     batchSize: Int = defaultBatchSize,
+    errorLogger: scala.Option[ErrorLogger] = None,
   )(implicit as: ActorSystem): Unit = {
     require(batchSize > 0, "batchSize must be positive")
-    val dispatcher = as.actorOf(Props(new FlusherActor(db, produceBatch, logger, batchSize)), "redbusFlusherActor")
+    val errors = errorLogger.getOrElse(errorsToLogger(logger))
+    val dispatcher = as.actorOf(
+      Props(new FlusherActor(new SlickStore(db), produceBatch, logger, errors, batchSize)),
+      "redbusFlusherActor",
+    )
 
     PostgresListener.listen(db) { id => dispatcher ! ProcessMessage(id) }
 

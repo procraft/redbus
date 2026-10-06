@@ -102,7 +102,8 @@ final class ProtoClient private[redbus] (
 object ProtoClient {
 
   /**
-   * @param logger receives the SDK's own diagnostic messages (debug level)
+   * @param log the SDK's own diagnostics go to `log.debug`; failures that need attention (a failed
+   *            outbox flush pass, an undecodable payload) go to `log.error` with their cause
    */
   def apply(
     settings: RedbusSettings,
@@ -110,9 +111,18 @@ object ProtoClient {
     addStopHook: consumer.Model.StopHook,
     log: Log = Log(),
   )(implicit ec: ExecutionContext): ProtoClient =
-    new ProtoClient(settings, database, addStopHook, log, new ClientTransport(
-      Client(settings.host, settings.port, log.debug, settings.produceTimeout, settings.produceBatchTimeout)
-    ))
+    new ProtoClient(settings, database, addStopHook, log, new ClientTransport(client(settings, log)))
+
+  /** The low-level client behind [[apply]]; separate so the log wiring is unit tested. */
+  private[redbus] def client(settings: RedbusSettings, log: Log)(implicit ec: ExecutionContext): Client =
+    Client(
+      settings.host,
+      settings.port,
+      log.debug,
+      settings.produceTimeout,
+      settings.produceBatchTimeout,
+      errorLogger = Some(log.error),
+    )
 
   /** Log sinks of the client; each defaults to discarding. */
   final case class Log(

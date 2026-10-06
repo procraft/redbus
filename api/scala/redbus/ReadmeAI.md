@@ -177,8 +177,21 @@ pass (`inProgress` never reset, so sweeps only set `pending`).
   after the current one finishes. Actor state is mutated only inside `receive`; the future completion
   reports back with `ProcessingFinished` via `self`.
 - Rows are sent in `id` order. A produce failure (failed future or `ok = false`) stops the pass,
-  logs through the client `logger`, keeps the row and is retried on the next trigger or sweep. This
-  is the expected behaviour while the bus is unavailable.
+  keeps the row and is retried on the next trigger or sweep. This is the expected behaviour while
+  the bus is unavailable.
+- A failed pass (fetch, produce, `ok = false`, delete mismatch) is reported once, with its cause,
+  through `Flusher.ErrorLogger`; routine `Flushed batch …` lines go to `logger`. Since `0.4.7`
+  `ProtoClient` wires the sink to `Log.error` and `logger` to `Log.debug`: before that both went to
+  debug, so a bus rejecting every batch for hours let tens of thousands of outbox rows pile up with
+  nothing in the host's logs. `Client`/`Flusher.start` without `errorLogger` keep reporting to `logger`.
+  Each `pg_notify` that arrives during a failing pass sets `pending`, so under a steady insert rate
+  a persistently failing bus can produce one error per coalesced trigger rather than one per sweep;
+  the passes are not throttled.
+- Managed Kafka (Yandex Managed Kafka in production) does not auto-create topics and grants
+  permissions per topic. Create a new topic and grant the bus user producer and consumer on it
+  before the first produce or consume; otherwise the bus gets `[29] TOPIC_AUTHORIZATION_FAILED`,
+  consumers loop on `Authorization error … 5s waiting`, and the flusher keeps the rows in the outbox
+  and reports each failed pass.
 - Each query fetches at most `batchSize` rows (default 100) in `id` order. A batch ends at the first
   topic change, is sent through one confirmed `ProduceBatch` call, and its ids are deleted together
   only after the whole call succeeds. The same pass keeps fetching bounded batches until the outbox
