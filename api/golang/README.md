@@ -103,13 +103,19 @@ Side effects outside the database are not covered by the claim and need their ow
 transaction. `outbox.NewFlusher(db, producer.ProduceBatch, options...).Run(ctx)` delivers rows: at
 start, every `WithSweepInterval` (default 30 s) and, with `WithListenDSN`, on
 `pg_notify('redbus_outbox')`. One pass at a time; each step selects at most `WithBatchSize` rows
-(default 100) in id order `FOR UPDATE`, publishes the same-topic prefix with one `ProduceBatch`
-request and deletes it in the same transaction, until the table is empty. A failed publish keeps
-the batch for the next pass. Row locks serialise flushers of several replicas. A failed or timed
-out publish is ambiguous and may duplicate on retry, so consumers must stay idempotent.
+(default 100) in id order `FOR UPDATE`, publishes the rows of each topic with one `ProduceBatch`
+request and deletes the published rows in the same transaction, until the table is empty. Row
+locks serialise flushers of several replicas. A failed or timed out publish is ambiguous and may
+duplicate on retry, so consumers must stay idempotent.
+
+**Order is guaranteed only within a topic.** A topic whose publish fails (bus down, Kafka
+`TOPIC_AUTHORIZATION_FAILED`, …) keeps its rows and is excluded from the selection for the rest of
+the pass; the other topics are still delivered, and the failed topic is retried on the next trigger.
+Each failed topic is logged at error level at most once per `WithErrorLogInterval` (default one
+minute); the next report carries the number of suppressed ones in `suppressed`.
 
 - The transaction and its row locks are held while the batch is published (up to
-  `WithPublishTimeout`, default 30 s), so the flusher occupies one connection of the pool, and a
+  `WithPublishTimeout`, default 30 s, per topic in the selection), so the flusher occupies one connection of the pool, and a
   replica waiting for the locks occupies another. Give `WithDB` a pool with room for that, or a
   separate small pool.
 - Id order is insertion order, not commit order: a transaction that inserted a row earlier but

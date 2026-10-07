@@ -176,32 +176,45 @@ pass (`inProgress` never reset, so sweeps only set `pending`).
 - One pass at a time. A trigger arriving during a pass sets `pending`, and another pass starts right
   after the current one finishes. Actor state is mutated only inside `receive`; the future completion
   reports back with `ProcessingFinished` via `self`.
-- Rows are sent in `id` order. A produce failure (failed future or `ok = false`) stops the pass,
-  keeps the row and is retried on the next trigger or sweep. This is the expected behaviour while
-  the bus is unavailable.
+- Order is a per-topic guarantee only (since `0.4.8`). Each fetch is the head of the queue
+  (`ORDER BY id LIMIT batchSize`) minus the topics that already failed in this pass; its rows are
+  grouped by topic in the order of each topic's first row and every group is sent as one batch and
+  deleted after confirmation. A produce failure (failed future, `ok = false`) or a delete failure or
+  mismatch keeps that group's rows and adds the topic to the pass's failed set, so its later rows are
+  never selected in the pass and cannot overtake it; the other groups and topics go on. The pass
+  ends when the fetch outside the failed set is empty, so a lone failing topic is tried once per
+  pass. Without failed topics the query is unchanged, so the healthy path keeps its primary-key
+  plan. "N rows per topic" selection (`row_number()`, a query per topic) was rejected: under a
+  backlog it scans and sorts the whole table on every batch. Up to `0.4.7` the pass sent the
+  same-topic prefix and stopped at the first failure: on 2026-10-06 one row of a topic without Kafka
+  ACLs at the head of the outbox held back every other topic for 1.5 h (~55k rows).
 - A failed pass (fetch, produce, `ok = false`, delete mismatch) is reported once, with its cause,
   through `Flusher.ErrorLogger`; routine `Flushed batch …` lines go to `logger`. Since `0.4.7`
   `ProtoClient` wires the sink to `Log.error` and `logger` to `Log.debug`: before that both went to
   debug, so a bus rejecting every batch for hours let tens of thousands of outbox rows pile up with
   nothing in the host's logs. `Client`/`Flusher.start` without `errorLogger` keep reporting to `logger`.
   Each `pg_notify` that arrives during a failing pass sets `pending`, so under a steady insert rate
-  a persistently failing bus can produce one error per coalesced trigger rather than one per sweep;
-  the passes are not throttled.
+  a persistently failing topic fails on every coalesced trigger. Since `0.4.8` the reports are
+  throttled per topic (key `""` for a failed fetch) by `Flusher.ErrorThrottle`: at most one per
+  `defaultErrorLogInterval` (1 min), the next one carrying the suppressed count. The passes
+  themselves are not throttled. The clock is injected (`clockNanos`) for `FlusherActorSpec`.
 - Managed Kafka (Yandex Managed Kafka in production) does not auto-create topics and grants
   permissions per topic. Create a new topic and grant the bus user producer and consumer on it
   before the first produce or consume; otherwise the bus gets `[29] TOPIC_AUTHORIZATION_FAILED`,
   consumers loop on `Authorization error … 5s waiting`, and the flusher keeps the rows in the outbox
   and reports each failed pass.
-- Each query fetches at most `batchSize` rows (default 100) in `id` order. A batch ends at the first
-  topic change, is sent through one confirmed `ProduceBatch` call, and its ids are deleted together
-  only after the whole call succeeds. The same pass keeps fetching bounded batches until the outbox
-  is empty.
+- Each query fetches at most `batchSize` rows (default 100) in `id` order. Each topic's rows of the
+  fetch are sent through one confirmed `ProduceBatch` call, and their ids are deleted together only
+  after the whole call succeeds. The same pass keeps fetching bounded batches until the outbox is
+  empty or holds only failed topics.
 - A Kafka partial error, a context cancellation or a produce deadline is ambiguous: the whole selected batch stays in the
   outbox and may produce duplicates on retry, so consumer idempotency remains required. `batchSize`
   bounds row count, not serialized bytes; with the server's current default gRPC receive limit, a
   request above 4 MiB is rejected and retried until configuration or batching policy changes.
 - `FlusherActor` takes a `Flusher.Store` (package-private constructor) so the pass logic is unit
   tested without a database; production uses `Flusher.SlickStore`.
+  `0.4.8` changed `Store.fetchBatch` to `(batchSize, failedTopics)`; a host implementing its own
+  `Store` (none known) has to follow.
 - `PostgresListener` opens its own JDBC connection from the given Slick `Database` for `LISTEN`;
   the flusher must be started once per process.
 

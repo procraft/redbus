@@ -62,16 +62,35 @@ transaction ends.
 - Triggers: start sweep, periodic sweep, optional lib/pq `LISTEN redbus_outbox` (a nil notification
   after a reconnect also triggers). A trigger channel with buffer one gives one pass at a time plus
   one remembered pending pass.
-- Each step is one transaction: `SELECT … ORDER BY id LIMIT n FOR UPDATE`, publish the same-topic
-  prefix, `DELETE … WHERE id IN (…)` by explicit ids (an id range could cover a row committed
-  later), commit. Unlike the Scala flusher, row locks serialise replicas instead of duplicating;
-  the cost is one connection held per pass for the publish (and one per waiting replica).
+- Order is a per-topic guarantee only. Each step is one transaction: `SELECT … [WHERE topic NOT IN
+  (failed…)] ORDER BY id LIMIT n FOR UPDATE`, group the rows by topic in the order of each topic's
+  first row, publish every group with its own request, `DELETE … WHERE id IN (…)` of the published
+  groups only by explicit ids (an id range could cover a row committed later), commit. Without
+  failed topics the query is exactly the old primary-key `ORDER BY id LIMIT n`, so the healthy path
+  keeps its plan; interleaved topics now also leave in fewer, larger requests. Selecting "n rows per
+  topic" (`row_number()` or a query per topic) was rejected: under a backlog it scans and sorts the
+  whole table on every step, and PostgreSQL rejects `FOR UPDATE` with window functions. The
+  exclusion is a list of `$2, …` placeholders, not an array parameter, so lib/pq and pgx `stdlib`
+  bind it alike. Unlike the Scala flusher, row locks serialise replicas instead of duplicating; the
+  cost is one connection held per pass for the publish (and one per waiting replica). The holder
+  may publish one request per topic of its selection, so a waiting replica's fetch is bounded by
+  `batchSize × publishTimeout + completeTimeout`.
 - The transaction runs on a context detached from the flusher's: a cancellation after a successful
   publish must still commit the delete, otherwise the batch is published again. The fetch and the
   publish stay cancellable; `Flush` checks ctx before every batch. Each step has its own timeout
   (lock wait in the fetch, publish, delete), never one deadline for the whole transaction: a long
   lock wait must not expire the transaction after a successful publish.
-- A publish failure rolls back and ends the pass; the next trigger starts again from the lowest id.
+- A failed publish adds its topic to the pass's failed list; its rows are neither deleted nor
+  selected again in the pass, so the order inside the topic holds, and the published groups of the
+  same step are still deleted and committed. The pass ends when the selection outside the failed
+  topics is empty, so a single failing topic cannot spin. Begin, fetch, delete, delete mismatch and
+  commit failures roll back the whole step and end the pass (the published groups of that step may
+  be sent again). Before this, one rejected topic at the head of the table (2026-10: missing Kafka
+  ACLs on a new topic) stopped delivery of every topic for 1.5 h.
+- `Run` logs each failed topic with `slog` Error, throttled by `errorThrottle` to one report per
+  topic per `WithErrorLogInterval` (default one minute; the injected `now` is the test seam). A
+  steady insert rate triggers a pass per `pg_notify`, so an unthrottled report would repeat on every
+  pass. `Flush` itself returns the joined errors and never logs.
   Id order is insertion order, not commit order, the same as in the Scala SDK.
 
 ## Checks

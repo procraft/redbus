@@ -49,6 +49,11 @@
   },
   "log": {
     "json": false,
-    "verbose": false
+    "verbose": false,
+    "loki": {
+      "url": "",
+      "env": "",
+      "level": "info"
+    }
   }
 }

@@ -174,10 +174,16 @@ starts the flusher that delivers those rows to the bus: it reacts to the `pg_not
 sent by the table trigger and, in addition, sweeps the table on a fixed schedule — immediately at
 start and then every `sweepInterval` (default 30 seconds, `startProducerDbaFlusher(db, sweepInterval)`).
 The sweep delivers rows left over from a restart or a missed notification. The flusher fetches at
-most `batchSize` rows (default 100) in `id` order, publishes the same-topic prefix with one confirmed
-batch request, and deletes all confirmed ids in one database operation. It immediately fetches the
-next bounded batch until the table is empty. A publish failure, including a batch request that
-exceeds `produceBatchTimeout`, keeps the whole batch in the table and it is retried on the next pass. Existing positional calls remain compatible; configure the limit with
+most `batchSize` rows (default 100) in `id` order, publishes the rows of each topic with one confirmed
+batch request, and deletes the confirmed ids of each topic in one database operation. It immediately
+fetches the next bounded batch until the table is empty. A publish failure, including a batch request
+that exceeds `produceBatchTimeout`, keeps that topic's rows in the table and they are retried on the
+next pass.
+
+**Order is guaranteed only within a topic** (since **0.4.8**). A topic whose publish fails (bus down,
+Kafka `TOPIC_AUTHORIZATION_FAILED`, …) is left out of the rest of the pass, so its later rows never
+overtake the failed ones, while the other topics keep being delivered. Up to 0.4.7 one failing row at
+the head of the table stopped the delivery of every topic. Existing positional calls remain compatible; configure the limit with
 `startProducerDbaFlusher(db, sweepInterval, batchSize)` or the named `batchSize` argument.
 
 Since **0.4.7**, a failed flush pass (database fetch, publish failure, `ok = false`, delete mismatch)
@@ -185,6 +191,10 @@ is reported once per pass, with its cause, through an error sink: `ProtoClient` 
 `Log.error`, the lower-level client to `Client(…, errorLogger = Some((message, cause) => …))`.
 Without `errorLogger` the report still goes to `logger`, as before. Successful batches
 (`Flushed batch …`) stay on `logger`, which `ProtoClient` maps to `Log.debug`.
+
+Since **0.4.8**, the error sink gets one report per failed topic (and one per failed fetch), at most
+once a minute for each: a failure repeated on every `pg_notify` within that minute is suppressed and
+counted, and the next report ends with `(N more suppressed since the previous report)`.
 
 ### Publish
 

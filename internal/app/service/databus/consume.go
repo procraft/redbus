@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/procraft/redbus/api/golang/pb"
@@ -31,7 +32,7 @@ func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, creden
 	b.metrics.ObserveConsumerConnection(string(topic), string(group), connectionResult)
 	connMsg := fmt.Sprintf("%s with credentials %s", strings.Join(kafkaHost, ", "), credentials)
 	if err != nil {
-		logger.Consumer(ctx, c, "Failed connect to kafka %s: %v", connMsg, err)
+		logger.ConsumerWarning(ctx, c, "Failed connect to kafka %s: %v", connMsg, err)
 	} else {
 		logger.Consumer(ctx, c, "Success connect to kafka %s", connMsg)
 	}
@@ -136,11 +137,11 @@ func (b *DataBus) consumeLoop(
 					time.Sleep(waitTime)
 				}
 				lastRebalanceTime = time.Now()
-				logger.Consumer(ctx, c, "Rebalance error: %v, reconnecting after %v...", consumeErr, b.conf.Kafka.FailTimeout)
+				logger.ConsumerWarning(ctx, c, "Rebalance error: %v, reconnecting after %v...", consumeErr, b.conf.Kafka.FailTimeout)
 			} else if consumer.IsAuthorizationError(consumeErr) {
-				logger.Consumer(ctx, c, "Authorization error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
+				logger.ConsumerWarning(ctx, c, "Authorization error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
 			} else {
-				logger.Consumer(ctx, c, "Consume kafka error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
+				logger.ConsumerWarning(ctx, c, "Consume kafka error: %v, %v waiting...", consumeErr, b.conf.Kafka.FailTimeout)
 			}
 			time.Sleep(b.conf.Kafka.FailTimeout.Duration)
 
@@ -150,7 +151,7 @@ func (b *DataBus) consumeLoop(
 			logger.Consumer(ctx, c, "Reconnecting kafka consumer...")
 			b.metrics.ObserveKafkaReconnect(string(c.GetTopic()), string(c.GetGroup()), kafkaErrorReason(consumeErr))
 			if err := c.Reconnect(ctx); err != nil {
-				logger.Consumer(ctx, c, "Failed to reconnect kafka consumer: %v", err)
+				logger.ConsumerWarning(ctx, c, "Failed to reconnect kafka consumer: %v", err)
 				consumeErr = err
 				if ctx.Err() != nil {
 					return nil
@@ -160,11 +161,7 @@ func (b *DataBus) consumeLoop(
 		}
 
 		logger.Consumer(ctx, c, "Consume kafka starting...")
-		c.SetState(model.ConsumerStateConnected)
-		b.metrics.ChangeConsumerState(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), model.ConsumerStateConnected.String())
-		consumeErr = c.Consume(ctx, func(ctx context.Context, list model.MessageList) error { return handler(ctx, list) })
-		c.SetState(model.ConsumerStateReconnecting)
-		b.metrics.ChangeConsumerState(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), model.ConsumerStateReconnecting.String())
+		consumeErr = b.consumeOnce(ctx, c, handler)
 
 		// Ошибка обработки на стороне клиента: стрим рассинхронизирован или клиент не отвечает,
 		// продолжать чтение нельзя — закрываем стрим, чтобы клиент переподключился.
@@ -176,6 +173,52 @@ func (b *DataBus) consumeLoop(
 			return nil
 		}
 	}
+}
+
+// DefaultConsumerStableAfter — время безошибочного чтения kafka, после которого consumer
+// считается подключённым, если первый батч не пришёл раньше.
+const DefaultConsumerStableAfter = 30 * time.Second
+
+// consumeOnce читает kafka до первой ошибки. Состояние connected выставляется не при старте
+// чтения, а по первому батчу или после stableAfter без ошибки: kafka-go возвращает, например,
+// TOPIC_AUTHORIZATION_FAILED не сразу, и при выставлении connected до чтения consumer в цикле
+// «ошибка авторизации → 5s → переподключение» часть времени числился подключённым. Метрика
+// redbus_active_consumers{state="connected"} мигала, и алерт по connecting|reconnecting с for
+// сбрасывался.
+func (b *DataBus) consumeOnce(
+	ctx context.Context,
+	c model.IConsumer,
+	handler func(ctx context.Context, list model.MessageList) error,
+) error {
+	var (
+		mu        sync.Mutex
+		active    = true
+		connected = false
+	)
+	setState := func(state model.ConsumerState) {
+		c.SetState(state)
+		b.metrics.ChangeConsumerState(string(c.GetTopic()), string(c.GetGroup()), string(c.GetID()), state.String())
+	}
+	markConnected := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if active && !connected {
+			connected = true
+			setState(model.ConsumerStateConnected)
+		}
+	}
+	timer := time.AfterFunc(b.stableAfter, markConnected)
+	err := c.Consume(ctx, func(ctx context.Context, list model.MessageList) error {
+		markConnected()
+		return handler(ctx, list)
+	})
+	timer.Stop()
+
+	mu.Lock()
+	active = false
+	setState(model.ConsumerStateReconnecting)
+	mu.Unlock()
+	return err
 }
 
 func kafkaErrorReason(err error) string {

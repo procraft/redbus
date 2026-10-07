@@ -3,6 +3,7 @@ package databus
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 type consumerStub struct {
 	model.IConsumer
 	consume     func(ctx context.Context, processor func(context.Context, model.MessageList) error) error
+	state       model.ConsumerState
 	callCount   atomic.Int32
 	closedCount atomic.Int32
 }
@@ -27,9 +29,12 @@ func (c *consumerStub) GetTopic() model.TopicName { return "orders" }
 func (c *consumerStub) GetGroup() model.GroupName { return "billing" }
 func (c *consumerStub) GetID() model.ConsumerId   { return "worker-1" }
 func (c *consumerStub) GetState() model.ConsumerState {
-	return model.ConsumerStateConnected
+	if c.state == 0 {
+		return model.ConsumerStateConnected
+	}
+	return c.state
 }
-func (c *consumerStub) SetState(model.ConsumerState) {}
+func (c *consumerStub) SetState(state model.ConsumerState) { c.state = state }
 func (c *consumerStub) Close() (bool, error) {
 	c.closedCount.Add(1)
 	return true, nil
@@ -104,4 +109,76 @@ func TestConsumeReconnectsOnKafkaErrorAndFinishesWithoutError(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, int32(2), c.callCount.Load())
+}
+
+type stateRecorder struct {
+	metricsStub
+	mu     sync.Mutex
+	states []string
+}
+
+func (r *stateRecorder) AddConsumer(_, _, _, state string) { r.record(state) }
+func (r *stateRecorder) ChangeConsumerState(_, _, _, state string) {
+	r.record(state)
+}
+func (r *stateRecorder) record(state string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if n := len(r.states); n == 0 || r.states[n-1] != state {
+		r.states = append(r.states, state)
+	}
+}
+
+// Kafka отказывает в доступе к топику не сразу, а после входа в группу. Consumer в таком цикле
+// не должен ни разу числиться connected, иначе алерт по reconnecting сбрасывается.
+func TestConsumeNeverReportsConnectedWhileKafkaKeepsFailing(t *testing.T) {
+	var attempts atomic.Int32
+	c := &consumerStub{state: model.ConsumerStateConnecting}
+	c.consume = func(context.Context, func(context.Context, model.MessageList) error) error {
+		if attempts.Add(1) <= 3 {
+			time.Sleep(5 * time.Millisecond)
+			return fmt.Errorf("Failed to read kafka message: [29] Topic Authorization Failed")
+		}
+		return nil
+	}
+	rec := &stateRecorder{}
+	bus := newTestBus(&connStoreStub{})
+	bus.metrics = rec
+	bus.stableAfter = time.Hour
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	require.NoError(t, bus.Consume(ctx, c, nil, nil, model.ConsumeLimits{}, nil, nil, cancel))
+	require.Equal(t, []string{"connecting", "reconnecting"}, rec.states)
+}
+
+func TestConsumeReportsConnectedOnFirstBatchOrAfterStableRead(t *testing.T) {
+	for name, tc := range map[string]struct {
+		stableAfter time.Duration
+		batch       bool
+	}{
+		"first batch":   {stableAfter: time.Hour, batch: true},
+		"stable reader": {stableAfter: time.Millisecond, batch: false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := &consumerStub{state: model.ConsumerStateConnecting}
+			c.consume = func(ctx context.Context, processor func(context.Context, model.MessageList) error) error {
+				if tc.batch {
+					return processor(ctx, model.MessageList{{Id: "0/1"}})
+				}
+				time.Sleep(50 * time.Millisecond)
+				return nil
+			}
+			rec := &stateRecorder{}
+			bus := newTestBus(&connStoreStub{})
+			bus.metrics = rec
+			bus.stableAfter = tc.stableAfter
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			handler := func(context.Context, model.MessageList) error { return nil }
+
+			require.NoError(t, bus.Consume(ctx, c, nil, nil, model.ConsumeLimits{}, nil, handler, cancel))
+			require.Equal(t, []string{"connecting", "connected", "reconnecting"}, rec.states)
+		})
+	}
 }
