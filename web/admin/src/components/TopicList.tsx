@@ -21,37 +21,42 @@ import { useSearchParams } from 'react-router';
 import dataBus from '@/api/dataBus';
 import type { TopicGroup, TopicStat } from '@/api/types';
 import { useRequest } from '@/hooks/useRequest';
+import { formatLag, topicLag } from '@/utils/lag';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
 type TopicSummary = {
-  retained: number;
+  retained: number | null;
   consumerCount: number;
-  totalLag: number;
-  maxLag: number;
-  status: 'empty' | 'healthy' | 'lagging' | 'no-consumers';
+  totalLag: number | null;
+  maxLag: number | null;
+  reason: string;
+  status: 'empty' | 'healthy' | 'lagging' | 'no-consumers' | 'unavailable';
 };
 
 function summarizeTopic(topic: TopicStat): TopicSummary {
   const partitions = topic.partitions ?? [];
   const groups = topic.groups ?? [];
-  const retained = partitions.reduce(
+  const retained = topic.error || partitions.length === 0 || partitions.some((partition) => partition.error || partition.firstOffset < 0 || partition.lastOffset < partition.firstOffset) ? null : partitions.reduce(
     (total, partition) => total + Math.max(0, partition.lastOffset - partition.firstOffset),
     0,
   );
-  const lags = groups.flatMap((group) => (group.partitions ?? []).map((partition) => partition.lag));
-  const totalLag = lags.reduce((total, lag) => total + lag, 0);
-  const maxLag = lags.length > 0 ? Math.max(...lags) : 0;
+  const lag = topicLag(topic);
+  const totalLag = lag.total;
+  const maxLag = lag.max;
   const consumerCount = groups.reduce((total, group) => total + (group.consumers?.length ?? 0), 0);
   return {
     retained,
     consumerCount,
     totalLag,
     maxLag,
+    reason: lag.reason,
     status:
-      groups.length === 0
+      retained === null || (groups.length > 0 && totalLag === null)
+        ? 'unavailable'
+        : groups.length === 0
         ? 'no-consumers'
-        : totalLag > 0
+        : (totalLag ?? 0) > 0
           ? 'lagging'
           : retained === 0
             ? 'empty'
@@ -65,6 +70,7 @@ function topicStatusBadge(status: TopicSummary['status']) {
     healthy: { color: 'teal', label: 'Healthy' },
     lagging: { color: 'orange', label: 'Lagging' },
     'no-consumers': { color: 'yellow', label: 'No consumers' },
+    unavailable: { color: 'red', label: 'Offsets unavailable' },
   }[status];
   return <Badge color={options.color}>{options.label}</Badge>;
 }
@@ -123,14 +129,15 @@ function GroupDetails({ group }: { group: TopicGroup }) {
               <Table.Tr key={partition.n}>
                 <Table.Td>{partition.n}</Table.Td>
                 <Table.Td>
-                  {numberFormatter.format(partition.firstOffset)} /{' '}
-                  {numberFormatter.format(partition.lastOffset)}
+                  {partition.firstOffset < 0 ? '—' : numberFormatter.format(partition.firstOffset)} /{' '}
+                  {partition.lastOffset < 0 ? '—' : numberFormatter.format(partition.lastOffset)}
                 </Table.Td>
                 <Table.Td>
-                  {partition.committed ? numberFormatter.format(partition.offset) : 'Not committed'}
+                  {partition.offset < 0 ? 'Unavailable' : partition.committed ? numberFormatter.format(partition.offset) : 'Not committed'}
                 </Table.Td>
                 <Table.Td fw={partition.lag > 0 ? 700 : undefined} c={partition.lag > 0 ? 'orange' : undefined}>
-                  {numberFormatter.format(partition.lag)}
+                  {formatLag(partition.lagError || partition.lag < 0 ? null : partition.lag)}
+                  {partition.lagError && <Text c="red" size="xs">{partition.lagError}</Text>}
                 </Table.Td>
                 <Table.Td>{partition.consumerId || 'Unassigned'}</Table.Td>
               </Table.Tr>
@@ -248,13 +255,13 @@ export function TopicList() {
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </ActionIcon>
                       </Table.Td>
-                      <Table.Td fw={700}>{topic.name}</Table.Td>
+                      <Table.Td fw={700}>{topic.name}{summary.totalLag === null && <Text c="red" size="xs" fw={400}>{summary.reason}</Text>}</Table.Td>
                       <Table.Td>{topic.partitions?.length ?? 0}</Table.Td>
-                      <Table.Td>{numberFormatter.format(summary.retained)}</Table.Td>
+                      <Table.Td>{formatLag(summary.retained)}</Table.Td>
                       <Table.Td>{topic.groups?.length ?? 0}</Table.Td>
                       <Table.Td>{summary.consumerCount}</Table.Td>
-                      <Table.Td>{numberFormatter.format(summary.totalLag)}</Table.Td>
-                      <Table.Td>{numberFormatter.format(summary.maxLag)}</Table.Td>
+                      <Table.Td>{formatLag(summary.totalLag)}</Table.Td>
+                      <Table.Td>{formatLag(summary.maxLag)}</Table.Td>
                       <Table.Td>{topicStatusBadge(summary.status)}</Table.Td>
                     </Table.Tr>
                     {(topic.groups?.length ?? 0) > 0 && (

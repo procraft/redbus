@@ -34,12 +34,14 @@ message Topic {
   string name = 1;
   repeated Partition partitions = 2;
   repeated Group groups = 3;
+  string error = 4;
 }
 
 message Partition {
   int32 number = 1;
   int64 first_offset = 2;
   int64 last_offset = 3;
+  string error = 4;
 }
 
 message Group {
@@ -74,6 +76,8 @@ message ConsumerPartition {
   int64 last_offset = 3;
   int64 lag = 4;
   bool committed = 5;
+  // Nonempty means lag is unavailable; ignore the numeric lag field.
+  string lag_error = 6;
 }
 
 message GroupPartition {
@@ -85,6 +89,8 @@ message GroupPartition {
   int64 last_offset = 6;
   int64 lag = 7;
   bool committed = 8;
+  // Nonempty means lag is unavailable; ignore the numeric lag field.
+  string lag_error = 9;
 }
 
 message RetryStats {

@@ -63,6 +63,7 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 			partitions = append(partitions, &admincontrol.Partition{
 				Number:      int32(partition.N),
 				FirstOffset: int64(partition.FirstOffset),
+				Error:       partition.Error,
 				LastOffset:  int64(partition.LastOffset),
 			})
 		}
@@ -78,6 +79,7 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 						GroupOffset: int64(partition.GroupOffset),
 						LastOffset:  int64(partition.LastOffset),
 						Lag:         int64(partition.Lag),
+						LagError:    partition.LagError,
 						Committed:   partition.Committed,
 					})
 				}
@@ -112,6 +114,7 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 					FirstOffset:   int64(partition.FirstOffset),
 					LastOffset:    int64(partition.LastOffset),
 					Lag:           int64(partition.Lag),
+					LagError:      partition.LagError,
 					Committed:     partition.Committed,
 				})
 			}
@@ -127,6 +130,7 @@ func (a *ControlApi) GetTopicStats(ctx context.Context, _ *admincontrol.Empty) (
 
 		result = append(result, &admincontrol.Topic{
 			Name:       string(topic.Name),
+			Error:      topic.Error,
 			Partitions: partitions,
 			Groups:     groups,
 		})

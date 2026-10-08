@@ -3,12 +3,14 @@ package model
 import "time"
 
 type StatTopic struct {
+	Error         string          `json:"error"`
 	Name          TopicName       `json:"name"`
 	PartitionList []StatPartition `json:"partitions"`
 	GroupList     []StatGroup     `json:"groups"`
 }
 
 type StatPartition struct {
+	Error       string     `json:"error"`
 	N           PartitionN `json:"n"`
 	FirstOffset Offset     `json:"firstOffset"`
 	LastOffset  Offset     `json:"lastOffset"`
@@ -41,6 +43,7 @@ type StatConsumer struct {
 }
 
 type StatConsumerPartition struct {
+	LagError    string     `json:"lagError"`
 	N           PartitionN `json:"n"`
 	GroupOffset Offset     `json:"groupOffset"`
 	LastOffset  Offset     `json:"lastOffset"`
@@ -49,6 +52,7 @@ type StatConsumerPartition struct {
 }
 
 type StatGroupPartition struct {
+	LagError      string     `json:"lagError"`
 	N             PartitionN `json:"n"`
 	Offset        Offset     `json:"offset"`
 	FirstOffset   Offset     `json:"firstOffset"`

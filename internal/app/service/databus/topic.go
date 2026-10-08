@@ -87,11 +87,16 @@ func mergeGroupStats(brokerGroup *model.StatGroup, runtimeGroup model.StatGroup)
 func enrichConsumerPartitions(consumer *model.StatConsumer, groupPartitions []model.StatGroupPartition) {
 	for partitionIndex := range consumer.PartitionList {
 		partition := &consumer.PartitionList[partitionIndex]
+		partition.Lag = -1
+		partition.GroupOffset = -1
+		partition.LastOffset = -1
+		partition.LagError = "offsets unavailable: partition missing from metadata"
 		for _, groupPartition := range groupPartitions {
 			if partition.N == groupPartition.N {
 				partition.GroupOffset = groupPartition.Offset
 				partition.LastOffset = groupPartition.LastOffset
 				partition.Lag = groupPartition.Lag
+				partition.LagError = groupPartition.LagError
 				partition.Committed = groupPartition.Committed
 				break
 			}

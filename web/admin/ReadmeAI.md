@@ -78,8 +78,18 @@ retry — колонки `Failed / retries` и `Deferred` (серый бейдж
 `/topic/stat` возвращает все пользовательские Kafka topics, включая те, для которых нет подключённых
 Redbus consumers. Для каждой партиции Kafka `lastOffset` означает high watermark, то есть offset следующего
 сообщения. Для подключённых topic/group backend дополнительно получает состояние Kafka consumer group,
-committed offsets и назначения партиций. Lag считается как `lastOffset - committedOffset`; если offset ещё
-не был committed, начальной точкой считается `firstOffset`, а `committed` остаётся `false`.
+committed offsets и назначения партиций.
+
+Lag is `lastOffset - committedOffset`. Kafka's explicit uncommitted offset (`-1`) uses `firstOffset`
+as the starting point and keeps `committed = false`. A missing response, Kafka metadata/ListOffsets/
+OffsetFetch error, invalid offset or committed offset outside the retained log range makes lag unavailable:
+partition `lagError` contains the reason, and numeric `lag = -1` must not be used in calculations.
+Topic/partition `error` preserves metadata and log-offset failures. The internal admincontrol protobuf
+transports these fields to the HTTP API; deploy Redbus before the admin backend and UI to see reasons.
+The UI also treats negative lag from older servers as unavailable. Totals and maxima are unavailable
+when any input is unknown; a partial sum is never shown as complete. These errors describe offset
+retrieval, not producer publish failures. Focused aggregation regression tests run with
+`node --test tests/lag.test.ts` on Node 24.
 
 `/consumer/stat` — плоский consumer-разрез того же снимка. Он объединяет назначения и offsets из Kafka с
 runtime-метриками Redbus: состоянием соединения, временем подключения и последнего сообщения, количеством

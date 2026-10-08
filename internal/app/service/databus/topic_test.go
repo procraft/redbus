@@ -43,3 +43,12 @@ func TestMergeGroupStatsCombinesBrokerAssignmentsWithRuntimeMetrics(t *testing.T
 	}}, consumer.PartitionList)
 	require.Equal(t, "connected", brokerGroup.PartitionList[0].ConsumerState)
 }
+
+func TestEnrichConsumerPartitionsPreservesFailureAndMissingPartition(t *testing.T) {
+	consumer := model.StatConsumer{PartitionList: []model.StatConsumerPartition{{N: 0}, {N: 1}}}
+	enrichConsumerPartitions(&consumer, []model.StatGroupPartition{{N: 0, Lag: -1, Offset: -1, LastOffset: -1, LagError: "leader unavailable"}})
+	require.Equal(t, "leader unavailable", consumer.PartitionList[0].LagError)
+	require.Equal(t, model.Offset(-1), consumer.PartitionList[0].Lag)
+	require.Contains(t, consumer.PartitionList[1].LagError, "missing from metadata")
+	require.Equal(t, model.Offset(-1), consumer.PartitionList[1].Lag)
+}

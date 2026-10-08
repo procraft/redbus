@@ -66,38 +66,74 @@ func (p *Provider) GetTopicList(ctx context.Context, topicGroups model.TopicGrou
 		Addr:   p.addr,
 		Topics: offsetRequest,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get kafka list offsets: %w", err)
-	}
+	listOffsetsError := err
 	topicList := make([]model.StatTopic, 0, len(metadata.Topics))
 	for _, topic := range metadata.Topics {
 		if topic.Internal || strings.HasPrefix(topic.Name, "__") {
 			continue
 		}
 		partitionList := make([]model.StatPartition, 0)
-		if offsetsList, ok := offsetResp.Topics[topic.Name]; ok {
-			for _, offset := range offsetsList {
-				partitionList = append(partitionList, model.StatPartition{
-					N:           model.PartitionN(offset.Partition),
-					FirstOffset: model.Offset(offset.FirstOffset),
-					LastOffset:  model.Offset(offset.LastOffset),
-				})
+		offsets := make(map[int]kafka.PartitionOffsets)
+		if offsetResp != nil {
+			for _, offset := range offsetResp.Topics[topic.Name] {
+				offsets[offset.Partition] = offset
 			}
+		}
+		topicError := ""
+		if topic.Error != nil {
+			topicError = fmt.Sprintf("metadata unavailable: %v", topic.Error)
+		} else if len(topic.Partitions) == 0 {
+			topicError = "metadata unavailable: no partitions returned"
+		}
+		for _, partition := range topic.Partitions {
+			offset, found := offsets[partition.ID]
+			stat := model.StatPartition{N: model.PartitionN(partition.ID), FirstOffset: -1, LastOffset: -1}
+			switch {
+			case topicError != "":
+				stat.Error = topicError
+			case partition.Error != nil:
+				stat.Error = fmt.Sprintf("metadata unavailable: %v", partition.Error)
+			case listOffsetsError != nil:
+				stat.Error = fmt.Sprintf("offsets unavailable: %v", listOffsetsError)
+			case !found:
+				stat.Error = "offsets unavailable: missing ListOffsets response"
+			case offset.Error != nil:
+				stat.Error = fmt.Sprintf("offsets unavailable: %v", offset.Error)
+			case offset.FirstOffset < 0 || offset.LastOffset < offset.FirstOffset:
+				stat.Error = fmt.Sprintf("invalid offsets: first=%d, last=%d", offset.FirstOffset, offset.LastOffset)
+			default:
+				stat.FirstOffset = model.Offset(offset.FirstOffset)
+				stat.LastOffset = model.Offset(offset.LastOffset)
+			}
+			partitionList = append(partitionList, stat)
 		}
 		topicList = append(topicList, model.StatTopic{
 			Name:          model.TopicName(topic.Name),
+			Error:         topicError,
 			PartitionList: partitionList,
 		})
 	}
-	sort.Slice(topicList, func(i, j int) bool { return topicList[i].Name < topicList[j].Name })
 	for i := range topicList {
 		sort.Slice(topicList[i].PartitionList, func(left, right int) bool {
 			return topicList[i].PartitionList[left].N < topicList[i].PartitionList[right].N
 		})
 	}
+	for _, topicGroup := range topicGroups {
+		found := false
+		for _, topic := range topicList {
+			if topic.Name == topicGroup.Topic {
+				found = true
+				break
+			}
+		}
+		if !found {
+			topicList = append(topicList, model.StatTopic{Name: topicGroup.Topic, Error: "metadata unavailable: topic missing from Kafka response"})
+		}
+	}
 	if err := p.addGroupStats(ctx, topicList, topicGroups); err != nil {
 		return nil, err
 	}
+	sort.Slice(topicList, func(i, j int) bool { return topicList[i].Name < topicList[j].Name })
 	return topicList, nil
 }
 
@@ -150,6 +186,9 @@ func (p *Provider) addGroupStats(
 			State:        description.GroupState,
 			Error:        describeError,
 		}
+		if topic.Error != "" {
+			group.Error = appendGroupError(group.Error, topic.Error)
+		}
 		if description.Error != nil {
 			group.Error = appendGroupError(group.Error, description.Error.Error())
 		}
@@ -179,7 +218,7 @@ func (p *Provider) addGroupStats(
 				for _, partition := range assignment.Partitions {
 					partitionN := model.PartitionN(partition)
 					assignedConsumers[partitionN] = consumerID
-					consumer.PartitionList = append(consumer.PartitionList, model.StatConsumerPartition{N: partitionN})
+					consumer.PartitionList = append(consumer.PartitionList, model.StatConsumerPartition{N: partitionN, Lag: -1, GroupOffset: -1, LastOffset: -1, LagError: "offsets unavailable: partition missing from metadata"})
 				}
 			}
 			group.ConsumerList = append(group.ConsumerList, consumer)
@@ -197,15 +236,40 @@ func (p *Provider) addGroupStats(
 				FirstOffset: partition.FirstOffset,
 				LastOffset:  partition.LastOffset,
 				ConsumerId:  assignedConsumers[partition.N],
+				Lag:         -1,
+				Offset:      -1,
 			}
 			committedOffset, ok := committedOffsets[partition.N]
-			if ok && committedOffset.Error == nil && committedOffset.CommittedOffset >= 0 {
+			switch {
+			case partition.Error != "":
+				groupPartition.LagError = partition.Error
+			case offsetErr != nil:
+				groupPartition.LagError = fmt.Sprintf("committed offset unavailable: %v", offsetErr)
+			case offsetResponse == nil:
+				groupPartition.LagError = "committed offset unavailable: missing OffsetFetch response"
+			case offsetResponse.Error != nil:
+				groupPartition.LagError = fmt.Sprintf("committed offset unavailable: %v", offsetResponse.Error)
+			case !ok:
+				groupPartition.LagError = "committed offset unavailable: missing partition in OffsetFetch response"
+			case committedOffset.Error != nil:
+				groupPartition.LagError = fmt.Sprintf("committed offset unavailable: %v", committedOffset.Error)
+			case committedOffset.CommittedOffset < -1:
+				groupPartition.LagError = fmt.Sprintf("invalid committed offset: %d", committedOffset.CommittedOffset)
+			case committedOffset.CommittedOffset >= 0:
 				groupPartition.Offset = model.Offset(committedOffset.CommittedOffset)
 				groupPartition.Committed = true
-			} else {
+			default:
 				groupPartition.Offset = partition.FirstOffset
 			}
-			groupPartition.Lag = groupPartition.LastOffset - groupPartition.Offset
+			if groupPartition.LagError == "" {
+				if groupPartition.Offset < groupPartition.FirstOffset {
+					groupPartition.LagError = fmt.Sprintf("committed offset %d precedes first retained offset %d", groupPartition.Offset, groupPartition.FirstOffset)
+				} else if groupPartition.Offset > groupPartition.LastOffset {
+					groupPartition.LagError = fmt.Sprintf("committed offset %d exceeds latest offset %d", groupPartition.Offset, groupPartition.LastOffset)
+				} else {
+					groupPartition.Lag = groupPartition.LastOffset - groupPartition.Offset
+				}
+			}
 			group.PartitionList = append(group.PartitionList, groupPartition)
 		}
 		for consumerIndex := range group.ConsumerList {
@@ -216,6 +280,7 @@ func (p *Provider) addGroupStats(
 						consumerPartition.GroupOffset = groupPartition.Offset
 						consumerPartition.LastOffset = groupPartition.LastOffset
 						consumerPartition.Lag = groupPartition.Lag
+						consumerPartition.LagError = groupPartition.LagError
 						consumerPartition.Committed = groupPartition.Committed
 						break
 					}
