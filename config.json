@@ -24,6 +24,7 @@
   },
   "kafka": {
     "hostPort": "127.0.0.1:29092",
+    "messageIdNamespace": "",
     "failTimeout": "5s",
     "createTopicIfNotExists": false,
     "topicNumPartitions": 3,

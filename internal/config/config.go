@@ -129,6 +129,7 @@ type adminConfig struct {
 
 type kafkaConfig struct {
 	HostPort               string                 `json:"hostPort" env:"REDBUS_KAFKA_HOST_PORT"`
+	MessageIdNamespace     string                 `json:"messageIdNamespace" env:"REDBUS_KAFKA_MESSAGE_ID_NAMESPACE"`
 	Credentials            KafkaCredentialsConfig `json:"credentials"`
 	FailTimeout            model.Duration         `json:"failTimeout,string" env:"REDBUS_KAFKA_FAIL_TIMEOUT"`
 	CreateTopicIfNotExists bool                   `json:"createTopicIfNotExists" env:"REDBUS_KAFKA_CREATE_TOPIC"`

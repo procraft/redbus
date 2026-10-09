@@ -70,6 +70,25 @@ RED Bus will do the rest for you.
    - [GoLang client](./example/golang/README.md)
    - [Scala client](./example/scala/README.md)
 
+## Kafka message identity
+
+`kafka.messageIdNamespace` (`REDBUS_KAFKA_MESSAGE_ID_NAMESPACE`) is empty by default, preserving
+message IDs as `partition/offset`. A nonempty value, for example `temporary-20261009`, produces
+`temporary-20261009/partition/offset`. This separates SDK inbox fallback keys when a replacement
+Kafka cluster starts its offsets again. Explicit producer idempotency keys are preserved, so a replay
+of the same event can still be deduplicated across clusters.
+
+The namespace belongs to the Kafka data generation: use the same value on all RED Bus instances and
+keep it across restarts while reusing the same Kafka disk/PVC. Choose a new value when Kafka data is
+recreated from scratch. Avoid mixed namespaces or old/new bus versions consuming the replacement
+cluster during rollout. When returning to an original cluster that used unprefixed IDs, restore the
+empty namespace; otherwise its retained messages can be processed again. Remove the emergency env
+override and clear any namespace in configuration files: an empty env value does not clear a nonempty
+file setting. Stored retries retain their original IDs and headers. This setting does not migrate
+Kafka records or consumer group offsets.
+
+See [Kafka consumer module context](internal/pkg/kafka/consumer/ReadmeAI.md) for the owning invariants.
+
 ## Consume stream safety
 
 The bus protects itself from a client that stops answering. Relevant `config.json` keys (each with a

@@ -17,7 +17,7 @@ import (
 )
 
 func (b *DataBus) CreateConsumer(ctx context.Context, kafkaHost []string, credentials *credential.Conf, topic model.TopicName, group model.GroupName, id model.ConsumerId, batchSize int) (model.IConsumer, error) {
-	options := []consumer.Option{}
+	options := []consumer.Option{consumer.WithMessageIdNamespace(b.conf.Kafka.MessageIdNamespace)}
 	if batchSize != 0 {
 		options = append(options, consumer.WithBatchSize(batchSize))
 	}

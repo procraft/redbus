@@ -33,9 +33,10 @@ type Consumer struct {
 }
 
 type conf struct {
-	log         bool
-	credentials *credential.Conf
-	batchSize   int
+	log                bool
+	credentials        *credential.Conf
+	batchSize          int
+	messageIdNamespace string
 }
 
 func New(
@@ -260,7 +261,7 @@ func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, 
 	fn := func() error {
 		topic := c.topic
 		offset := mList[len(mList)-1].Offset
-		list := toMessageList(mList)
+		list := toMessageList(mList, c.conf.messageIdNamespace)
 
 		if c.conf.log {
 			logger.Debug(ctx, "Receive %d kafka message at topic/offset %v/%v: %v", len(mList), topic, offset, list)
@@ -291,15 +292,19 @@ func (c *Consumer) processAndCommit(ctx context.Context, mList []kafka.Message, 
 // Id обязан строиться из партиции самого сообщения: при batchSize > 1 батч собирается из разных
 // партиций, а общая партиция подменяла бы id, схлопывала сообщения в MessageList.IndexByID и
 // отправляла их в retry с чужим MessageId.
-func toMessageList(mList []kafka.Message) kpkg.MessageList {
+func toMessageList(mList []kafka.Message, namespace string) kpkg.MessageList {
 	list := make(kpkg.MessageList, 0, len(mList))
 	for _, m := range mList {
 		headers := make(map[string]string, len(m.Headers))
 		for _, h := range m.Headers {
 			headers[h.Key] = string(h.Value)
 		}
+		id := fmt.Sprintf("%v/%v", m.Partition, m.Offset)
+		if namespace != "" {
+			id = namespace + "/" + id
+		}
 		list = append(list, kpkg.Message{
-			Id:      fmt.Sprintf("%v/%v", m.Partition, m.Offset),
+			Id:      id,
 			Key:     m.Key,
 			Value:   m.Value,
 			Headers: headers,

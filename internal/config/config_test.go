@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -40,4 +41,22 @@ func TestLokiConfigFromEnvWithProcessDefaults(t *testing.T) {
 	require.NoError(t, err)
 	_, err = conf.Log.Loki.Logger("redbus")
 	require.ErrorContains(t, err, "log.loki.level")
+}
+
+func TestKafkaMessageIdNamespaceFromFileAndEnv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("REDBUS_KAFKA_MESSAGE_ID_NAMESPACE", "")
+	conf, err := FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Empty(t, conf.Kafka.MessageIdNamespace)
+
+	require.NoError(t, os.WriteFile(path, []byte(`{"kafka":{"messageIdNamespace":"file-generation"}}`), 0600))
+	conf, err = FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Equal(t, "file-generation", conf.Kafka.MessageIdNamespace)
+
+	t.Setenv("REDBUS_KAFKA_MESSAGE_ID_NAMESPACE", "env-generation")
+	conf, err = FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Equal(t, "env-generation", conf.Kafka.MessageIdNamespace)
 }
