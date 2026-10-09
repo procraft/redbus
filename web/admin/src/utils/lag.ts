@@ -27,10 +27,12 @@ export function topicLag(topic: TopicStat) {
       !(group.partitions?.length) ? `${group.name}: No partition offsets available` : '',
     ]),
   ];
-  return summarizeLag(groups.flatMap((group) => (group.partitions ?? []).map((partition) => ({
+  const lag = summarizeLag(groups.flatMap((group) => (group.partitions ?? []).map((partition) => ({
     ...partition,
     lagError: partition.lagError ? `${group.name}: ${partition.lagError}` : '',
   }))), errors);
+  const noGroups = groups.length === 0 && !errors.some(Boolean);
+  return { ...lag, noGroups, reason: noGroups ? 'No consumer groups' : lag.reason };
 }
 
 export function formatLag(value: number | null) {

@@ -41,6 +41,7 @@ type TopicOverviewItem = {
   groupCount: number;
   consumerCount: number;
   totalLag: number | null;
+  noGroups: boolean;
   lagReason: string;
   rate: number;
   lastMessageAt: string | null;
@@ -94,6 +95,7 @@ function buildOverview(topics: TopicStat[], repeats: RepeatStat[]): TopicOvervie
         groupCount: groups.length,
         consumerCount: consumers.length,
         totalLag: lag.total,
+        noGroups: lag.noGroups,
         lagReason: lag.reason,
         rate,
         lastMessageAt,
@@ -112,7 +114,8 @@ function buildOverview(topics: TopicStat[], repeats: RepeatStat[]): TopicOvervie
     .sort(
       (left, right) =>
         right.errorCount - left.errorCount ||
-        (right.totalLag ?? 0) - (left.totalLag ?? 0) ||
+        Number(left.totalLag === null) - Number(right.totalLag === null) ||
+        (left.totalLag !== null && right.totalLag !== null ? right.totalLag - left.totalLag : 0) ||
         left.name.localeCompare(right.name),
     );
 }
@@ -138,12 +141,12 @@ function TopicTile({ topic, onOpen }: { topic: TopicOverviewItem; onOpen: () => 
       <Text size="sm" fw={700}>
         {topic.name}
       </Text>
-      <Text size="xs">{topic.totalLag === null ? 'Lag unavailable' : statusLabel[topic.status]}</Text>
+      <Text size="xs">{topic.noGroups ? 'No consumer groups' : topic.totalLag === null ? 'Lag unavailable' : statusLabel[topic.status]}</Text>
       <Text size="xs">
         {topic.groupCount} group(s), {topic.consumerCount} consumer(s)
       </Text>
-      <Text size="xs">Total lag: {formatLag(topic.totalLag)}</Text>
-      {topic.totalLag === null && <Text size="xs">{topic.lagReason}</Text>}
+      <Text size="xs">Total lag: {topic.noGroups ? '—' : formatLag(topic.totalLag)}</Text>
+      {topic.totalLag === null && !topic.noGroups && <Text size="xs">{topic.lagReason}</Text>}
       <Text size="xs">Failed repeats: {numberFormatter.format(topic.errorCount)}</Text>
       <Text size="xs">Deferred: {numberFormatter.format(topic.deferredCount)}</Text>
       <Text size="xs">Last message: {formatDate(topic.lastMessageAt)}</Text>
@@ -173,8 +176,8 @@ function TopicTile({ topic, onOpen }: { topic: TopicOverviewItem; onOpen: () => 
           </Badge>
         </Group>
         <Group gap={6} justify="space-between" wrap="nowrap">
-          <Text size="xs" fw={600} c={topic.totalLag === null ? 'red' : topic.totalLag > 0 ? 'orange' : undefined} className="topic-tile-metric">
-            Lag {topic.totalLag === null ? 'unavailable' : compactNumber(topic.totalLag)}
+          <Text size="xs" fw={600} c={topic.noGroups ? 'dimmed' : topic.totalLag === null ? 'red' : topic.totalLag > 0 ? 'orange' : undefined} className="topic-tile-metric">
+            {topic.noGroups ? 'No consumer groups' : `Lag ${topic.totalLag === null ? 'unavailable' : compactNumber(topic.totalLag)}`}
           </Text>
           {topic.errorCount > 0 ? (
             <Text size="xs" fw={700} className="topic-tile-metric topic-tile-errors">
@@ -189,7 +192,7 @@ function TopicTile({ topic, onOpen }: { topic: TopicOverviewItem; onOpen: () => 
           )}
         </Group>
         <Text size="xs" className="topic-tile-metric topic-tile-muted" truncate>
-          {topic.totalLag === null ? topic.lagReason : `${topic.rate.toFixed(2)} msg/s avg`}
+          {topic.totalLag === null && !topic.noGroups ? topic.lagReason : `${topic.rate.toFixed(2)} msg/s avg`}
         </Text>
         <Text size="xs" className="topic-tile-metric topic-tile-muted" truncate>
           Last: {formatAge(topic.lastMessageAt)}

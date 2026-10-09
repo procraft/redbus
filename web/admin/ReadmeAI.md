@@ -91,6 +91,11 @@ when any input is unknown; a partial sum is never shown as complete. These error
 retrieval, not producer publish failures. Focused aggregation regression tests run with
 `node --test tests/lag.test.ts` on Node 24.
 
+A topic with no consumer groups and no explicit Kafka errors has no group lag to measure. Overview
+tiles and topic details show neutral `No consumer groups` and keep lag totals unknown; they never
+invent zero. This depends on group presence, not consumer count: an inactive known group retains its
+computed lag. Explicit topic/partition failures and known groups with missing offsets remain warnings.
+
 `/consumer/stat` — плоский consumer-разрез того же снимка. Он объединяет назначения и offsets из Kafka с
 runtime-метриками Redbus: состоянием соединения, временем подключения и последнего сообщения, количеством
 обработанных сообщений, reconnects, retry strategy и последней ошибкой. Runtime-метрики живут в памяти

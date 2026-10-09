@@ -30,8 +30,9 @@ type TopicSummary = {
   consumerCount: number;
   totalLag: number | null;
   maxLag: number | null;
+  noGroups: boolean;
   reason: string;
-  status: 'empty' | 'healthy' | 'lagging' | 'no-consumers' | 'unavailable';
+  status: 'empty' | 'healthy' | 'lagging' | 'no-groups' | 'unavailable';
 };
 
 function summarizeTopic(topic: TopicStat): TopicSummary {
@@ -50,17 +51,18 @@ function summarizeTopic(topic: TopicStat): TopicSummary {
     consumerCount,
     totalLag,
     maxLag,
+    noGroups: lag.noGroups,
     reason: lag.reason,
     status:
-      retained === null || (groups.length > 0 && totalLag === null)
-        ? 'unavailable'
-        : groups.length === 0
-        ? 'no-consumers'
-        : (totalLag ?? 0) > 0
-          ? 'lagging'
-          : retained === 0
-            ? 'empty'
-            : 'healthy',
+      lag.noGroups
+        ? 'no-groups'
+        : retained === null || totalLag === null
+          ? 'unavailable'
+          : (totalLag ?? 0) > 0
+            ? 'lagging'
+            : retained === 0
+              ? 'empty'
+              : 'healthy',
   };
 }
 
@@ -69,7 +71,7 @@ function topicStatusBadge(status: TopicSummary['status']) {
     empty: { color: 'gray', label: 'Empty' },
     healthy: { color: 'teal', label: 'Healthy' },
     lagging: { color: 'orange', label: 'Lagging' },
-    'no-consumers': { color: 'yellow', label: 'No consumers' },
+    'no-groups': { color: 'gray', label: 'No consumer groups' },
     unavailable: { color: 'red', label: 'Offsets unavailable' },
   }[status];
   return <Badge color={options.color}>{options.label}</Badge>;
@@ -255,13 +257,13 @@ export function TopicList() {
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </ActionIcon>
                       </Table.Td>
-                      <Table.Td fw={700}>{topic.name}{summary.totalLag === null && <Text c="red" size="xs" fw={400}>{summary.reason}</Text>}</Table.Td>
+                      <Table.Td fw={700}>{topic.name}{summary.totalLag === null && <Text c={summary.noGroups ? 'dimmed' : 'red'} size="xs" fw={400}>{summary.reason}</Text>}</Table.Td>
                       <Table.Td>{topic.partitions?.length ?? 0}</Table.Td>
                       <Table.Td>{formatLag(summary.retained)}</Table.Td>
                       <Table.Td>{topic.groups?.length ?? 0}</Table.Td>
                       <Table.Td>{summary.consumerCount}</Table.Td>
-                      <Table.Td>{formatLag(summary.totalLag)}</Table.Td>
-                      <Table.Td>{formatLag(summary.maxLag)}</Table.Td>
+                      <Table.Td>{summary.noGroups ? '—' : formatLag(summary.totalLag)}</Table.Td>
+                      <Table.Td>{summary.noGroups ? '—' : formatLag(summary.maxLag)}</Table.Td>
                       <Table.Td>{topicStatusBadge(summary.status)}</Table.Td>
                     </Table.Tr>
                     {(topic.groups?.length ?? 0) > 0 && (
