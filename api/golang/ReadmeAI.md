@@ -30,6 +30,22 @@ counterpart is `api/scala/redbus`. Read this before changing the SDK; usage is i
 - A transaction outside `database/sql` fits `outbox.Execer` through a method with the same
   signature `ExecContext(ctx, query, args ...any) (sql.Result, error)`, or opens through pgx `stdlib`.
 
+## Message size limit
+
+- Every produce path checks `len(message)` (payload bytes: the Kafka record value and
+  `redbus_outbox.message`; topic, key, headers excluded) through `producer.CheckMessageSize`; default
+  `producer.DefaultMaxMessageBytes` = 256 KiB, the same as the Scala SDK. Kafka rejects ~1 MB and the
+  bus's gRPC server 4 MiB; an oversized outbox row was never deliverable and blocked its topic.
+- `*producer.MessageTooLargeError{Topic, Size, Limit}` matches `producer.ErrMessageTooLarge` with
+  `errors.Is`. Direct produce returns it without calling the bus; `outbox.WriteWithLimit` returns it
+  before `ExecContext`, so no row exists and the caller rolls back. Never truncate.
+- Configuration: `Settings.MaxMessageBytes` (0 = default, negative fails `Validate`), handed to the
+  gRPC producer by `newGRPCTransport` (`producer.WithMaxMessageBytes`) — otherwise a raised client
+  limit would still hit the producer's default. `Client.Produce` checks before the transport, so the
+  fake-transport tests cover it; a disabled side does not check. `outbox.Write` and a `producer.New`
+  without the option keep the default.
+- The flusher and `ProduceBatch` do not check; `WithBatchSize` bounds rows, not bytes.
+
 ## Cross-SDK compatibility
 
 Both SDKs write the same client tables, so a service may switch SDKs without migration:

@@ -23,7 +23,7 @@ type grpcTransport struct {
 }
 
 func newGRPCTransport(c *Client) (*grpcTransport, error) {
-	p, err := producer.New(c.settings.Host, c.settings.Port)
+	p, err := producer.New(c.settings.Host, c.settings.Port, producer.WithMaxMessageBytes(c.settings.maxMessageBytes()))
 	if err != nil {
 		return nil, err
 	}

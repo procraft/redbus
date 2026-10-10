@@ -12,6 +12,9 @@ import scala.concurrent.{ExecutionContext, Future}
  * @param produceBatchTimeout deadline of one batch request of the outbox flusher (default 30 s)
  * @param errorLogger         receives every failed outbox flush pass with its cause; when absent
  *                            the report goes to `logger`, as in releases before 0.4.7
+ * @param maxMessageBytes     limit of one message payload for `produce` and `produceDba` (default
+ *                            256 KiB, `Producer.defaultMaxMessageBytes`); a longer payload fails with
+ *                            `producer.MessageTooLargeException`
  */
 case class Client(
   host: String,
@@ -20,24 +23,40 @@ case class Client(
   produceTimeout: FiniteDuration = Producer.defaultProduceTimeout,
   produceBatchTimeout: FiniteDuration = Producer.defaultProduceBatchTimeout,
   errorLogger: scala.Option[(String, Throwable) => Unit] = None,
+  maxMessageBytes: Int = Producer.defaultMaxMessageBytes,
 )(implicit ec: ExecutionContext) {
   require(produceTimeout.length > 0, "produceTimeout must be positive")
   require(produceBatchTimeout.length > 0, "produceBatchTimeout must be positive")
+  require(maxMessageBytes > 0, "maxMessageBytes must be positive")
 
   private lazy val grpcClientFactory = new GrpcClientFactory(ActorSystem.create())
   private lazy val grpc = grpcClientFactory.get(host, port, RedbusServiceGrpc.stub)
 
   /**
-   * Publishes directly over gRPC. Fails with `producer.ProduceTimeoutException` when the bus does
-   * not answer within `produceTimeout`; the outcome of such a call is unknown.
+   * Publishes directly over gRPC. Fails with `producer.MessageTooLargeException` without calling the
+   * bus when the payload is longer than `maxMessageBytes`, and with
+   * `producer.ProduceTimeoutException` when the bus does not answer within `produceTimeout`; the
+   * outcome of a timed-out call is unknown.
    */
   def produce(
     topic: String,
     message: Array[Byte],
     options: producer.Option.Fn*,
   ): Future[Boolean] = {
-    Producer.produceWithTimeout(grpc, produceTimeout, topic, message, options: _*)
+    Producer.produceWithLimits(grpc, produceTimeout, maxMessageBytes, topic, message, options: _*)
   }
+
+  /**
+   * Transactional outbox write (`producer.Producer.produceDbaWithLimit`) with this client's
+   * `maxMessageBytes`: a longer payload fails the action with `producer.MessageTooLargeException`,
+   * so no row is written and the caller's transaction rolls back.
+   */
+  def produceDba(
+    topic: String,
+    message: Array[Byte],
+    options: producer.Option.Fn*,
+  ): slick.dbio.DBIOAction[Int, slick.dbio.NoStream, slick.dbio.Effect.Write] =
+    Producer.produceDbaWithLimit(topic, message, maxMessageBytes, options: _*)
 
   /**
    * Starts the transactional-outbox flusher for rows written with `producer.Producer.produceDba`.

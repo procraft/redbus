@@ -47,7 +47,7 @@ import sergiusd.redbus.{ProtoClient, RedbusSettings}
 import sergiusd.redbus.consumer.{Inbox, InboxMode}
 
 val bus = ProtoClient(
-  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize, produceTimeout, produceBatchTimeout]
+  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize, produceTimeout, produceBatchTimeout, maxMessageBytes]
   db,                                  // any Slick JdbcProfile database, no cast needed
   lifecycle.addStopHook,               // consumer shutdown registration
   ProtoClient.Log(debug = log.debug(_), info = log.info(_), error = log.error(_, _)),
@@ -98,6 +98,36 @@ in `redbus_outbox` and sends it again on the next pass.
 
 Upgrading from 0.4.4 needs no code change; the only behavioural difference is that a call which used
 to wait forever now fails after 30 seconds.
+
+### Message size limit
+
+Since **0.4.9**, every produce path rejects a message whose payload is longer than
+`maxMessageBytes` (default **256 KiB**, `Producer.defaultMaxMessageBytes`). The size is the length
+of the payload bytes — for `ProtoClient`, the serialized ScalaPB message — which is exactly the Kafka
+record value and the `redbus_outbox.message` column; topic, key and headers are not counted.
+
+Why: Kafka rejects a record above its `message.max.bytes` (about 1 MB by default, `[10] Message Size
+Too Large`) and the bus's gRPC server rejects a request above 4 MiB. Such a message can never be
+delivered; written to the outbox, it stays at the head of its topic and the flusher retries it
+forever, holding back every later row of that topic.
+
+| Path | On a too-large payload |
+|------|------------------------|
+| `ProtoClient.produceProto`, `Client.produce`, `Producer.produceWithLimits` | failed `Future` with `producer.MessageTooLargeException(topic, sizeBytes, maxBytes)`; the bus is not called |
+| `ProtoClient.produceProtoDba`, `Client.produceDba`, `Producer.produceDbaWithLimit` | `DBIO.failed(MessageTooLargeException)`: no row is written and the caller's `transactionally` rolls back |
+| `Producer.produce`, `Producer.produceWithTimeout`, `Producer.produceDba` (no client) | the same, with the default limit |
+
+Nothing is truncated. A disabled producer stays a no-op and does not check the size.
+
+Configure it on `RedbusSettings` (`maxMessageBytes = 512K` or a plain number of bytes in the config
+section) or on the lower-level client: `Client(host, port, maxMessageBytes = 512 * 1024)`. It must be
+positive.
+
+**Upgrade note.** The limit is on by default: a service that currently sends payloads above 256 KiB
+starts getting `MessageTooLargeException` when it raises its pin to 0.4.9. Before upgrading, check
+the largest payloads per topic and either make them smaller (for example, send a reference to stored
+content instead of the content) or raise `maxMessageBytes` explicitly for that client. The outbox
+flusher itself is unchanged: rows written by older versions are delivered as before.
 
 Migrating a service wrapper: build `RedbusSettings` from the existing config section (or construct it
 from the service's typed config), replace the private `redbus.Client` with `ProtoClient`, delete the

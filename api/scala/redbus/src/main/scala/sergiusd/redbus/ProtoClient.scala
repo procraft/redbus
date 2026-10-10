@@ -35,25 +35,34 @@ final class ProtoClient private[redbus] (
 
   /**
    * Publishes directly over gRPC; `false` when the producer is disabled or the bus rejected it. Fails
-   * with `producer.ProduceTimeoutException` when the bus does not answer within
-   * `settings.produceTimeout`; the outcome of such a call is unknown.
+   * with `producer.MessageTooLargeException` without calling the bus when the serialized message is
+   * longer than `settings.maxMessageBytes`, and with `producer.ProduceTimeoutException` when the bus
+   * does not answer within `settings.produceTimeout`; the outcome of a timed-out call is unknown.
    */
   def produceProto[T <: GeneratedMessage](topic: String, message: T, options: producer.Option.Fn*): Future[Boolean] =
     bus match {
-      case Some(b) if settings.producerEnabled => b.produce(topic, message.toByteArray, options: _*)
+      case Some(b) if settings.producerEnabled =>
+        val data = message.toByteArray
+        producer.Producer.tooLarge(topic, data, settings.maxMessageBytes) match {
+          case Some(e) => Future.failed(e)
+          case None => b.produce(topic, data, options: _*)
+        }
       case _ => Future.successful(false)
     }
 
   /**
    * Transactional outbox: inserts the message into `redbus_outbox` inside the caller's transaction;
-   * [[startFlusher]] delivers it. Writes nothing (0 rows) when the producer is disabled.
+   * [[startFlusher]] delivers it. Writes nothing (0 rows) when the producer is disabled. A serialized
+   * message longer than `settings.maxMessageBytes` gives `DBIO.failed(producer.MessageTooLargeException)`,
+   * so no row is written and the caller's transaction rolls back.
    */
   def produceProtoDba[T <: GeneratedMessage](
     topic: String,
     message: T,
     options: producer.Option.Fn*,
   ): DBIOAction[Int, NoStream, Effect.Write] =
-    if (settings.producerEnabled) producer.Producer.produceDba(topic, message.toByteArray, options: _*)
+    if (settings.producerEnabled)
+      producer.Producer.produceDbaWithLimit(topic, message.toByteArray, settings.maxMessageBytes, options: _*)
     else DBIOAction.successful(0)
 
   /**
@@ -122,6 +131,7 @@ object ProtoClient {
       settings.produceTimeout,
       settings.produceBatchTimeout,
       errorLogger = Some(log.error),
+      maxMessageBytes = settings.maxMessageBytes,
     )
 
   /** Log sinks of the client; each defaults to discarding. */

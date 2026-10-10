@@ -164,3 +164,56 @@ func TestSettingsValidate(t *testing.T) {
 	require.Error(t, Settings{Port: 1, ConsumerEnabled: true, OutboxBatchSize: -1}.Validate())
 	require.Equal(t, outbox.DefaultBatchSize, Settings{}.batchSize())
 }
+
+type recordingExecer struct{ execs int }
+
+func (r *recordingExecer) ExecContext(context.Context, string, ...any) (sql.Result, error) {
+	r.execs++
+	return nil, nil
+}
+
+func TestMaxMessageBytesFromSettings(t *testing.T) {
+	bus := &fakeTransport{}
+	c := newTestClient(Settings{Port: 1, ProducerEnabled: true, MaxMessageBytes: 10}, bus, nil)
+	ctx := context.Background()
+
+	sent, err := c.Produce(ctx, "t", make([]byte, 10))
+	require.NoError(t, err)
+	require.True(t, sent)
+	sent, err = c.Produce(ctx, "t", make([]byte, 11))
+	require.Equal(t, &producer.MessageTooLargeError{Topic: "t", Size: 11, Limit: 10}, err)
+	require.False(t, sent)
+	require.Len(t, bus.produced, 1)
+
+	tx := &recordingExecer{}
+	require.NoError(t, c.ProduceTx(ctx, tx, "t", make([]byte, 10)))
+	require.ErrorIs(t, c.ProduceTx(ctx, tx, "t", make([]byte, 11)), producer.ErrMessageTooLarge)
+	require.Equal(t, 1, tx.execs)
+}
+
+func TestProduceProtoChecksSerializedSize(t *testing.T) {
+	bus := &fakeTransport{}
+	// A ProduceRequest with only Topic set serializes to 2 + len(Topic) bytes.
+	message := &pb.ProduceRequest{Topic: "12345678"}
+	require.Equal(t, 10, proto.Size(message))
+	c := newTestClient(Settings{Port: 1, ProducerEnabled: true, MaxMessageBytes: 10}, bus, nil)
+	ctx := context.Background()
+
+	_, err := c.ProduceProto(ctx, "t", message)
+	require.NoError(t, err)
+	tx := &recordingExecer{}
+	require.NoError(t, c.ProduceProtoTx(ctx, tx, "t", message))
+
+	c = newTestClient(Settings{Port: 1, ProducerEnabled: true, MaxMessageBytes: 9}, bus, nil)
+	_, err = c.ProduceProto(ctx, "t", message)
+	require.ErrorIs(t, err, producer.ErrMessageTooLarge)
+	require.ErrorIs(t, c.ProduceProtoTx(ctx, tx, "t", message), producer.ErrMessageTooLarge)
+	require.Len(t, bus.produced, 1)
+	require.Equal(t, 1, tx.execs)
+}
+
+func TestMaxMessageBytesDefaultAndValidation(t *testing.T) {
+	require.Equal(t, producer.DefaultMaxMessageBytes, Settings{}.maxMessageBytes())
+	require.Equal(t, 1000, Settings{MaxMessageBytes: 1000}.maxMessageBytes())
+	require.ErrorContains(t, Settings{MaxMessageBytes: -1}.Validate(), "maxMessageBytes must not be negative")
+}

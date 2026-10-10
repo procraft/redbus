@@ -19,6 +19,12 @@ object Producer {
   val defaultProduceTimeout: FiniteDuration = 30.seconds
   /** Default deadline of one `ProduceBatch` call (the outbox flusher). */
   val defaultProduceBatchTimeout: FiniteDuration = 30.seconds
+  /**
+   * Default limit of one message payload, in bytes (256 KiB). Kafka rejects records above its
+   * `message.max.bytes` (about 1 MB by default) and the bus's gRPC server a request above 4 MiB, so a
+   * larger payload could never be delivered and, in the outbox, would hold back its topic.
+   */
+  val defaultMaxMessageBytes: Int = 256 * 1024
 
   /** Publishes one message with the [[defaultProduceTimeout]] deadline. */
   def produce(
@@ -30,8 +36,8 @@ object Producer {
     produceWithTimeout(grpcClient, defaultProduceTimeout, topic, message, options: _*)
 
   /**
-   * Publishes one message; the future fails with [[ProduceTimeoutException]] when the bus does not
-   * answer within `timeout`.
+   * Publishes one message with the [[defaultMaxMessageBytes]] limit; the future fails with
+   * [[ProduceTimeoutException]] when the bus does not answer within `timeout`.
    */
   def produceWithTimeout(
     grpcClient: RedbusServiceGrpc.RedbusServiceStub,
@@ -39,9 +45,37 @@ object Producer {
     topic: String,
     message: Array[Byte],
     options: producer.Option.Fn*,
-  )(implicit ec: ExecutionContext): Future[Boolean] = {
-    val req = prepareRequest(topic, message, options: _*)
-    withDeadline(grpcClient, topic, timeout)(_.produce(req)).map(_.ok)
+  )(implicit ec: ExecutionContext): Future[Boolean] =
+    produceWithLimits(grpcClient, timeout, defaultMaxMessageBytes, topic, message, options: _*)
+
+  /**
+   * Publishes one message. The future fails with [[MessageTooLargeException]] without calling the bus
+   * when the payload is longer than `maxMessageBytes`, and with [[ProduceTimeoutException]] when the
+   * bus does not answer within `timeout`.
+   */
+  def produceWithLimits(
+    grpcClient: RedbusServiceGrpc.RedbusServiceStub,
+    timeout: FiniteDuration,
+    maxMessageBytes: Int,
+    topic: String,
+    message: Array[Byte],
+    options: producer.Option.Fn*,
+  )(implicit ec: ExecutionContext): Future[Boolean] =
+    tooLarge(topic, message, maxMessageBytes) match {
+      case Some(e) => Future.failed(e)
+      case None =>
+        val req = prepareRequest(topic, message, options: _*)
+        withDeadline(grpcClient, topic, timeout)(_.produce(req)).map(_.ok)
+    }
+
+  /**
+   * The error for a payload longer than `maxMessageBytes`, `None` when it fits. The size is
+   * `message.length`: the payload bytes, without topic, key or headers.
+   */
+  def tooLarge(topic: String, message: Array[Byte], maxMessageBytes: Int): scala.Option[MessageTooLargeException] = {
+    require(maxMessageBytes > 0, "maxMessageBytes must be positive")
+    if (message.length > maxMessageBytes) Some(MessageTooLargeException(topic, message.length, maxMessageBytes))
+    else None
   }
 
   /**
@@ -68,7 +102,30 @@ object Producer {
     }
   }
 
+  /** Transactional outbox write with the [[defaultMaxMessageBytes]] limit; see [[produceDbaWithLimit]]. */
   def produceDba(
+    topic: String,
+    message: Array[Byte],
+    options: producer.Option.Fn*,
+  ): DBIOAction[Int, NoStream, Effect.Write] =
+    produceDbaWithLimit(topic, message, defaultMaxMessageBytes, options: _*)
+
+  /**
+   * Transactional outbox: inserts the message into `redbus_outbox` inside the caller's transaction.
+   * A payload longer than `maxMessageBytes` gives `DBIO.failed(MessageTooLargeException)`: no row is
+   * written and the caller's transaction rolls back.
+   */
+  def produceDbaWithLimit(
+    topic: String,
+    message: Array[Byte],
+    maxMessageBytes: Int,
+    options: producer.Option.Fn*,
+  ): DBIOAction[Int, NoStream, Effect.Write] = tooLarge(topic, message, maxMessageBytes) match {
+    case Some(e) => DBIO.failed(e)
+    case None => insert(topic, message, options: _*)
+  }
+
+  private def insert(
     topic: String,
     message: Array[Byte],
     options: producer.Option.Fn*,
