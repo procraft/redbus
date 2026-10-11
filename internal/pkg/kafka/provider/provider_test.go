@@ -127,3 +127,52 @@ func TestGetTopicListIncludesEveryPartitionAndBrokerGroupStats(t *testing.T) {
 		{N: 1, GroupOffset: 5, LastOffset: 20, Lag: 15},
 	}, group.ConsumerList[0].PartitionList)
 }
+
+// liveKafkaClientStub models a busy topic: before every OffsetFetch the producer appends messages and
+// the consumer commits all of them, so the high watermark keeps moving while stats are collected.
+type liveKafkaClientStub struct {
+	kafkaClientStub
+	highWatermark int64
+	calls         []string
+}
+
+func (s *liveKafkaClientStub) ListOffsets(context.Context, *kafka.ListOffsetsRequest) (*kafka.ListOffsetsResponse, error) {
+	s.calls = append(s.calls, "ListOffsets")
+	return &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{
+		"orders": {
+			{Partition: 0, FirstOffset: 0, LastOffset: s.highWatermark},
+			{Partition: 1, FirstOffset: 0, LastOffset: s.highWatermark},
+		},
+	}}, nil
+}
+
+func (s *liveKafkaClientStub) OffsetFetch(context.Context, *kafka.OffsetFetchRequest) (*kafka.OffsetFetchResponse, error) {
+	s.calls = append(s.calls, "OffsetFetch")
+	s.highWatermark += 2
+	return &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{
+		"orders": {
+			{Partition: 0, CommittedOffset: s.highWatermark},
+			{Partition: 1, CommittedOffset: s.highWatermark},
+		},
+	}}, nil
+}
+
+func TestGetTopicListFetchesCommittedOffsetsBeforeHighWatermark(t *testing.T) {
+	client := &liveKafkaClientStub{highWatermark: 10}
+	provider := &Provider{client: client, addr: kafka.TCP("localhost:9092")}
+
+	topics, err := provider.GetTopicList(context.Background(), model.TopicGroupList{
+		{Topic: "orders", Group: "billing"},
+		{Topic: "orders", Group: "audit"},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"OffsetFetch", "OffsetFetch", "ListOffsets"}, client.calls)
+	require.Len(t, topics[0].GroupList, 2)
+	for _, group := range topics[0].GroupList {
+		for _, partition := range group.PartitionList {
+			require.Empty(t, partition.LagError, "group %s partition %d", group.Name, partition.N)
+			require.GreaterOrEqual(t, partition.Lag, model.Offset(0))
+		}
+	}
+}

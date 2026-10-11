@@ -84,6 +84,9 @@ Lag is `lastOffset - committedOffset`. Kafka's explicit uncommitted offset (`-1`
 as the starting point and keeps `committed = false`. A missing response, Kafka metadata/ListOffsets/
 OffsetFetch error, invalid offset or committed offset outside the retained log range makes lag unavailable:
 partition `lagError` contains the reason, and numeric `lag = -1` must not be used in calculations.
+The provider fetches committed group offsets before ListOffsets: consumers keep committing during
+collection, so the reverse order reports a false `exceeds latest offset` on busy topics. Lag may be
+slightly overestimated, never negative; a remaining `exceeds latest offset` means the log really shrank.
 Topic/partition `error` preserves metadata and log-offset failures. The internal admincontrol protobuf
 transports these fields to the HTTP API; deploy Redbus before the admin backend and UI to see reasons.
 The UI also treats negative lag from older servers as unavailable. Totals and maxima are unavailable

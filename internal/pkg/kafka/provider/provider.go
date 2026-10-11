@@ -51,6 +51,10 @@ func (p *Provider) GetTopicList(ctx context.Context, topicGroups model.TopicGrou
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get kafka metadata: %w", err)
 	}
+	// Committed group offsets are fetched before the log offsets: consumers keep committing while the
+	// stats are collected, so a high watermark read first can lag behind a later commit and show a false
+	// "exceeds latest offset". In this order committed <= high watermark holds unless the log really shrank.
+	groupOffsets := p.fetchGroupOffsets(ctx, metadata, topicGroups)
 	offsetRequest := make(map[string][]kafka.OffsetRequest, len(metadata.Topics))
 	for _, topic := range metadata.Topics {
 		if topic.Internal || strings.HasPrefix(topic.Name, "__") {
@@ -130,17 +134,56 @@ func (p *Provider) GetTopicList(ctx context.Context, topicGroups model.TopicGrou
 			topicList = append(topicList, model.StatTopic{Name: topicGroup.Topic, Error: "metadata unavailable: topic missing from Kafka response"})
 		}
 	}
-	if err := p.addGroupStats(ctx, topicList, topicGroups); err != nil {
+	if err := p.addGroupStats(ctx, topicList, topicGroups, groupOffsets); err != nil {
 		return nil, err
 	}
 	sort.Slice(topicList, func(i, j int) bool { return topicList[i].Name < topicList[j].Name })
 	return topicList, nil
 }
 
+type groupOffsetFetch struct {
+	response *kafka.OffsetFetchResponse
+	err      error
+}
+
+// fetchGroupOffsets reads committed offsets of every topic group for the partitions known from metadata.
+// It must run before ListOffsets; see GetTopicList.
+func (p *Provider) fetchGroupOffsets(
+	ctx context.Context,
+	metadata *kafka.MetadataResponse,
+	topicGroups model.TopicGroupList,
+) map[string]groupOffsetFetch {
+	topicPartitions := make(map[string][]int, len(metadata.Topics))
+	for _, topic := range metadata.Topics {
+		if topic.Internal || strings.HasPrefix(topic.Name, "__") {
+			continue
+		}
+		partitions := make([]int, 0, len(topic.Partitions))
+		for _, partition := range topic.Partitions {
+			partitions = append(partitions, partition.ID)
+		}
+		topicPartitions[topic.Name] = partitions
+	}
+	result := make(map[string]groupOffsetFetch, len(topicGroups))
+	for _, topicGroup := range topicGroups {
+		partitions, ok := topicPartitions[string(topicGroup.Topic)]
+		if !ok {
+			continue
+		}
+		response, err := p.client.OffsetFetch(ctx, &kafka.OffsetFetchRequest{
+			GroupID: topicGroup.KafkaGroupId(),
+			Topics:  map[string][]int{string(topicGroup.Topic): partitions},
+		})
+		result[topicGroup.KafkaGroupId()] = groupOffsetFetch{response: response, err: err}
+	}
+	return result
+}
+
 func (p *Provider) addGroupStats(
 	ctx context.Context,
 	topics model.StatTopicList,
 	topicGroups model.TopicGroupList,
+	groupOffsets map[string]groupOffsetFetch,
 ) error {
 	if len(topicGroups) == 0 {
 		return nil
@@ -170,14 +213,8 @@ func (p *Provider) addGroupStats(
 		if topic == nil {
 			continue
 		}
-		partitions := make([]int, 0, len(topic.PartitionList))
-		for _, partition := range topic.PartitionList {
-			partitions = append(partitions, int(partition.N))
-		}
-		offsetResponse, offsetErr := p.client.OffsetFetch(ctx, &kafka.OffsetFetchRequest{
-			GroupID: topicGroup.KafkaGroupId(),
-			Topics:  map[string][]int{string(topicGroup.Topic): partitions},
-		})
+		fetched := groupOffsets[topicGroup.KafkaGroupId()]
+		offsetResponse, offsetErr := fetched.response, fetched.err
 
 		description := descriptions[topicGroup.KafkaGroupId()]
 		group := model.StatGroup{
