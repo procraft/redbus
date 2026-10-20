@@ -97,3 +97,37 @@ func TestKafkaMessageIdNamespaceFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "env-generation", conf.Kafka.MessageIdNamespace)
 }
+
+func TestDBAddress(t *testing.T) {
+	cases := []struct {
+		host     string
+		wantHost string
+		wantPort int
+	}{
+		{"db.example.com", "db.example.com", 6432},
+		{"db.example.com:5432", "db.example.com", 5432},
+		{"[::1]:5432", "::1", 5432},
+	}
+	for _, c := range cases {
+		t.Run(c.host, func(t *testing.T) {
+			t.Setenv("REDBUS_DB_HOST", c.host)
+			t.Setenv("REDBUS_DB_PORT", "6432")
+
+			conf, err := FromFileAndEnv(filepath.Join(t.TempDir(), "missing.json"))
+
+			require.NoError(t, err)
+			host, port, err := conf.DB.Address()
+			require.NoError(t, err)
+			require.Equal(t, c.wantHost, host)
+			require.Equal(t, c.wantPort, port)
+		})
+	}
+}
+
+func TestDBAddressRejectsInvalidPort(t *testing.T) {
+	t.Setenv("REDBUS_DB_HOST", "db.example.com:abc")
+
+	_, err := FromFileAndEnv(filepath.Join(t.TempDir(), "missing.json"))
+
+	require.ErrorContains(t, err, "REDBUS_DB_HOST")
+}

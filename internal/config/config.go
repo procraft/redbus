@@ -3,7 +3,10 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v6"
@@ -182,7 +185,31 @@ func (c dbConfig) SSL() (mode, rootCert string) {
 	return mode, c.SSLRootCert
 }
 
+// Address returns the effective database host and port. REDBUS_DB_HOST may carry its own port
+// ("host:5432", "[::1]:5432") because deployments share one host variable with JDBC services;
+// that port then wins over REDBUS_DB_PORT. A host without a port uses REDBUS_DB_PORT.
+func (c dbConfig) Address() (string, int, error) {
+	host := c.Host
+	hasPort := strings.HasPrefix(host, "[") && strings.Contains(host, "]:") ||
+		!strings.HasPrefix(host, "[") && strings.Count(host, ":") == 1
+	if !hasPort {
+		return strings.TrimSuffix(strings.TrimPrefix(host, "["), "]"), c.Port, nil
+	}
+	h, p, err := net.SplitHostPort(host)
+	if err != nil {
+		return "", 0, fmt.Errorf("db.host (REDBUS_DB_HOST) %q: %w", host, err)
+	}
+	port, err := strconv.Atoi(p)
+	if err != nil || port < 1 || port > 65535 {
+		return "", 0, fmt.Errorf("db.host (REDBUS_DB_HOST) %q has invalid port %q", host, p)
+	}
+	return h, port, nil
+}
+
 func (c dbConfig) validate() error {
+	if _, _, err := c.Address(); err != nil {
+		return err
+	}
 	mode, _ := c.SSL()
 	if !allowedDBSSLModes[mode] {
 		return fmt.Errorf("db.sslMode (REDBUS_DB_SSLMODE) %q is not one of disable, require, verify-ca, verify-full", mode)

@@ -119,11 +119,14 @@ func (a *App) initMetrics(_ context.Context) error {
 }
 
 func (a *App) initDb(ctx context.Context) error {
-	var err error
+	host, port, err := a.conf.DB.Address()
+	if err != nil {
+		return err
+	}
 	a.dbClient, err = db.New(
 		ctx,
-		a.conf.DB.Host,
-		a.conf.DB.Port,
+		host,
+		port,
 		a.conf.DB.User,
 		a.conf.DB.Password,
 		a.conf.DB.Name,

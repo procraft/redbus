@@ -39,6 +39,7 @@ RED Bus will do the rest for you.
    `verify-ca` or `verify-full` and applies to both the connection pool and the migrator. When unset
    it defaults to `require`; the repository `config.json` sets `disable` for the local PostgreSQL.
    For `verify-*` point `db.sslRootCert` / `REDBUS_DB_SSLROOTCERT` at the CA certificate.
+   `REDBUS_DB_HOST` may include a port (`host:5432`, `[::1]:5432`); it then overrides `REDBUS_DB_PORT`.
 
 
 2. Start essential environment
