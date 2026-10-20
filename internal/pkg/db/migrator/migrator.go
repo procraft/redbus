@@ -3,7 +3,9 @@ package migrator
 import (
 	"database/sql"
 	"errors"
-	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 
 	"github.com/golang-migrate/migrate/v4"
 
@@ -15,9 +17,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func New(host string, port int, user, password, name string) (*Migrator, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", user, password, host, port, name)
-	db, err := sql.Open("postgres", dsn)
+func New(host string, port int, user, password, name, sslMode, sslRootCert string) (*Migrator, error) {
+	db, err := sql.Open("postgres", dsn(host, port, user, password, name, sslMode, sslRootCert))
 	if err != nil {
 		return nil, err
 	}
@@ -29,6 +30,24 @@ func New(host string, port int, user, password, name string) (*Migrator, error) 
 		driver: driver,
 		dir:    "internal/migrations",
 	}, nil
+}
+
+// dsn builds the lib/pq URL; sslmode follows the main pool so migrations never run without TLS
+// when the pool requires it.
+func dsn(host string, port int, user, password, name, sslMode, sslRootCert string) string {
+	query := url.Values{}
+	query.Set("sslmode", sslMode)
+	if sslRootCert != "" {
+		query.Set("sslrootcert", sslRootCert)
+	}
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, password),
+		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
+		Path:     "/" + name,
+		RawQuery: query.Encode(),
+	}
+	return u.String()
 }
 
 type Migrator struct {

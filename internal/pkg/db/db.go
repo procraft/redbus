@@ -17,7 +17,8 @@ import (
 
 func New(ctx context.Context, host string, port int, user, password, name string, options ...Option) (IClient, error) {
 	pool := DBPool{
-		size: runtime.NumCPU()*2 + 2,
+		size:    runtime.NumCPU()*2 + 2,
+		sslMode: "require",
 	}
 	for _, o := range options {
 		o(&pool)
@@ -29,7 +30,8 @@ func New(ctx context.Context, host string, port int, user, password, name string
 		"user":           user,
 		"password":       password,
 		"dbname":         name,
-		"sslmode":        "disable",
+		"sslmode":        pool.sslMode,
+		"sslrootcert":    pool.sslRootCert,
 		"pool_max_conns": strconv.Itoa(pool.size),
 	}
 	dsnStr := make([]string, len(dsnList))
@@ -58,10 +60,10 @@ func New(ctx context.Context, host string, port int, user, password, name string
 	if pool.log {
 		dbLog.db = pool.Pool
 	}
-	logger.Info(logger.App, "Use database %s@%s:%d/%s (conn size %v)", user, host, port, name, pool.size)
+	logger.Info(logger.App, "Use database %s@%s:%d/%s (conn size %v, sslmode %s)", user, host, port, name, pool.size, pool.sslMode)
 
 	// migrations
-	mig, err := migrator.New(host, port, user, password, name)
+	mig, err := migrator.New(host, port, user, password, name, pool.sslMode, pool.sslRootCert)
 	if err != nil {
 		return nil, fmt.Errorf("Can't connect to database: %w", err)
 	}

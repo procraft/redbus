@@ -41,6 +41,7 @@
   },
   "db": {
     "host": "localhost",
+    "sslMode": "disable",
     "port": 5432,
     "user": "libicraft",
     "password": "",

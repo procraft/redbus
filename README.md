@@ -35,6 +35,11 @@ RED Bus will do the rest for you.
    See `config.json` and `config/config.go`. Environment variable overwrited json data.
    For development environment you might use `config.local.json`
 
+   Database TLS: `db.sslMode` / `REDBUS_DB_SSLMODE` takes the libpq values `disable`, `require`,
+   `verify-ca` or `verify-full` and applies to both the connection pool and the migrator. When unset
+   it defaults to `require`; the repository `config.json` sets `disable` for the local PostgreSQL.
+   For `verify-*` point `db.sslRootCert` / `REDBUS_DB_SSLROOTCERT` at the CA certificate.
+
 
 2. Start essential environment
 

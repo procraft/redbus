@@ -128,6 +128,7 @@ func (a *App) initDb(ctx context.Context) error {
 		a.conf.DB.Password,
 		a.conf.DB.Name,
 		db.WithPoolSize(a.conf.DB.PoolSize),
+		db.WithSSL(a.conf.DB.SSL()),
 	)
 	if err != nil {
 		return err

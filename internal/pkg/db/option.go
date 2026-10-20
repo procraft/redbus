@@ -13,3 +13,11 @@ func WithLog() Option {
 		d.log = true
 	}
 }
+
+// WithSSL sets the libpq sslmode and, optionally, the CA certificate for verify-ca / verify-full.
+func WithSSL(mode, rootCert string) Option {
+	return func(d *DBPool) {
+		d.sslMode = mode
+		d.sslRootCert = rootCert
+	}
+}

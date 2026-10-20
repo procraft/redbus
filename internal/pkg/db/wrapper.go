@@ -23,8 +23,10 @@ type IClient interface {
 
 type DBPool struct {
 	*pgxpool.Pool
-	size int
-	log  bool
+	size        int
+	log         bool
+	sslMode     string
+	sslRootCert string
 }
 
 func (d *DBPool) Commit(ctx context.Context) error {

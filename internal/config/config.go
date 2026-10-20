@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 
@@ -116,12 +117,44 @@ type repeatConfig struct {
 }
 
 type dbConfig struct {
-	Host     string `json:"host" env:"REDBUS_DB_HOST"`
-	Port     int    `json:"port" env:"REDBUS_DB_PORT"`
-	User     string `json:"user" env:"REDBUS_DB_USER"`
-	Password string `json:"password" env:"REDBUS_DB_PASSWORD"`
-	Name     string `json:"name" env:"REDBUS_DB_NAME"`
-	PoolSize int    `json:"poolSize" env:"REDBUS_DB_POOL_SIZE"`
+	Host string `json:"host" env:"REDBUS_DB_HOST"`
+	// SSLMode — libpq sslmode for the bus database: disable, require, verify-ca or verify-full.
+	// Empty means DefaultDBSSLMode, so a deployment that sets nothing still uses TLS.
+	SSLMode string `json:"sslMode" env:"REDBUS_DB_SSLMODE"`
+	// SSLRootCert — path to the CA certificate used by verify-ca / verify-full.
+	SSLRootCert string `json:"sslRootCert" env:"REDBUS_DB_SSLROOTCERT"`
+	Port        int    `json:"port" env:"REDBUS_DB_PORT"`
+	User        string `json:"user" env:"REDBUS_DB_USER"`
+	Password    string `json:"password" env:"REDBUS_DB_PASSWORD"`
+	Name        string `json:"name" env:"REDBUS_DB_NAME"`
+	PoolSize    int    `json:"poolSize" env:"REDBUS_DB_POOL_SIZE"`
+}
+
+// DefaultDBSSLMode applies when neither config.json nor the environment sets db.sslMode.
+const DefaultDBSSLMode = "require"
+
+var allowedDBSSLModes = map[string]bool{
+	"disable":     true,
+	"require":     true,
+	"verify-ca":   true,
+	"verify-full": true,
+}
+
+// SSL returns the effective sslmode and root certificate path of the bus database.
+func (c dbConfig) SSL() (mode, rootCert string) {
+	mode = c.SSLMode
+	if mode == "" {
+		mode = DefaultDBSSLMode
+	}
+	return mode, c.SSLRootCert
+}
+
+func (c dbConfig) validate() error {
+	mode, _ := c.SSL()
+	if !allowedDBSSLModes[mode] {
+		return fmt.Errorf("db.sslMode (REDBUS_DB_SSLMODE) %q is not one of disable, require, verify-ca, verify-full", mode)
+	}
+	return nil
 }
 
 func FromFileAndEnv(mainPath string, extraPath ...string) (*Config, error) {
@@ -143,6 +176,9 @@ func FromFileAndEnv(mainPath string, extraPath ...string) (*Config, error) {
 	}
 
 	if err := env.Parse(&cfg); err != nil {
+		return nil, err
+	}
+	if err := cfg.DB.validate(); err != nil {
 		return nil, err
 	}
 
