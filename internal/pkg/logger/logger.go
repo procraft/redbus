@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -73,12 +74,15 @@ func Log(ctx context.Context, level Level, format string, v ...any) {
 		return
 	}
 	requestId := getRequestId(ctx)
+	message := fmt.Sprintf(format, v...)
 	if JsonLog {
-		jsonPrintf(levelNameMap[level], requestId, format, v...)
+		jsonPrintf(levelNameMap[level], requestId, "%s", message)
 	} else {
-		log.Printf("[%s] [%s] %s", level, requestId, fmt.Sprintf(format, v...))
+		log.Printf("[%s] [%s] %s", level, requestId, message)
 	}
+	sendToLoki(level, fmt.Sprintf("[%s] %s", requestId, strings.TrimRight(message, "\n")))
 	if level == LevelFatal {
+		flushLoki(5 * time.Second)
 		os.Exit(1)
 	}
 }

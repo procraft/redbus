@@ -18,6 +18,9 @@ type DataBus struct {
 	repeater      IRepeater
 	kafkaProvider IKafkaProvider
 	metrics       IMetrics
+	// stableAfter — сколько чтение kafka должно проработать без ошибки, чтобы consumer считался
+	// подключённым (если раньше не пришёл первый батч).
+	stableAfter time.Duration
 }
 
 func New(
@@ -33,6 +36,7 @@ func New(
 		repeater:      repeater,
 		kafkaProvider: kafkaProvider,
 		metrics:       metrics,
+		stableAfter:   DefaultConsumerStableAfter,
 	}
 }
 

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/segmentio/kafka-go"
@@ -12,9 +13,17 @@ import (
 
 type kafkaClientStub struct {
 	listOffsetsRequest *kafka.ListOffsetsRequest
+	metadataOverride   *kafka.MetadataResponse
+	listOverride       *kafka.ListOffsetsResponse
+	listError          error
+	fetchOverride      *kafka.OffsetFetchResponse
+	fetchError         error
 }
 
 func (s *kafkaClientStub) Metadata(context.Context, *kafka.MetadataRequest) (*kafka.MetadataResponse, error) {
+	if s.metadataOverride != nil {
+		return s.metadataOverride, nil
+	}
 	return &kafka.MetadataResponse{Topics: []kafka.Topic{
 		{Name: "orders", Partitions: []kafka.Partition{{ID: 0}, {ID: 1}}},
 		{Name: "__internal", Internal: true, Partitions: []kafka.Partition{{ID: 0}}},
@@ -23,6 +32,9 @@ func (s *kafkaClientStub) Metadata(context.Context, *kafka.MetadataRequest) (*ka
 
 func (s *kafkaClientStub) ListOffsets(_ context.Context, request *kafka.ListOffsetsRequest) (*kafka.ListOffsetsResponse, error) {
 	s.listOffsetsRequest = request
+	if s.listOverride != nil || s.listError != nil {
+		return s.listOverride, s.listError
+	}
 	return &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{
 		"orders": {
 			{Partition: 0, FirstOffset: 3, LastOffset: 10},
@@ -44,12 +56,47 @@ func (s *kafkaClientStub) DescribeGroups(context.Context, *kafka.DescribeGroupsR
 }
 
 func (s *kafkaClientStub) OffsetFetch(context.Context, *kafka.OffsetFetchRequest) (*kafka.OffsetFetchResponse, error) {
+	if s.fetchOverride != nil || s.fetchError != nil {
+		return s.fetchOverride, s.fetchError
+	}
 	return &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{
 		"orders": {
 			{Partition: 0, CommittedOffset: 8},
 			{Partition: 1, CommittedOffset: -1},
 		},
 	}}, nil
+}
+
+func TestGetTopicListReportsUnavailableLag(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		client kafkaClientStub
+		reason string
+	}{
+		{"partition metadata error", kafkaClientStub{metadataOverride: &kafka.MetadataResponse{Topics: []kafka.Topic{{Name: "orders", Partitions: []kafka.Partition{{ID: 0, Error: kafka.LeaderNotAvailable}, {ID: 1}}}}}}, "metadata unavailable"},
+		{"topic metadata error", kafkaClientStub{metadataOverride: &kafka.MetadataResponse{Topics: []kafka.Topic{{Name: "orders", Error: kafka.LeaderNotAvailable, Partitions: []kafka.Partition{{ID: 0}, {ID: 1}}}}}}, "metadata unavailable"},
+		{"list partition error", kafkaClientStub{listOverride: &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{"orders": {{Partition: 0, Error: kafka.LeaderNotAvailable}, {Partition: 1, FirstOffset: 5, LastOffset: 20}}}}}, "offsets unavailable"},
+		{"list request error", kafkaClientStub{listError: errors.New("broker unreachable")}, "broker unreachable"},
+		{"missing list partition", kafkaClientStub{listOverride: &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{"orders": {{Partition: 1, FirstOffset: 5, LastOffset: 20}}}}}, "missing ListOffsets"},
+		{"invalid list offsets", kafkaClientStub{listOverride: &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{"orders": {{Partition: 0, FirstOffset: -1, LastOffset: 10}}}}}, "invalid offsets"},
+		{"fetch partition error", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{"orders": {{Partition: 0, Error: kafka.GroupAuthorizationFailed}}}}}, "committed offset unavailable"},
+		{"fetch response error", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{Error: kafka.GroupAuthorizationFailed}}, "committed offset unavailable"},
+		{"fetch request error", kafkaClientStub{fetchError: errors.New("coordinator unreachable")}, "coordinator unreachable"},
+		{"missing fetch partition", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{}}, "missing partition"},
+		{"invalid committed offset", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{"orders": {{Partition: 0, CommittedOffset: -2}}}}}, "invalid committed offset"},
+		{"negative lag", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{"orders": {{Partition: 0, CommittedOffset: 11}}}}}, "exceeds latest offset"},
+		{"expired committed offset", kafkaClientStub{fetchOverride: &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{"orders": {{Partition: 0, CommittedOffset: 2}}}}}, "precedes first retained offset"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			provider := &Provider{client: &test.client, addr: kafka.TCP("localhost:9092")}
+			topics, err := provider.GetTopicList(context.Background(), model.TopicGroupList{{Topic: "orders", Group: "billing"}})
+			require.NoError(t, err)
+			partition := topics[0].GroupList[0].PartitionList[0]
+			require.Equal(t, model.Offset(-1), partition.Lag)
+			require.Contains(t, partition.LagError, test.reason)
+			require.Equal(t, partition.LagError, topics[0].GroupList[0].ConsumerList[0].PartitionList[0].LagError)
+		})
+	}
 }
 
 func TestGetTopicListIncludesEveryPartitionAndBrokerGroupStats(t *testing.T) {
@@ -79,4 +126,53 @@ func TestGetTopicListIncludesEveryPartitionAndBrokerGroupStats(t *testing.T) {
 		{N: 0, GroupOffset: 8, LastOffset: 10, Lag: 2, Committed: true},
 		{N: 1, GroupOffset: 5, LastOffset: 20, Lag: 15},
 	}, group.ConsumerList[0].PartitionList)
+}
+
+// liveKafkaClientStub models a busy topic: before every OffsetFetch the producer appends messages and
+// the consumer commits all of them, so the high watermark keeps moving while stats are collected.
+type liveKafkaClientStub struct {
+	kafkaClientStub
+	highWatermark int64
+	calls         []string
+}
+
+func (s *liveKafkaClientStub) ListOffsets(context.Context, *kafka.ListOffsetsRequest) (*kafka.ListOffsetsResponse, error) {
+	s.calls = append(s.calls, "ListOffsets")
+	return &kafka.ListOffsetsResponse{Topics: map[string][]kafka.PartitionOffsets{
+		"orders": {
+			{Partition: 0, FirstOffset: 0, LastOffset: s.highWatermark},
+			{Partition: 1, FirstOffset: 0, LastOffset: s.highWatermark},
+		},
+	}}, nil
+}
+
+func (s *liveKafkaClientStub) OffsetFetch(context.Context, *kafka.OffsetFetchRequest) (*kafka.OffsetFetchResponse, error) {
+	s.calls = append(s.calls, "OffsetFetch")
+	s.highWatermark += 2
+	return &kafka.OffsetFetchResponse{Topics: map[string][]kafka.OffsetFetchPartition{
+		"orders": {
+			{Partition: 0, CommittedOffset: s.highWatermark},
+			{Partition: 1, CommittedOffset: s.highWatermark},
+		},
+	}}, nil
+}
+
+func TestGetTopicListFetchesCommittedOffsetsBeforeHighWatermark(t *testing.T) {
+	client := &liveKafkaClientStub{highWatermark: 10}
+	provider := &Provider{client: client, addr: kafka.TCP("localhost:9092")}
+
+	topics, err := provider.GetTopicList(context.Background(), model.TopicGroupList{
+		{Topic: "orders", Group: "billing"},
+		{Topic: "orders", Group: "audit"},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"OffsetFetch", "OffsetFetch", "ListOffsets"}, client.calls)
+	require.Len(t, topics[0].GroupList, 2)
+	for _, group := range topics[0].GroupList {
+		for _, partition := range group.PartitionList {
+			require.Empty(t, partition.LagError, "group %s partition %d", group.Name, partition.N)
+			require.GreaterOrEqual(t, partition.Lag, model.Offset(0))
+		}
+	}
 }

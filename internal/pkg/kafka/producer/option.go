@@ -1,6 +1,8 @@
 package producer
 
 import (
+	"time"
+
 	"github.com/segmentio/kafka-go"
 
 	"github.com/procraft/redbus/internal/pkg/kafka/credential"
@@ -32,5 +34,13 @@ func WithCreateTopic(numPartitions, replicationFactor int) Option {
 			NumPartitions:     numPartitions,
 			ReplicationFactor: replicationFactor,
 		}
+	}
+}
+
+// WithBatchTimeout overrides DefaultBatchTimeout, the time the writer waits to fill a batch before
+// sending it. A non-positive value falls back to the kafka-go default of one second.
+func WithBatchTimeout(d time.Duration) Option {
+	return func(conf *conf) {
+		conf.batchTimeout = d
 	}
 }

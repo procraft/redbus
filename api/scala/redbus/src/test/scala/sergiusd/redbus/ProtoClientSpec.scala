@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import sergiusd.redbus.api.ConsumeRequest.{Result => Payload}
 import sergiusd.redbus.consumer.{InboxMode, InboxProcessing, Model}
-import slick.dbio.SuccessAction
+import slick.dbio.{FailureAction, SuccessAction}
 import slick.jdbc.PostgresProfile
 
 import scala.concurrent.duration._
@@ -88,6 +88,39 @@ class ProtoClientSpec extends AnyWordSpec with Matchers with org.scalatest.LoneE
       await(producerOnly.produceProto("topic", message)) shouldBe true
       transport.produced.map(_._1) shouldBe Vector("topic")
       producerOnly.produceProtoDba("topic", message) should not be SuccessAction(0)
+    }
+  }
+
+  "ProtoClient size limit" should {
+    // A Payload with an empty id serializes to 2 + message.length bytes (tag, length, bytes).
+    def sized(bytes: Int) = Payload(message = "x" * (bytes - 2))
+    val limited = settings(producer = true, consumer = false).copy(maxMessageBytes = 20)
+
+    "send a serialized message of exactly the limit and reject one byte more without calling the bus" in {
+      sized(20).serializedSize shouldBe 20
+      val transport = new FakeTransport
+      val c = client(limited, transport)
+
+      await(c.produceProto("topic", sized(20))) shouldBe true
+      val e = the[producer.MessageTooLargeException] thrownBy await(c.produceProto("topic", sized(21)))
+      e shouldBe producer.MessageTooLargeException("topic", 21, 20)
+      transport.produced.map(_._2.length) shouldBe Vector(20)
+    }
+
+    "fail the outbox action for a larger message so no row is written" in {
+      val c = client(limited, new FakeTransport)
+
+      c.produceProtoDba("topic", sized(20)) should not be a[FailureAction]
+      c.produceProtoDba("topic", sized(21)) shouldBe FailureAction(producer.MessageTooLargeException("topic", 21, 20))
+    }
+
+    "default to 256 KiB and hand the configured limit to the low-level client" in {
+      settings(producer = true, consumer = true).maxMessageBytes shouldBe 256 * 1024
+      ProtoClient.client(limited, ProtoClient.Log()).maxMessageBytes shouldBe 20
+    }
+
+    "reject a non-positive limit" in {
+      an[IllegalArgumentException] should be thrownBy limited.copy(maxMessageBytes = 0)
     }
   }
 
@@ -219,6 +252,19 @@ class ProtoClientSpec extends AnyWordSpec with Matchers with org.scalatest.LoneE
       )
       tuned.produceTimeout shouldBe 5.seconds
       tuned.produceBatchTimeout shouldBe 2.minutes
+    }
+
+    "default maxMessageBytes to 256 KiB and read it as bytes or a size" in {
+      val base = com.typesafe.config.ConfigFactory.parseString(
+        "host = bus, port = 50005, producerEnabled = yes, consumerEnabled = false"
+      )
+      def read(value: String) =
+        RedbusSettings.fromConfig(com.typesafe.config.ConfigFactory.parseString(s"maxMessageBytes = $value").withFallback(base))
+
+      RedbusSettings.fromConfig(base).maxMessageBytes shouldBe 262144
+      read("1000").maxMessageBytes shouldBe 1000
+      read("512K").maxMessageBytes shouldBe 524288
+      an[IllegalArgumentException] should be thrownBy read("0")
     }
   }
 

@@ -74,6 +74,7 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 			partitions = append(partitions, model.StatPartition{
 				N:           model.PartitionN(partition.GetNumber()),
 				FirstOffset: model.Offset(partition.GetFirstOffset()),
+				Error:       partition.GetError(),
 				LastOffset:  model.Offset(partition.GetLastOffset()),
 			})
 		}
@@ -94,6 +95,7 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 					FirstOffset:   model.Offset(partition.GetFirstOffset()),
 					LastOffset:    model.Offset(partition.GetLastOffset()),
 					Lag:           model.Offset(partition.GetLag()),
+					LagError:      partition.GetLagError(),
 					Committed:     partition.GetCommitted(),
 				})
 			}
@@ -109,6 +111,7 @@ func (c *Client) GetTopicStats(ctx context.Context) (model.StatTopicList, error)
 
 		result = append(result, model.StatTopic{
 			Name:          model.TopicName(topic.GetName()),
+			Error:         topic.GetError(),
 			PartitionList: partitions,
 			GroupList:     groups,
 		})
@@ -138,6 +141,7 @@ func consumerFromProto(consumer *controlpb.Consumer) model.StatConsumer {
 			GroupOffset: model.Offset(partition.GetGroupOffset()),
 			LastOffset:  model.Offset(partition.GetLastOffset()),
 			Lag:         model.Offset(partition.GetLag()),
+			LagError:    partition.GetLagError(),
 			Committed:   partition.GetCommitted(),
 		})
 	}

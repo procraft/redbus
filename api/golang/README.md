@@ -60,7 +60,7 @@ err = redbus.ConsumeProto(ctx, bus, "topic", "group", inbox.Transactional,
 ```
 
 - `Settings` has JSON tags (`host`, `port`, `producerEnabled`, `consumerEnabled`,
-  `outboxBatchSize`) and relative env tags for `caarlos0/env` with a prefix such as `REDBUS_`.
+  `outboxBatchSize`, `maxMessageBytes`) and relative env tags for `caarlos0/env` with a prefix such as `REDBUS_`.
 - A disabled side is a no-op: `Produce*` returns `false, nil`, `Produce*Tx` writes no row,
   `Consume`/`ConsumeProto` return `nil` at once, `StartFlusher` starts nothing. The gRPC connection
   is created only when a side is enabled.
@@ -97,19 +97,54 @@ a compatible bus schedules the next delivery after `delay` without consuming an 
 
 Side effects outside the database are not covered by the claim and need their own idempotency.
 
+### Message size limit
+
+Every produce path rejects a message whose payload is longer than the limit, default **256 KiB**
+(`producer.DefaultMaxMessageBytes`). The size is `len` of the payload bytes — for `*Proto` methods,
+the marshalled message — which is exactly the Kafka record value and the `redbus_outbox.message`
+column; topic, key and headers are not counted.
+
+Why: Kafka rejects a record above its `message.max.bytes` (about 1 MB by default) and the bus's gRPC
+server a request above 4 MiB. Such a message can never be delivered; written to the outbox, it stays
+at the head of its topic and the flusher retries it forever, holding back every later row of that
+topic.
+
+| Path | On a too-large payload |
+|---|---|
+| `Client.Produce`, `Client.ProduceProto`, `producer.Producer.Produce` | `*producer.MessageTooLargeError`; the bus is not called |
+| `Client.ProduceTx`, `Client.ProduceProtoTx`, `outbox.Write`, `outbox.WriteWithLimit` | the same error before any statement: no row is written; roll back the transaction |
+
+Match it with `errors.Is(err, producer.ErrMessageTooLarge)` or `errors.As` for `Topic`, `Size` and
+`Limit`. Nothing is truncated. A disabled producer stays a no-op and does not check the size.
+
+Configure it with `Settings.MaxMessageBytes` (JSON `maxMessageBytes`, env `MAX_MESSAGE_BYTES`; `0`
+means the default, negative is invalid), `producer.New(host, port, producer.WithMaxMessageBytes(n))`
+or `outbox.WriteWithLimit(ctx, tx, topic, message, n, opts...)`. `outbox.Write` uses the default.
+
+**Upgrade note.** The limit is on by default: a service that currently sends payloads above 256 KiB
+starts getting `MessageTooLargeError` after upgrading the module. Check the largest payloads per topic
+first and make them smaller or raise `MaxMessageBytes` explicitly. The flusher is unchanged: rows
+already in the outbox are delivered as before.
+
 ### Transactional outbox
 
 `outbox.Write(ctx, tx, topic, message, producer options...)` inserts a row inside the caller's
 transaction. `outbox.NewFlusher(db, producer.ProduceBatch, options...).Run(ctx)` delivers rows: at
 start, every `WithSweepInterval` (default 30 s) and, with `WithListenDSN`, on
 `pg_notify('redbus_outbox')`. One pass at a time; each step selects at most `WithBatchSize` rows
-(default 100) in id order `FOR UPDATE`, publishes the same-topic prefix with one `ProduceBatch`
-request and deletes it in the same transaction, until the table is empty. A failed publish keeps
-the batch for the next pass. Row locks serialise flushers of several replicas. A failed or timed
-out publish is ambiguous and may duplicate on retry, so consumers must stay idempotent.
+(default 100) in id order `FOR UPDATE`, publishes the rows of each topic with one `ProduceBatch`
+request and deletes the published rows in the same transaction, until the table is empty. Row
+locks serialise flushers of several replicas. A failed or timed out publish is ambiguous and may
+duplicate on retry, so consumers must stay idempotent.
+
+**Order is guaranteed only within a topic.** A topic whose publish fails (bus down, Kafka
+`TOPIC_AUTHORIZATION_FAILED`, …) keeps its rows and is excluded from the selection for the rest of
+the pass; the other topics are still delivered, and the failed topic is retried on the next trigger.
+Each failed topic is logged at error level at most once per `WithErrorLogInterval` (default one
+minute); the next report carries the number of suppressed ones in `suppressed`.
 
 - The transaction and its row locks are held while the batch is published (up to
-  `WithPublishTimeout`, default 30 s), so the flusher occupies one connection of the pool, and a
+  `WithPublishTimeout`, default 30 s, per topic in the selection), so the flusher occupies one connection of the pool, and a
   replica waiting for the locks occupies another. Give `WithDB` a pool with room for that, or a
   separate small pool.
 - Id order is insertion order, not commit order: a transaction that inserted a row earlier but

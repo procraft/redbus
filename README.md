@@ -75,6 +75,25 @@ RED Bus will do the rest for you.
    - [GoLang client](./example/golang/README.md)
    - [Scala client](./example/scala/README.md)
 
+## Kafka message identity
+
+`kafka.messageIdNamespace` (`REDBUS_KAFKA_MESSAGE_ID_NAMESPACE`) is empty by default, preserving
+message IDs as `partition/offset`. A nonempty value, for example `temporary-20261009`, produces
+`temporary-20261009/partition/offset`. This separates SDK inbox fallback keys when a replacement
+Kafka cluster starts its offsets again. Explicit producer idempotency keys are preserved, so a replay
+of the same event can still be deduplicated across clusters.
+
+The namespace belongs to the Kafka data generation: use the same value on all RED Bus instances and
+keep it across restarts while reusing the same Kafka disk/PVC. Choose a new value when Kafka data is
+recreated from scratch. Avoid mixed namespaces or old/new bus versions consuming the replacement
+cluster during rollout. When returning to an original cluster that used unprefixed IDs, restore the
+empty namespace; otherwise its retained messages can be processed again. Remove the emergency env
+override and clear any namespace in configuration files: an empty env value does not clear a nonempty
+file setting. Stored retries retain their original IDs and headers. This setting does not migrate
+Kafka records or consumer group offsets.
+
+See [Kafka consumer module context](internal/pkg/kafka/consumer/ReadmeAI.md) for the owning invariants.
+
 ## Consume stream safety
 
 The bus protects itself from a client that stops answering. Relevant `config.json` keys (each with a
@@ -140,6 +159,36 @@ limited to bounded values such as topic, group, result, and state; message and c
 Deferrals have their own label values: `redbus_consumed_messages_total{result="deferred"}`,
 `redbus_retry_attempts_total{outcome="deferred"}` and `redbus_retry_records{state="deferred"}` (which is not part of
 `state="pending"`).
+
+Consumer health:
+
+- `redbus_active_consumers{topic, group, state}` — consume streams by state (`connecting`, `connected`,
+  `reconnecting`). A stream becomes `connected` only after its first batch or after 30 s of reading Kafka without
+  an error, so a consumer looping on a Kafka error (e.g. `TOPIC_AUTHORIZATION_FAILED`) stays in
+  `connecting`/`reconnecting` instead of flickering into `connected`. A series stays at `0` after its stream ends,
+  until the bus restarts.
+- `redbus_kafka_consumer_reconnects_total{topic, group, reason}` — Kafka read failures followed by a reconnect;
+  `reason` is `authorization` (Kafka error 29), `rebalance` or `other`.
+- `redbus_consumer_connections_total{topic, group, result}` — consume stream connection attempts, `result` is
+  `success` or `error` (the first Kafka reader could not be created).
+
+## Logs in Loki
+
+The bus can push its own log lines to Loki (there is no collector agent required):
+
+| Key | Env | Default | Meaning |
+|---|---|---|---|
+| `log.loki.url` | `REDBUS_LOKI_URL` | empty (off) | push endpoint, e.g. `https://loki.example/loki/api/v1/push` |
+| `log.loki.username` | `REDBUS_LOKI_USERNAME` | empty | basic auth user |
+| `log.loki.password` | `REDBUS_LOKI_PASSWORD` | empty | basic auth password |
+| `log.loki.app` | `REDBUS_LOKI_APP` | `redbus` / `redbus-admin` | `app` label; the default is the process name |
+| `log.loki.env` | `REDBUS_LOKI_ENV` | empty (no label) | `env` label, e.g. `prod` or `stage` when several environments share one Loki |
+| `log.loki.level` | `REDBUS_LOKI_LEVEL` | `info` | lowest pushed level: `debug`, `info`, `warning`, `error` |
+
+Streams carry the labels `app`, `l` (`DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`) and, when set, `env`. Lines are queued and pushed in
+batches every 2 seconds; logging never waits for Loki: a full queue drops lines and the next push reports how many.
+The queue is flushed on shutdown (bounded by 5 seconds). Lines written through the standard `log` package bypass
+the sink.
 
 Import [`deploy/grafana/redbus-overview.json`](./deploy/grafana/redbus-overview.json) into Grafana and select the
 Prometheus data source to get the starter dashboard.

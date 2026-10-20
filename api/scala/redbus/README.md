@@ -47,7 +47,7 @@ import sergiusd.redbus.{ProtoClient, RedbusSettings}
 import sergiusd.redbus.consumer.{Inbox, InboxMode}
 
 val bus = ProtoClient(
-  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize, produceTimeout, produceBatchTimeout]
+  RedbusSettings.fromConfig(config.getConfig("app.redbus")), // host, port, producerEnabled, consumerEnabled[, outboxBatchSize, produceTimeout, produceBatchTimeout, maxMessageBytes]
   db,                                  // any Slick JdbcProfile database, no cast needed
   lifecycle.addStopHook,               // consumer shutdown registration
   ProtoClient.Log(debug = log.debug(_), info = log.info(_), error = log.error(_, _)),
@@ -98,6 +98,36 @@ in `redbus_outbox` and sends it again on the next pass.
 
 Upgrading from 0.4.4 needs no code change; the only behavioural difference is that a call which used
 to wait forever now fails after 30 seconds.
+
+### Message size limit
+
+Since **0.4.9**, every produce path rejects a message whose payload is longer than
+`maxMessageBytes` (default **256 KiB**, `Producer.defaultMaxMessageBytes`). The size is the length
+of the payload bytes — for `ProtoClient`, the serialized ScalaPB message — which is exactly the Kafka
+record value and the `redbus_outbox.message` column; topic, key and headers are not counted.
+
+Why: Kafka rejects a record above its `message.max.bytes` (about 1 MB by default, `[10] Message Size
+Too Large`) and the bus's gRPC server rejects a request above 4 MiB. Such a message can never be
+delivered; written to the outbox, it stays at the head of its topic and the flusher retries it
+forever, holding back every later row of that topic.
+
+| Path | On a too-large payload |
+|------|------------------------|
+| `ProtoClient.produceProto`, `Client.produce`, `Producer.produceWithLimits` | failed `Future` with `producer.MessageTooLargeException(topic, sizeBytes, maxBytes)`; the bus is not called |
+| `ProtoClient.produceProtoDba`, `Client.produceDba`, `Producer.produceDbaWithLimit` | `DBIO.failed(MessageTooLargeException)`: no row is written and the caller's `transactionally` rolls back |
+| `Producer.produce`, `Producer.produceWithTimeout`, `Producer.produceDba` (no client) | the same, with the default limit |
+
+Nothing is truncated. A disabled producer stays a no-op and does not check the size.
+
+Configure it on `RedbusSettings` (`maxMessageBytes = 512K` or a plain number of bytes in the config
+section) or on the lower-level client: `Client(host, port, maxMessageBytes = 512 * 1024)`. It must be
+positive.
+
+**Upgrade note.** The limit is on by default: a service that currently sends payloads above 256 KiB
+starts getting `MessageTooLargeException` when it raises its pin to 0.4.9. Before upgrading, check
+the largest payloads per topic and either make them smaller (for example, send a reference to stored
+content instead of the content) or raise `maxMessageBytes` explicitly for that client. The outbox
+flusher itself is unchanged: rows written by older versions are delivered as before.
 
 Migrating a service wrapper: build `RedbusSettings` from the existing config section (or construct it
 from the service's typed config), replace the private `redbus.Client` with `ProtoClient`, delete the
@@ -174,10 +204,16 @@ starts the flusher that delivers those rows to the bus: it reacts to the `pg_not
 sent by the table trigger and, in addition, sweeps the table on a fixed schedule — immediately at
 start and then every `sweepInterval` (default 30 seconds, `startProducerDbaFlusher(db, sweepInterval)`).
 The sweep delivers rows left over from a restart or a missed notification. The flusher fetches at
-most `batchSize` rows (default 100) in `id` order, publishes the same-topic prefix with one confirmed
-batch request, and deletes all confirmed ids in one database operation. It immediately fetches the
-next bounded batch until the table is empty. A publish failure, including a batch request that
-exceeds `produceBatchTimeout`, keeps the whole batch in the table and it is retried on the next pass. Existing positional calls remain compatible; configure the limit with
+most `batchSize` rows (default 100) in `id` order, publishes the rows of each topic with one confirmed
+batch request, and deletes the confirmed ids of each topic in one database operation. It immediately
+fetches the next bounded batch until the table is empty. A publish failure, including a batch request
+that exceeds `produceBatchTimeout`, keeps that topic's rows in the table and they are retried on the
+next pass.
+
+**Order is guaranteed only within a topic** (since **0.4.8**). A topic whose publish fails (bus down,
+Kafka `TOPIC_AUTHORIZATION_FAILED`, …) is left out of the rest of the pass, so its later rows never
+overtake the failed ones, while the other topics keep being delivered. Up to 0.4.7 one failing row at
+the head of the table stopped the delivery of every topic. Existing positional calls remain compatible; configure the limit with
 `startProducerDbaFlusher(db, sweepInterval, batchSize)` or the named `batchSize` argument.
 
 Since **0.4.7**, a failed flush pass (database fetch, publish failure, `ok = false`, delete mismatch)
@@ -185,6 +221,10 @@ is reported once per pass, with its cause, through an error sink: `ProtoClient` 
 `Log.error`, the lower-level client to `Client(…, errorLogger = Some((message, cause) => …))`.
 Without `errorLogger` the report still goes to `logger`, as before. Successful batches
 (`Flushed batch …`) stay on `logger`, which `ProtoClient` maps to `Log.debug`.
+
+Since **0.4.8**, the error sink gets one report per failed topic (and one per failed fetch), at most
+once a minute for each: a failure repeated on every `pg_notify` within that minute is suppressed and
+counted, and the next report ends with `(N more suppressed since the previous report)`.
 
 ### Publish
 

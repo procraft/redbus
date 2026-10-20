@@ -17,11 +17,20 @@ import (
 var ErrRejected = errors.New("redbus: bus rejected the message")
 
 type Producer struct {
-	conn   *grpc.ClientConn
-	client pb.RedbusServiceClient
+	conn            *grpc.ClientConn
+	client          pb.RedbusServiceClient
+	maxMessageBytes int
 }
 
-func New(host string, port int) (*Producer, error) {
+// ProducerOptionFn configures a Producer in New.
+type ProducerOptionFn = func(p *Producer)
+
+// WithMaxMessageBytes sets the payload limit of Produce; zero or less means DefaultMaxMessageBytes.
+func WithMaxMessageBytes(limit int) ProducerOptionFn {
+	return func(p *Producer) { p.maxMessageBytes = limit }
+}
+
+func New(host string, port int, opts ...ProducerOptionFn) (*Producer, error) {
 	conn, err := grpc.Dial(
 		fmt.Sprintf("%s:%d", host, port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -29,15 +38,24 @@ func New(host string, port int) (*Producer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Can not connect with databus %w", err)
 	}
-	return &Producer{
+	p := &Producer{
 		conn:   conn,
 		client: pb.NewRedbusServiceClient(conn),
-	}, nil
+	}
+	for _, o := range opts {
+		o(p)
+	}
+	return p, nil
 }
 
 // Produce publishes one message directly over gRPC. It fails with ErrRejected when the bus did
-// not accept the message.
+// not accept the message, and with *MessageTooLargeError (errors.Is ErrMessageTooLarge) without
+// calling the bus when the payload is above the producer's limit (DefaultMaxMessageBytes unless
+// WithMaxMessageBytes).
 func (p *Producer) Produce(ctx context.Context, topic string, message []byte, options ...OptionFn) error {
+	if err := CheckMessageSize(topic, message, p.maxMessageBytes); err != nil {
+		return err
+	}
 	resp, err := p.client.Produce(ctx, NewRequest(topic, message, options...))
 	if err != nil {
 		return err

@@ -43,3 +43,11 @@ func TestRepeatErrorStatFromProto(t *testing.T) {
 	require.Equal(t, time.UnixMilli(1_777_632_000_000), result.FirstFailedAt)
 	require.Equal(t, time.UnixMilli(1_777_632_060_000), result.LastFailedAt)
 }
+
+func TestConsumerFromProtoPreservesLagFailure(t *testing.T) {
+	consumer := consumerFromProto(&controlpb.Consumer{Partitions: []*controlpb.ConsumerPartition{{
+		Number: 1, Lag: -1, LagError: "offsets unavailable: LEADER_NOT_AVAILABLE",
+	}}})
+	require.Equal(t, "offsets unavailable: LEADER_NOT_AVAILABLE", consumer.PartitionList[0].LagError)
+	require.Equal(t, int64(-1), int64(consumer.PartitionList[0].Lag))
+}

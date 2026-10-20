@@ -30,9 +30,12 @@ class FlusherActorSpec
     @volatile var fetchLimits: Vector[Int] = Vector.empty
     @volatile var deleteCalls: Vector[Seq[Long]] = Vector.empty
 
-    override def fetchBatch(batchSize: Int): Future[Seq[PublishingMessage]] = synchronized {
+    @volatile var fetchFailed: Vector[Set[String]] = Vector.empty
+
+    override def fetchBatch(batchSize: Int, failedTopics: Set[String]): Future[Seq[PublishingMessage]] = synchronized {
       fetchLimits = fetchLimits :+ batchSize
-      Future.successful(rows.sortBy(_.id).take(batchSize))
+      fetchFailed = fetchFailed :+ failedTopics
+      Future.successful(rows.filterNot(message => failedTopics.contains(message.topic)).sortBy(_.id).take(batchSize))
     }
 
     override def deleteBatch(ids: Seq[Long]): Future[Int] = synchronized {
@@ -51,7 +54,7 @@ class FlusherActorSpec
 
   "FlusherActor" should {
 
-    "fetch bounded rows, preserve id order and split batches at topic boundaries" in {
+    "send each topic of the bounded queue head as one batch and preserve id order within the topic" in {
       val store = new InMemoryStore(Seq(
         message(4, "topic-a"),
         message(2, "topic-a"),
@@ -82,6 +85,25 @@ class FlusherActorSpec
       first.timestamp shouldBe "2026-09-16T07:00:00Z"
       store.deleteCalls shouldBe Seq(Seq(1L, 2L), Seq(3L), Seq(4L))
       store.fetchLimits.distinct shouldBe Seq(3)
+      store.fetchFailed.distinct shouldBe Seq(Set.empty[String])
+    }
+
+    "group interleaved topics of one fetch into one batch per topic" in {
+      val store = new InMemoryStore(Seq(
+        message(1, "topic-a"), message(2, "topic-b"), message(3, "topic-a"), message(4, "topic-b"),
+      ))
+      @volatile var requests = Vector.empty[api.ProduceBatchRequest]
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] = request => synchronized {
+        requests = requests :+ request
+        Future.successful(api.ProduceBatchResponse(ok = true))
+      }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, _ => (), batchSize = 100)))
+
+      actor ! ProcessMessage("sweep")
+
+      eventually(store.rows shouldBe empty)
+      requests.map(_.topic) shouldBe Seq("topic-a", "topic-b")
+      requests.map(_.messageList.map(_.version)) shouldBe Seq(Seq(1L, 3L), Seq(2L, 4L))
     }
 
     "delete no rows until the whole batch is confirmed" in {
@@ -145,7 +167,7 @@ class FlusherActorSpec
       actor ! ProcessMessage("notify")
       eventually(errors should have size 1)
       val (line, reported) = errors.head
-      line should include("Flush failed (notify)")
+      line should include("Flush failed (notify) for topic topic")
       reported shouldBe theSameInstanceAs(cause)
       debug.filter(_.contains("Flush failed")) shouldBe empty
       store.rows.map(_.id) shouldBe Seq(1L, 2L)
@@ -177,6 +199,87 @@ class FlusherActorSpec
       eventually(logged.exists(line =>
         line.startsWith("Flush failed (notify)") && line.contains("bus unavailable")
       ) shouldBe true)
+    }
+
+    "skip a failing topic for the rest of the pass and deliver the topics behind it" in {
+      val store = new InMemoryStore(Seq(
+        message(1, "topic-a"),
+        message(2, "topic-b"),
+        message(3, "topic-a"),
+        message(4, "topic-c"),
+        message(5, "topic-b"),
+      ))
+      @volatile var requests = Vector.empty[api.ProduceBatchRequest]
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] = request => synchronized {
+        requests = requests :+ request
+        if (request.topic == "topic-a") Future.failed(new RuntimeException("[29] TOPIC_AUTHORIZATION_FAILED"))
+        else Future.successful(api.ProduceBatchResponse(ok = true))
+      }
+      @volatile var errors = Vector.empty[String]
+      val errorLogger: Flusher.ErrorLogger = (line, _) => synchronized { errors = errors :+ line }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, _ => (), errorLogger, batchSize = 10)))
+
+      actor ! ProcessMessage("notify")
+
+      eventually(store.rows.map(_.id) shouldBe Seq(1L, 3L))
+      eventually(errors should have size 1)
+      requests.map(_.topic) shouldBe Seq("topic-a", "topic-b", "topic-c")
+      requests(1).messageList.map(_.version) shouldBe Seq(2L, 5L)
+      errors.head should include("for topic topic-a")
+      store.deleteCalls shouldBe Seq(Seq(2L, 5L), Seq(4L))
+      eventually(store.fetchFailed shouldBe Seq(Set.empty[String], Set("topic-a")))
+    }
+
+    "end the pass when only a failing topic is left" in {
+      val store = new InMemoryStore(Seq(message(1, "topic-a"), message(2, "topic-a")))
+      val attempts = new AtomicInteger(0)
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] = _ => {
+        attempts.incrementAndGet()
+        Future.failed(new RuntimeException("bus unavailable"))
+      }
+      @volatile var errors = Vector.empty[String]
+      val errorLogger: Flusher.ErrorLogger = (line, _) => synchronized { errors = errors :+ line }
+      val actor = system.actorOf(Props(new FlusherActor(store, produceBatch, _ => (), errorLogger, batchSize = 1)))
+
+      actor ! ProcessMessage("notify")
+      eventually(errors should have size 1)
+      Thread.sleep(200)
+      attempts.get() shouldBe 1
+      store.rows.map(_.id) shouldBe Seq(1L, 2L)
+    }
+
+    "report a failing topic at most once per interval and count the suppressed reports" in {
+      val store = new InMemoryStore(Seq(message(1, "topic-a"), message(2, "topic-b")))
+      val attempts = new AtomicInteger(0)
+      val produceBatch: api.ProduceBatchRequest => Future[api.ProduceBatchResponse] = _ => {
+        attempts.incrementAndGet()
+        Future.failed(new RuntimeException("bus unavailable"))
+      }
+      val clock = new java.util.concurrent.atomic.AtomicLong(0L)
+      @volatile var errors = Vector.empty[String]
+      val errorLogger: Flusher.ErrorLogger = (line, _) => synchronized { errors = errors :+ line }
+      val actor = system.actorOf(Props(new FlusherActor(
+        store, produceBatch, _ => (), errorLogger, 100, 1.minute, () => clock.get(),
+      )))
+
+      // Both topics fail on every pass: one report per topic for the first pass.
+      actor ! ProcessMessage("notify")
+      eventually(attempts.get() shouldBe 2)
+      eventually(errors should have size 2)
+      // Two more passes within the minute are suppressed.
+      clock.addAndGet(30.seconds.toNanos)
+      actor ! ProcessMessage("notify")
+      eventually(attempts.get() shouldBe 4)
+      actor ! ProcessMessage("notify")
+      eventually(attempts.get() shouldBe 6)
+      errors should have size 2
+      // After the interval the next report carries the suppressed count.
+      clock.addAndGet(30.seconds.toNanos)
+      actor ! ProcessMessage("notify")
+      eventually(errors should have size 4)
+      errors.drop(2).foreach(_ should include("(2 more suppressed since the previous report)"))
+      errors.drop(2).map(_.contains("topic-a")) should contain(true)
+      errors.drop(2).map(_.contains("topic-b")) should contain(true)
     }
 
     "keep the whole batch when the bus rejects the response" in {

@@ -28,21 +28,29 @@ type CreateOptions struct {
 	ReplicationFactor int
 }
 
+// DefaultBatchTimeout bounds how long the writer waits for more messages before it sends an
+// incomplete batch. ProduceBatch is synchronous, so the kafka-go default of one second (its
+// BatchTimeout when the field is zero) became the latency of every request smaller than
+// kafka-go's BatchSize (100) — about one request per second per partition.
+const DefaultBatchTimeout = 10 * time.Millisecond
+
 type conf struct {
-	log         bool
-	createTopic *CreateOptions
-	credentials *credential.Conf
-	balancer    kafka.Balancer
+	log          bool
+	createTopic  *CreateOptions
+	credentials  *credential.Conf
+	balancer     kafka.Balancer
+	batchTimeout time.Duration
 }
 
 func New(ctx context.Context, hosts []string, credentials *credential.Conf, topic model.TopicName, options ...Option) (*Producer, error) {
 	p := Producer{
 		topic: topic,
 		conf: conf{
-			log:         false,
-			createTopic: nil,
-			credentials: credentials,
-			balancer:    &kafka.CRC32Balancer{},
+			log:          false,
+			createTopic:  nil,
+			credentials:  credentials,
+			balancer:     &kafka.CRC32Balancer{},
+			batchTimeout: DefaultBatchTimeout,
 		},
 	}
 	for _, o := range options {
@@ -55,12 +63,7 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 		}
 	}
 
-	writer := &kafka.Writer{
-		Addr:         kafka.TCP(hosts...),
-		Topic:        string(topic),
-		RequiredAcks: kafka.RequireOne,
-		Balancer:     p.conf.balancer,
-	}
+	writer := newWriter(hosts, topic, p.conf)
 
 	auth := "noauth"
 	if p.conf.credentials != nil {
@@ -79,6 +82,16 @@ func New(ctx context.Context, hosts []string, credentials *credential.Conf, topi
 	log.Printf("Ready to produce kafka %v@%v '%v', %T\n", auth, hosts, p.topic, p.conf.balancer)
 
 	return &p, nil
+}
+
+func newWriter(hosts []string, topic model.TopicName, c conf) *kafka.Writer {
+	return &kafka.Writer{
+		Addr:         kafka.TCP(hosts...),
+		Topic:        string(topic),
+		RequiredAcks: kafka.RequireOne,
+		Balancer:     c.balancer,
+		BatchTimeout: c.batchTimeout,
+	}
 }
 
 func (p *Producer) Produce(ctx context.Context, key string, message []byte, headers map[string]string) error {

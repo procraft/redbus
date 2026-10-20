@@ -14,6 +14,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func TestGetTopicStatsPreservesOffsetFailures(t *testing.T) {
+	const reason = "metadata unavailable: LEADER_NOT_AVAILABLE"
+	api := New(dataBusStub{topics: model.StatTopicList{{
+		Name: "orders", Error: reason,
+		PartitionList: []model.StatPartition{{N: 1, FirstOffset: -1, LastOffset: -1, Error: reason}},
+		GroupList: []model.StatGroup{{
+			PartitionList: []model.StatGroupPartition{{N: 1, Lag: -1, LagError: reason}},
+			ConsumerList:  []model.StatConsumer{{PartitionList: []model.StatConsumerPartition{{N: 1, Lag: -1, LagError: reason}}}},
+		}},
+	}}}, nil)
+	response, err := api.GetTopicStats(context.Background(), &admincontrol.Empty{})
+	require.NoError(t, err)
+	require.Equal(t, reason, response.List[0].Error)
+	require.Equal(t, reason, response.List[0].Partitions[0].Error)
+	require.Equal(t, reason, response.List[0].Groups[0].Partitions[0].LagError)
+	require.Equal(t, reason, response.List[0].Groups[0].Consumers[0].Partitions[0].LagError)
+}
+
 type dataBusStub struct {
 	stat   model.Stat
 	topics model.StatTopicList

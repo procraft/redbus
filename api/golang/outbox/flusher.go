@@ -25,6 +25,8 @@ const (
 	DefaultSweepInterval = 30 * time.Second
 	// DefaultPublishTimeout bounds one batch request.
 	DefaultPublishTimeout = 30 * time.Second
+	// DefaultErrorLogInterval is the minimum interval between two error reports for one topic.
+	DefaultErrorLogInterval = time.Minute
 	// completeTimeout bounds the delete after a successful publish.
 	completeTimeout = 10 * time.Second
 )
@@ -56,6 +58,12 @@ func WithListenDSN(dsn string) FlusherOption {
 	return func(f *Flusher) { f.listenDSN = dsn }
 }
 
+// WithErrorLogInterval sets the minimum interval between two error reports for one topic
+// (default one minute). Reports suppressed in between are counted in the next one.
+func WithErrorLogInterval(d time.Duration) FlusherOption {
+	return func(f *Flusher) { f.errorLogInterval = d }
+}
+
 // WithLogger sets the logger (default slog.Default()).
 func WithLogger(l *slog.Logger) FlusherOption {
 	return func(f *Flusher) { f.log = l }
@@ -65,10 +73,14 @@ func WithLogger(l *slog.Logger) FlusherOption {
 //
 // A pass is triggered by a notification (WithListenDSN) or by the periodic sweep, which also runs
 // immediately at start and delivers rows left over from a restart or a missed notification. Only
-// one pass runs at a time; a trigger during a pass starts another pass right after it. A pass
-// fetches at most batchSize rows in id order, publishes the same-topic prefix with one request and
-// deletes those rows, until the table is empty. A publish failure keeps the whole batch, ends the
-// pass and is retried on the next trigger.
+// one pass runs at a time; a trigger during a pass starts another pass right after it.
+//
+// Order is kept only within a topic. Each step selects at most batchSize rows in id order, skipping
+// topics that failed earlier in the pass, publishes the rows of each topic with one request (topics
+// in the order of their first row) and deletes the published rows. A topic whose publish fails keeps
+// its rows and is excluded for the rest of the pass, so one rejected topic (e.g. missing Kafka ACLs)
+// does not stop the others; it is retried on the next trigger. Failures are logged at error level,
+// at most once per topic per errorLogInterval.
 //
 // Rows are selected FOR UPDATE and deleted in the same transaction, so flushers of several
 // replicas of one service are serialised instead of publishing the same rows twice.
@@ -80,6 +92,9 @@ type Flusher struct {
 	publishTimeout time.Duration
 	listenDSN      string
 	log            *slog.Logger
+
+	errorLogInterval time.Duration
+	now              func() time.Time
 }
 
 func NewFlusher(db *sql.DB, publish Publisher, opts ...FlusherOption) *Flusher {
@@ -94,6 +109,9 @@ func newFlusher(s store, publish Publisher, opts ...FlusherOption) *Flusher {
 		sweepInterval:  DefaultSweepInterval,
 		publishTimeout: DefaultPublishTimeout,
 		log:            slog.Default(),
+
+		errorLogInterval: DefaultErrorLogInterval,
+		now:              time.Now,
 	}
 	for _, o := range opts {
 		o(f)
@@ -137,6 +155,7 @@ func (f *Flusher) Run(ctx context.Context) error {
 		notifications = l.NotificationChannel()
 	}
 
+	errLog := newErrorThrottle(f.errorLogInterval, f.now)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -145,8 +164,21 @@ func (f *Flusher) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-trigger:
-				if err := f.Flush(ctx); err != nil && ctx.Err() == nil {
-					f.log.Warn("redbus outbox: flush failed, rows stay in outbox until the next pass", "error", err)
+				failures, err := f.flush(ctx)
+				if ctx.Err() != nil {
+					continue
+				}
+				for _, fl := range failures {
+					errLog.report(fl.topic, func(suppressed int) {
+						f.log.Error("redbus outbox: flush of topic failed, its rows stay in outbox until the next pass",
+							"topic", fl.topic, "error", fl.err, "suppressed", suppressed)
+					})
+				}
+				if err != nil {
+					errLog.report("", func(suppressed int) {
+						f.log.Error("redbus outbox: flush failed, rows stay in outbox until the next pass",
+							"error", err, "suppressed", suppressed)
+					})
 				}
 			}
 		}
@@ -169,31 +201,85 @@ func (f *Flusher) Run(ctx context.Context) error {
 	}
 }
 
-// Flush runs one pass: it publishes bounded batches until the outbox is empty or a batch fails.
+// Flush runs one pass: it publishes bounded batches until every row left belongs to a topic that
+// failed in this pass. The returned error joins the failure of every such topic and an error that
+// ended the pass early (fetch, delete, commit, cancellation).
 func (f *Flusher) Flush(ctx context.Context) error {
+	failures, err := f.flush(ctx)
+	errs := make([]error, 0, len(failures)+1)
+	for _, fl := range failures {
+		errs = append(errs, fl.err)
+	}
+	return errors.Join(append(errs, err)...)
+}
+
+type topicFailure struct {
+	topic string
+	err   error
+}
+
+// flush runs one pass and returns the topics that failed in it; err is a failure that ended the
+// pass. A step either deletes rows or adds every topic of its selection to failed, and failed rows
+// are never selected again, so the pass always ends.
+func (f *Flusher) flush(ctx context.Context) (failures []topicFailure, err error) {
+	var failed []string
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return failures, err
 		}
-		n, err := f.flushBatch(ctx)
-		if err != nil || n == 0 {
-			return err
+		stepFailures, n, err := f.flushBatch(ctx, failed)
+		failures = append(failures, stepFailures...)
+		if err != nil {
+			return failures, err
+		}
+		for _, fl := range stepFailures {
+			failed = append(failed, fl.topic)
+		}
+		if n == 0 && len(stepFailures) == 0 {
+			return failures, nil
 		}
 	}
 }
 
-// flushBatch publishes and deletes one same-topic batch and returns its size.
+// topicGroup is the rows of one topic within a selection, in id order.
+type topicGroup struct {
+	topic string
+	rows  []row
+}
+
+// groupByTopic splits rows (in id order) by topic in the order of each topic's first row.
+func groupByTopic(rows []row) []topicGroup {
+	var groups []topicGroup
+	index := map[string]int{}
+	for _, r := range rows {
+		i, ok := index[r.topic]
+		if !ok {
+			i = len(groups)
+			index[r.topic] = i
+			groups = append(groups, topicGroup{topic: r.topic})
+		}
+		groups[i].rows = append(groups[i].rows, r)
+	}
+	return groups
+}
+
+// flushBatch runs one step in one transaction: select at most batchSize rows in id order outside
+// the failed topics FOR UPDATE, publish each topic's rows with one request, delete the rows of the
+// published topics and commit. It returns the topics whose publish failed (their rows stay) and the
+// number of deleted rows; an error (fetch, delete, commit) rolls back the whole step and ends the
+// pass.
 //
 // The transaction is not bound to ctx: a cancellation between a successful publish and the commit
 // would roll back the delete and publish the batch again on the next start. Each step has its own
 // bound instead of one deadline for the whole transaction, so a long wait for another replica's
 // row locks cannot expire the transaction after a successful publish: the fetch waits at most as
-// long as another replica holds its locks, the publish has publishTimeout and the delete
-// completeTimeout. The fetch and the publish also stop with ctx.
-func (f *Flusher) flushBatch(ctx context.Context) (n int, err error) {
+// long as another replica can hold its locks (one publishTimeout per topic of its selection plus
+// the delete), each publish has publishTimeout and the delete completeTimeout. The fetch and the
+// publish also stop with ctx.
+func (f *Flusher) flushBatch(ctx context.Context, failed []string) (failures []topicFailure, n int, err error) {
 	tx, err := f.store.begin(context.WithoutCancel(ctx))
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	defer func() {
 		if err != nil {
@@ -201,22 +287,50 @@ func (f *Flusher) flushBatch(ctx context.Context) (n int, err error) {
 		}
 	}()
 
-	fetchCtx, cancelFetch := context.WithTimeout(ctx, f.publishTimeout+completeTimeout)
-	rows, err := tx.fetch(fetchCtx, f.batchSize)
+	fetchCtx, cancelFetch := context.WithTimeout(ctx, time.Duration(f.batchSize)*f.publishTimeout+completeTimeout)
+	rows, err := tx.fetch(fetchCtx, f.batchSize, failed)
 	cancelFetch()
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	if len(rows) == 0 {
-		return 0, tx.commit()
+		return nil, 0, tx.commit()
 	}
-	topic := rows[0].topic
-	req := &pb.ProduceBatchRequest{Topic: topic}
-	ids := make([]int64, 0, len(rows))
-	for _, r := range rows {
-		if r.topic != topic {
-			break
+
+	var published []int64
+	for _, g := range groupByTopic(rows) {
+		ids, perr := f.publishGroup(ctx, g)
+		if perr != nil {
+			failures = append(failures, topicFailure{topic: g.topic, err: perr})
+			continue
 		}
+		published = append(published, ids...)
+	}
+	if len(published) == 0 {
+		return failures, 0, tx.commit()
+	}
+
+	deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), completeTimeout)
+	deleted, err := tx.delete(deleteCtx, published)
+	cancelDelete()
+	if err != nil {
+		return failures, 0, err
+	}
+	if deleted != len(published) {
+		err = fmt.Errorf("deleted %d of %d flushed outbox rows", deleted, len(published))
+		return failures, 0, err
+	}
+	if err = tx.commit(); err != nil {
+		return failures, 0, err
+	}
+	return failures, len(published), nil
+}
+
+// publishGroup sends the rows of one topic with one request and returns their ids.
+func (f *Flusher) publishGroup(ctx context.Context, g topicGroup) ([]int64, error) {
+	req := &pb.ProduceBatchRequest{Topic: g.topic}
+	ids := make([]int64, 0, len(g.rows))
+	for _, r := range g.rows {
 		msg := &pb.ProduceBatchMessage{
 			Key:            r.options.Key,
 			Message:        r.message,
@@ -230,27 +344,14 @@ func (f *Flusher) flushBatch(ctx context.Context) (n int, err error) {
 		req.MessageList = append(req.MessageList, msg)
 		ids = append(ids, r.id)
 	}
-
 	publishCtx, cancel := context.WithTimeout(ctx, f.publishTimeout)
-	err = f.publish(publishCtx, req)
+	err := f.publish(publishCtx, req)
 	cancel()
 	if err != nil {
-		return 0, fmt.Errorf("publish batch %s / %s: %w", topic, joinIDs(ids), err)
+		return nil, fmt.Errorf("publish batch %s / %s: %w", g.topic, joinIDs(ids), err)
 	}
-	deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), completeTimeout)
-	deleted, err := tx.delete(deleteCtx, ids)
-	cancelDelete()
-	if err != nil {
-		return 0, err
-	}
-	if deleted != len(ids) {
-		return 0, fmt.Errorf("deleted %d of %d flushed outbox rows", deleted, len(ids))
-	}
-	if err = tx.commit(); err != nil {
-		return 0, err
-	}
-	f.log.Debug("redbus outbox: flushed batch", "topic", topic, "ids", joinIDs(ids))
-	return len(ids), nil
+	f.log.Debug("redbus outbox: flushed batch", "topic", g.topic, "ids", joinIDs(ids))
+	return ids, nil
 }
 
 func joinIDs(ids []int64) string {
@@ -268,14 +369,14 @@ type row struct {
 	options options
 }
 
-// store is the outbox storage seam; rows are returned in id order and stay locked until the
-// transaction ends.
+// store is the outbox storage seam. fetch returns up to limit rows whose topic is not in failed, in
+// id order; they stay locked until the transaction ends.
 type store interface {
 	begin(ctx context.Context) (storeTx, error)
 }
 
 type storeTx interface {
-	fetch(ctx context.Context, limit int) ([]row, error)
+	fetch(ctx context.Context, limit int, failed []string) ([]row, error)
 	delete(ctx context.Context, ids []int64) (int, error)
 	commit() error
 	rollback() error
@@ -297,10 +398,29 @@ type sqlTx struct {
 	tx *sql.Tx
 }
 
-const fetchSQL = `SELECT id, topic, message, options FROM public.redbus_outbox ORDER BY id LIMIT $1 FOR UPDATE`
+// fetchSQL is the head of the queue outside the topics that failed in this pass. Without failed
+// topics it is the plain `ORDER BY id LIMIT n` over the primary key, so the healthy path keeps its
+// plan; the exclusion is a list of placeholders rather than an array parameter so that lib/pq and
+// pgx stdlib bind it alike.
+func fetchSQL(failed int) string {
+	where := ""
+	if failed > 0 {
+		placeholders := make([]string, failed)
+		for i := range placeholders {
+			placeholders[i] = "$" + strconv.Itoa(i+2)
+		}
+		where = ` WHERE topic NOT IN (` + strings.Join(placeholders, ",") + `)`
+	}
+	return `SELECT id, topic, message, options FROM public.redbus_outbox` + where + ` ORDER BY id LIMIT $1 FOR UPDATE`
+}
 
-func (t sqlTx) fetch(ctx context.Context, limit int) ([]row, error) {
-	rs, err := t.tx.QueryContext(ctx, fetchSQL, limit)
+func (t sqlTx) fetch(ctx context.Context, limit int, failed []string) ([]row, error) {
+	args := make([]any, 0, len(failed)+1)
+	args = append(args, limit)
+	for _, topic := range failed {
+		args = append(args, topic)
+	}
+	rs, err := t.tx.QueryContext(ctx, fetchSQL(len(failed)), args...)
 	if err != nil {
 		return nil, err
 	}

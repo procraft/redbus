@@ -1,10 +1,13 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 func TestFromFileAndEnvReadsAdminApiHost(t *testing.T) {
@@ -51,4 +54,46 @@ func TestRepoConfigDisablesDBSSLForLocalDevelopment(t *testing.T) {
 	require.NoError(t, err)
 	mode, _ := conf.DB.SSL()
 	require.Equal(t, "disable", mode)
+}
+
+func TestLokiConfigFromEnvWithProcessDefaults(t *testing.T) {
+	t.Setenv("REDBUS_LOKI_URL", "http://loki:3100/loki/api/v1/push")
+	t.Setenv("REDBUS_LOKI_USERNAME", "user")
+	t.Setenv("REDBUS_LOKI_PASSWORD", "secret")
+	t.Setenv("REDBUS_LOKI_ENV", "stage")
+
+	conf, err := FromFileAndEnv(filepath.Join(t.TempDir(), "missing.json"))
+	require.NoError(t, err)
+	loki, err := conf.Log.Loki.Logger("redbus-admin")
+
+	require.NoError(t, err)
+	require.Equal(t, logger.LokiConfig{
+		URL: "http://loki:3100/loki/api/v1/push", Username: "user", Password: "secret",
+		App: "redbus-admin", Env: "stage", MinLevel: logger.LevelInfo,
+	}, loki)
+
+	t.Setenv("REDBUS_LOKI_APP", "bus")
+	t.Setenv("REDBUS_LOKI_LEVEL", "loud")
+	conf, err = FromFileAndEnv(filepath.Join(t.TempDir(), "missing.json"))
+	require.NoError(t, err)
+	_, err = conf.Log.Loki.Logger("redbus")
+	require.ErrorContains(t, err, "log.loki.level")
+}
+
+func TestKafkaMessageIdNamespaceFromFileAndEnv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("REDBUS_KAFKA_MESSAGE_ID_NAMESPACE", "")
+	conf, err := FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Empty(t, conf.Kafka.MessageIdNamespace)
+
+	require.NoError(t, os.WriteFile(path, []byte(`{"kafka":{"messageIdNamespace":"file-generation"}}`), 0600))
+	conf, err = FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Equal(t, "file-generation", conf.Kafka.MessageIdNamespace)
+
+	t.Setenv("REDBUS_KAFKA_MESSAGE_ID_NAMESPACE", "env-generation")
+	conf, err = FromFileAndEnv(path)
+	require.NoError(t, err)
+	require.Equal(t, "env-generation", conf.Kafka.MessageIdNamespace)
 }

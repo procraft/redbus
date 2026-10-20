@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
@@ -93,4 +94,16 @@ func TestProduceBatchWritesOneOrderedKafkaBatch(t *testing.T) {
 		string(writer.batches[0][1].Value),
 		string(writer.batches[0][2].Value),
 	})
+}
+
+func TestWriterBatchTimeoutDefaultsToShortFlush(t *testing.T) {
+	p, err := New(context.Background(), []string{"127.0.0.1:1"}, nil, "topic")
+	require.NoError(t, err)
+	defer p.Close()
+	require.Equal(t, DefaultBatchTimeout, p.writer.(*kafka.Writer).BatchTimeout)
+
+	p, err = New(context.Background(), []string{"127.0.0.1:1"}, nil, "topic", WithBatchTimeout(time.Second))
+	require.NoError(t, err)
+	defer p.Close()
+	require.Equal(t, time.Second, p.writer.(*kafka.Writer).BatchTimeout)
 }

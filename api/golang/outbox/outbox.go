@@ -31,7 +31,18 @@ const insertSQL = `INSERT INTO public.redbus_outbox (topic, message, options, cr
 // Write inserts the message into redbus_outbox through tx, so it is committed together with the
 // caller's own writes; a running Flusher then delivers it. The request is prepared exactly like
 // producer.Produce: a random idempotency key and the current timestamp unless options set them.
+// The payload limit is producer.DefaultMaxMessageBytes; see WriteWithLimit.
 func Write(ctx context.Context, tx Execer, topic string, message []byte, opts ...producer.OptionFn) error {
+	return WriteWithLimit(ctx, tx, topic, message, producer.DefaultMaxMessageBytes, opts...)
+}
+
+// WriteWithLimit is Write with an explicit payload limit (zero or less means
+// producer.DefaultMaxMessageBytes). A longer payload fails with *producer.MessageTooLargeError
+// before any statement runs, so no row is written; the caller must roll back its transaction.
+func WriteWithLimit(ctx context.Context, tx Execer, topic string, message []byte, maxMessageBytes int, opts ...producer.OptionFn) error {
+	if err := producer.CheckMessageSize(topic, message, maxMessageBytes); err != nil {
+		return err
+	}
 	req := producer.NewRequest(topic, message, opts...)
 	o, err := json.Marshal(options{
 		Key:            req.Key,

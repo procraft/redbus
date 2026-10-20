@@ -3,6 +3,7 @@ package outbox_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -92,6 +93,38 @@ func TestFlushDeliversRowsWrittenByScalaSDK(t *testing.T) {
 	var n int
 	require.NoError(t, db.QueryRow(`SELECT count(*) FROM public.redbus_outbox`).Scan(&n))
 	require.Zero(t, n)
+}
+
+func TestFlushDeliversOtherTopicsPastFailingTopic(t *testing.T) {
+	db := pgtest.New(t)
+	ctx := context.Background()
+	for i, topic := range []string{"a", "b", "a", "c", "b"} {
+		require.NoError(t, outbox.Write(ctx, db, topic, []byte("m"), producer.WithIdempotencyKey(fmt.Sprint(i+1))))
+	}
+	var sent []string
+	publish := func(_ context.Context, req *pb.ProduceBatchRequest) error {
+		if req.Topic == "a" {
+			return errors.New("[29] Topic Authorization Failed")
+		}
+		for _, m := range req.MessageList {
+			sent = append(sent, req.Topic+m.IdempotencyKey)
+		}
+		return nil
+	}
+
+	require.ErrorContains(t, outbox.NewFlusher(db.DB, publish, outbox.WithBatchSize(10)).Flush(ctx), "Topic Authorization Failed")
+
+	require.Equal(t, []string{"b2", "b5", "c4"}, sent)
+	rows, err := db.Query(`SELECT topic, options->>'idempotencyKey' FROM public.redbus_outbox ORDER BY id`)
+	require.NoError(t, err)
+	defer rows.Close()
+	var left []string
+	for rows.Next() {
+		var topic, key string
+		require.NoError(t, rows.Scan(&topic, &key))
+		left = append(left, topic+key)
+	}
+	require.Equal(t, []string{"a1", "a3"}, left)
 }
 
 func TestConcurrentFlushersPublishEveryRowOnce(t *testing.T) {

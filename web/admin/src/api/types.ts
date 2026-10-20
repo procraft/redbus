@@ -10,12 +10,14 @@ export type DashboardStat = {
 export type ConsumerState = 'connecting' | 'connected' | 'reconnecting' | string;
 
 export type TopicPartition = {
+  error?: string;
   n: number;
   firstOffset: number;
   lastOffset: number;
 };
 
 export type TopicGroupPartition = {
+  lagError?: string;
   n: number;
   offset: number;
   firstOffset: number;
@@ -27,6 +29,7 @@ export type TopicGroupPartition = {
 };
 
 export type ConsumerPartition = {
+  lagError?: string;
   n: number;
   groupOffset: number;
   lastOffset: number;
@@ -61,6 +64,7 @@ export type TopicGroup = {
 };
 
 export type TopicStat = {
+  error?: string;
   name: string;
   partitions: TopicPartition[] | null;
   groups: TopicGroup[] | null;

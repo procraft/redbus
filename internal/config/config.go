@@ -9,6 +9,7 @@ import (
 	"github.com/caarlos0/env/v6"
 
 	"github.com/procraft/redbus/internal/app/model"
+	"github.com/procraft/redbus/internal/pkg/logger"
 )
 
 type Config struct {
@@ -23,8 +24,39 @@ type Config struct {
 }
 
 type logConfig struct {
-	Json    bool `json:"json" env:"REDBUS_LOG_JSON"`
-	Verbose bool `json:"verbose" env:"REDBUS_LOG_VERBOSE"`
+	Json    bool       `json:"json" env:"REDBUS_LOG_JSON"`
+	Verbose bool       `json:"verbose" env:"REDBUS_LOG_VERBOSE"`
+	Loki    LokiConfig `json:"loki"`
+}
+
+// LokiConfig — отправка логов в Loki самим процессом (агента-сборщика в кластере нет). Пустой URL
+// выключает отправку. App — метка app; пустая заменяется именем процесса (redbus, redbus-admin).
+// Env — метка env (prod, stage), как у Scala-сервисов: Loki общий для контуров; пустая — метки нет.
+// Level — минимальный уровень отправляемых строк: debug, info (по умолчанию), warning, error.
+type LokiConfig struct {
+	URL      string `json:"url" env:"REDBUS_LOKI_URL"`
+	Username string `json:"username" env:"REDBUS_LOKI_USERNAME"`
+	Password string `json:"password" env:"REDBUS_LOKI_PASSWORD"`
+	App      string `json:"app" env:"REDBUS_LOKI_APP"`
+	Env      string `json:"env" env:"REDBUS_LOKI_ENV"`
+	Level    string `json:"level" env:"REDBUS_LOKI_LEVEL"`
+}
+
+// Logger переводит настройки в logger.LokiConfig; defaultApp подставляется вместо пустого App.
+func (c LokiConfig) Logger(defaultApp string) (logger.LokiConfig, error) {
+	level := c.Level
+	if level == "" {
+		level = "info"
+	}
+	minLevel, err := logger.ParseLevel(level)
+	if err != nil {
+		return logger.LokiConfig{}, fmt.Errorf("log.loki.level: %w", err)
+	}
+	app := c.App
+	if app == "" {
+		app = defaultApp
+	}
+	return logger.LokiConfig{URL: c.URL, Username: c.Username, Password: c.Password, App: app, Env: c.Env, MinLevel: minLevel}, nil
 }
 
 type metricsConfig struct {
@@ -97,6 +129,7 @@ type adminConfig struct {
 
 type kafkaConfig struct {
 	HostPort               string                 `json:"hostPort" env:"REDBUS_KAFKA_HOST_PORT"`
+	MessageIdNamespace     string                 `json:"messageIdNamespace" env:"REDBUS_KAFKA_MESSAGE_ID_NAMESPACE"`
 	Credentials            KafkaCredentialsConfig `json:"credentials"`
 	FailTimeout            model.Duration         `json:"failTimeout,string" env:"REDBUS_KAFKA_FAIL_TIMEOUT"`
 	CreateTopicIfNotExists bool                   `json:"createTopicIfNotExists" env:"REDBUS_KAFKA_CREATE_TOPIC"`

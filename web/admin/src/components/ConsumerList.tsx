@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import dataBus from '@/api/dataBus';
 import type { ConsumerStat } from '@/api/types';
 import { useRequest } from '@/hooks/useRequest';
+import { formatLag, summarizeLag } from '@/utils/lag';
 import {
   averageRate,
   formatAge,
@@ -167,8 +168,9 @@ export function ConsumerList() {
             <Table.Tbody>
               {filteredConsumers.map((consumer) => {
                 const partitions = [...(consumer.partitions ?? [])].sort((left, right) => left.n - right.n);
-                const totalLag = partitions.reduce((total, partition) => total + partition.lag, 0);
-                const maxLag = partitions.length > 0 ? Math.max(...partitions.map((partition) => partition.lag)) : 0;
+                const lag = summarizeLag(partitions);
+                const totalLag = lag.total;
+                const maxLag = lag.max;
                 const stateAge = formatAge(consumer.stateSince);
                 const connectedAge = formatAge(consumer.connectedAt);
                 return (
@@ -224,16 +226,18 @@ export function ConsumerList() {
                           ? partitions.map((partition) => (
                               <Text key={partition.n} size="sm">
                                 p{partition.n}: {partition.committed ? partition.groupOffset : '—'} /{' '}
-                                {partition.lastOffset}, lag {numberFormatter.format(partition.lag)}
+                                {partition.lastOffset < 0 ? '—' : partition.lastOffset}, lag {formatLag(partition.lagError || partition.lag < 0 ? null : partition.lag)}
+                                {partition.lagError && <Text component="span" c="red" size="xs"> — {partition.lagError}</Text>}
                               </Text>
                             ))
                           : 'Waiting for assignment'}
                       </Stack>
                     </Table.Td>
                     <Table.Td>
-                      <Text fw={totalLag > 0 ? 700 : undefined} c={totalLag > 0 ? 'orange' : undefined}>
-                        Lag: {numberFormatter.format(totalLag)} / {numberFormatter.format(maxLag)}
+                      <Text fw={(totalLag ?? 0) > 0 ? 700 : undefined} c={totalLag === null ? 'red' : totalLag > 0 ? 'orange' : undefined}>
+                        Lag: {formatLag(totalLag)} / {formatLag(maxLag)}
                       </Text>
+                      {totalLag === null && <Text size="xs" c="red">{lag.reason}</Text>}
                       <Text>{numberFormatter.format(consumer.messagesProcessed)} messages</Text>
                       <Text c="dimmed" size="xs">
                         {averageRate(consumer.messagesProcessed, consumer.connectedAt).toFixed(2)} msg/s avg

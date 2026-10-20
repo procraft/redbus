@@ -93,10 +93,14 @@ func (c *Client) Settings() Settings {
 }
 
 // Produce publishes directly over gRPC. It reports false without an error when the producer is
-// disabled; a rejected message fails with producer.ErrRejected.
+// disabled; a rejected message fails with producer.ErrRejected. A payload above
+// Settings.MaxMessageBytes fails with *producer.MessageTooLargeError without calling the bus.
 func (c *Client) Produce(ctx context.Context, topic string, message []byte, opts ...producer.OptionFn) (bool, error) {
 	if c.bus == nil || !c.settings.ProducerEnabled {
 		return false, nil
+	}
+	if err := producer.CheckMessageSize(topic, message, c.settings.maxMessageBytes()); err != nil {
+		return false, err
 	}
 	if err := c.bus.produce(ctx, topic, message, opts...); err != nil {
 		return false, err
@@ -115,12 +119,13 @@ func (c *Client) ProduceProto(ctx context.Context, topic string, message proto.M
 
 // ProduceTx is the transactional outbox: it inserts the message into redbus_outbox through tx
 // (normally the caller's *sql.Tx) and the flusher delivers it after commit. It writes nothing when
-// the producer is disabled.
+// the producer is disabled. A payload above Settings.MaxMessageBytes fails with
+// *producer.MessageTooLargeError and writes no row; roll back the caller's transaction.
 func (c *Client) ProduceTx(ctx context.Context, tx outbox.Execer, topic string, message []byte, opts ...producer.OptionFn) error {
 	if !c.settings.ProducerEnabled {
 		return nil
 	}
-	return outbox.Write(ctx, tx, topic, message, opts...)
+	return outbox.WriteWithLimit(ctx, tx, topic, message, c.settings.maxMessageBytes(), opts...)
 }
 
 // ProduceProtoTx is ProduceTx for a protobuf message.
@@ -132,7 +137,7 @@ func (c *Client) ProduceProtoTx(ctx context.Context, tx outbox.Execer, topic str
 	if err != nil {
 		return fmt.Errorf("redbus: marshal %T: %w", message, err)
 	}
-	return outbox.Write(ctx, tx, topic, data, opts...)
+	return outbox.WriteWithLimit(ctx, tx, topic, data, c.settings.maxMessageBytes(), opts...)
 }
 
 // StartFlusher starts the outbox flusher in the background until ctx is cancelled or Close is
