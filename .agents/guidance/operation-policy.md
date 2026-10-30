@@ -70,8 +70,10 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   sourcing or variable names; never ask the user to paste a URL, password, token or other secret into
   chat; never ask the user to run a git command the agent can run itself.
 - **Separate sessions:** when the user lists two or more independent items to do "в отдельных
-  сессиях", create one `spawn_task` chip per item, each with a self-contained prompt naming its
-  repository and slot/worktree; keep each `tldr` to one short sentence.
+  сессиях", use the client's native chat/task creation tool, one per item, with a self-contained
+  prompt naming its repository and slot/worktree. If the client cannot create separate chats,
+  provide ready-to-use prompts and state that limitation; do not substitute internal sub-agents
+  for the user-requested chats.
 - **Loki:** read stage and production logs without asking (read-only transport: the `loki-prod`/
   `loki-stage` MCP servers, `check-loki.sh`, `run-triage.sh`). Permission to read logs
   does not authorize database access, changing environments or running a repair. When the user
@@ -87,6 +89,15 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 
 ## Context and session discipline
 
+Store ad hoc agent-generated files (logs, dumps, screenshots, rendered PDFs, exports, and other
+working artifacts) only in the git-ignored `tmp/<task-or-session>/` under the current workspace
+or assigned checkout root. Create that subdirectory as needed and keep each task's files separate.
+Do not create `output/`, `outputs/`, or another parallel artifact directory, even when a tool or
+generic skill suggests one; configure its destination to `tmp/<task-or-session>/`. Keep workflow
+plans and handoffs in `.agents/proposals/`, and intended repository deliverables in their prescribed
+tracked locations. Tool-managed runtime/build directories and OS temporary files keep their existing
+lifecycle. Never move or remove another session's artifacts as part of this rule.
+
 Long context slows every turn and blurs the focus (measured 2026-09: about 270k tokens re-read per
 turn, a hundred sessions longer than eight hours), so:
 
@@ -98,12 +109,16 @@ turn, a hundred sessions longer than eight hours), so:
   sweeps, and reading large files return a conclusion with `path:line`, not file dumps.
 - Keep browser sessions, screenshots, and log dumps inside a bounded worker; the coordinator receives
   the outcome. Send long tool output to a file in the scratchpad and read the relevant part.
-- Run a command that may take longer than a minute with the client's background mode
-  (`run_in_background` and a completion notification, or `Monitor` for an event stream), never with
-  foreground `sleep`/`until`/`pgrep` polling loops: two weeks of such loops idled 12 hours inside tool
-  calls. Backend builds go only through `sh dev-tools/back-sbt.sh` (`--service <name>` for
+- Run a command that may take longer than a minute with the client's background execution or
+  resumable command session. Collect completion through its notification or native wait/resume
+  tool, using bounded waits so the user can steer the task. If neither is available, use the
+  client's supported foreground execution and report its timeout/continuation limits. Do not
+  replace completion handling with `sleep`/`until`/`pgrep` polling loops. Backend builds go only
+  through `sh dev-tools/back-sbt.sh` (`--service <name>` for
   `services/*`), which also enforces the machine-wide sbt concurrency gate
-  (`BACK_SBT_MAX_CONCURRENT`, `BACK_SBT_MAX_LOAD`); raw `sbt` bypasses it.
+  (`BACK_SBT_MAX_CONCURRENT`, `BACK_SBT_MIN_CPU_IDLE`, `BACK_SBT_MIN_FREE_MEM`) and refuses a
+  full-suite test run unless `--all-tests` is passed; raw `sbt` bypasses both. Run the full backend
+  suite only when the user explicitly asks for it.
 - Ticket work in `lms-back`/`lms-front` happens only in a task workspace from
   `wt task SL-N <slug> --repo back|front|both` (branch `wt/sl-n-<slug>` from fresh `origin/master`),
   is delivered from that branch, and is retired with `wt done` (coordinator
@@ -267,9 +282,9 @@ unless fresher evidence is needed. One agent owns shared runtime/DB diagnostics 
 
 Use stable command forms and a tool's working-directory argument instead of changing prefixes with
 `git -C`, shell wrappers or arbitrary inline Python. Prefer the standard ticket/attachment scripts.
-Parallelize agents only up to the machine's build capacity: at most a few concurrent sbt or full
-frontend typecheck/test runs; more concurrency produced load averages above the core count, flaky
-tests and manual reruns. The sbt gate in `back-sbt.sh` waits instead of failing, so a queued build is
+Parallelize agents only up to the machine's build capacity: overload produced flaky tests and manual
+reruns, so the sbt gate caps concurrent JVMs and waits on low CPU idle or free memory (not on load
+average, which on macOS counts Spotlight and short-lived processes and overstates the load). The sbt gate in `back-sbt.sh` waits instead of failing, so a queued build is
 the normal signal to stop adding workers.
 Run ordinary workspace commands in the sandbox; escalate only when technically necessary. When
 escalation is unavoidable, use a narrow reusable rule where safe, not a global shell/SQL allowance.

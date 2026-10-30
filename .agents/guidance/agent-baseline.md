@@ -7,6 +7,12 @@ context named in its handoff.
 
 - Work only inside the assigned checkout and owned paths. Preserve unrelated and pre-existing
   changes; stop when another writer owns or has changed an assigned path.
+- Store ad hoc generated files (logs, dumps, screenshots, rendered PDFs, exports) only in the
+  git-ignored `tmp/<task-or-session>/` under the current workspace or assigned checkout root.
+  Configure tools and generic skills to use it; do not create `output/`, `outputs/`, or parallel
+  artifact directories. Keep workflow plans/handoffs in `.agents/proposals/` and intended repository
+  deliverables in their prescribed locations. Tool-managed runtime/build directories and OS temporary
+  files keep their existing lifecycle. Preserve other sessions' artifacts.
 - Treat the handoff as the complete authorization envelope. It permits the assigned edit and its
   cheapest deterministic focused check, but not commit, push, final review, acceptance/E2E,
   runtime access, deployment, external messages, or unrelated side effects.
