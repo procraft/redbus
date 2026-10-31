@@ -53,7 +53,9 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   one plain `EXPLAIN` (no `ANALYZE`) runs without asking through
   `/<workspace>/lms-ai-multi-repo/.agents/tools/prod-access/explain.sh prod|stage /abs/path/query.sql`,
   which plans without reading data. Otherwise put the statements in a file and
-  hand the user one ready command. A write goes through
+  hand the user one ready command. Repository-managed manual migrations use the owning repository's
+  documented migration runner; the following generic wrapper is for ad hoc writes. This routing
+  distinction does not authorize agents to execute production SQL. An ad hoc write goes through
   `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql-rw.sh prod|stage /abs/path/change.sql`: it picks
   `SOHOLMS_PROD_PG_RW_URL` (role `libicraft`, password typed by the user at psql's prompt) or the
   stage URL itself, never `-U libicraft` on the read string (a role inside the URL wins over `-U`).
@@ -65,8 +67,9 @@ authorization is not a reason to bypass a denied tool or use broader credentials
   `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql.sh prod|stage /abs/path/query.sql`.
   The script loads `prod.env`/`stage.env` and enforces read-only; never hand-assemble
   `psql "$SOHOLMS_…"`: without the env file it connects to an empty URL.
-- **User-run commands:** when the user must run a database command, hand over exactly one line calling
-  `sql.sh` (read) or `sql-rw.sh` (write) with absolute paths. Never hand-assemble `psql`, env-file
+- **User-run commands:** when the user must run a database command, use the owning repository's
+  documented manual-migration runner when applicable; otherwise hand over exactly one line calling
+  `sql.sh` (read) or `sql-rw.sh` (ad hoc write) with absolute paths. Never hand-assemble `psql`, env-file
   sourcing or variable names; never ask the user to paste a URL, password, token or other secret into
   chat; never ask the user to run a git command the agent can run itself.
 - **Separate sessions:** when the user lists two or more independent items to do "в отдельных
@@ -234,6 +237,14 @@ similar code has different reasons to change. Prefer clear contracts and fewer s
 fewer lines. Where useful and proportionate, encode durable invariants in types/immutable state,
 module boundaries, constraints or focused tests instead of relying only on prose. Record only
 consequential decisions; this is implementation work, not an automatic final review.
+
+Before preparing production schema/data rollout SQL, read the owning repository's migration rules
+and existing runner, regardless of the planned artifact's path or suffix (including `.disabled`).
+Required manual prerequisites of the current delivery must be registered with that mechanism and
+its completion tracking, not hidden in tool directories or disabled candidates. Record the runner,
+release ordering and offline validation in the plan/handoff. A candidate for a future gated phase
+does not satisfy a required manual step of the current release; actual execution remains separately
+authorized. Check a command's effects: a migration status/list command may access production too.
 
 Close each slice with criterion-to-evidence links: changed paths, what the focused check proves,
 command/result, and the checked commit plus identifiable worktree changes (or equivalent artifact
