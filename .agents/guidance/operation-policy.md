@@ -121,7 +121,12 @@ turn, a hundred sessions longer than eight hours), so:
   `services/*`), which also enforces the machine-wide sbt concurrency gate
   (`BACK_SBT_MAX_CONCURRENT`, `BACK_SBT_MIN_CPU_IDLE`, `BACK_SBT_MIN_FREE_MEM`) and refuses a
   full-suite test run unless `--all-tests` is passed; raw `sbt` bypasses both. Run the full backend
-  suite only when the user explicitly asks for it.
+  suite only when the user explicitly asks for it. For a full backend compilation (an sbt invocation
+  including `clean`), set the background command timeout to 600 seconds and, where the client supports
+  it, the wait timeout to 600 seconds too; keep the current 90-second timeout for incremental
+  compilation. If the wait tool has a shorter cap, leave the same 600-second background task running
+  and collect its completion through notifications or bounded waits. A wait timeout is not a build
+  failure: never cancel or restart the compilation merely because a wait call timed out.
 - Ticket work in `lms-back`/`lms-front` happens only in a task workspace from
   `wt task SL-N <slug> --repo back|front|both` (branch `wt/sl-n-<slug>` from fresh `origin/master`),
   is delivered from that branch, and is retired with `wt done` (coordinator
