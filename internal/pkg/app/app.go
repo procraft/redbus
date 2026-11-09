@@ -19,6 +19,7 @@ import (
 	"github.com/procraft/redbus/internal/app/repository"
 	"github.com/procraft/redbus/internal/app/service/connstore"
 	"github.com/procraft/redbus/internal/app/service/databus"
+	"github.com/procraft/redbus/internal/app/service/queuehealth"
 	"github.com/procraft/redbus/internal/app/service/repeater"
 	"github.com/procraft/redbus/internal/config"
 	"github.com/procraft/redbus/internal/pkg/app/interceptor/reqid"
@@ -45,6 +46,7 @@ import (
 type App struct {
 	conf                  *config.Config
 	dataBusService        *databus.DataBus
+	queueHealth           *queuehealth.Service
 	repeaterService       *repeater.Repeater
 	grpcServer            *grpc.Server
 	controlServer         *grpc.Server
@@ -167,10 +169,11 @@ func (a *App) initService(ctx context.Context) error {
 		)
 	}
 	connStoreService := connstore.New(createProducerFn)
+	repo := repository.New()
 	repeaterService := repeater.New(
 		a.conf.Repeat.DefaultStrategy,
 		connStoreService,
-		repository.New(),
+		repo,
 		a.metrics,
 	)
 	kafkaProvider, err := provider.New(ctx, a.conf.Kafka.HostPort, kafkaCredentials)
@@ -185,6 +188,7 @@ func (a *App) initService(ctx context.Context) error {
 		a.metrics,
 	)
 	a.repeaterService = repeaterService
+	a.queueHealth = queuehealth.New(kafkaProvider, connStoreService, repo, a.metrics)
 	return nil
 }
 
@@ -193,14 +197,8 @@ func (a *App) initBackground(_ context.Context) error {
 		return a.repeaterService.Repeat(ctx)
 	}, a.conf.Repeat.Interval.Duration)
 	if a.conf.Metrics.ServerPort > 0 {
-		a.background.Add("metrics_retry_records", func(ctx context.Context) error {
-			count, err := a.repeaterService.GetCount(ctx)
-			if err != nil {
-				return err
-			}
-			a.metrics.SetRetryRecords(count.All-count.Failed-count.Deferred, count.Deferred, count.Failed)
-			return nil
-		}, a.conf.Repeat.Interval.Duration)
+		a.background.Add("metrics_retry_queue", a.queueHealth.RefreshRetry, queuehealth.RefreshInterval)
+		a.background.Add("metrics_kafka_queue", a.queueHealth.RefreshKafka, queuehealth.RefreshInterval)
 	}
 	return nil
 }

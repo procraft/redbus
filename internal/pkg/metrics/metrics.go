@@ -19,6 +19,7 @@ const namespace = "redbus"
 
 type Metrics struct {
 	registry *prometheus.Registry
+	queues   *queueCollector
 
 	activeConsumerMu     sync.Mutex
 	activeConsumerStates map[consumerKey]string
@@ -77,6 +78,7 @@ func (c dbPoolCollector) Collect(ch chan<- prometheus.Metric) {
 
 func New() *Metrics {
 	m := &Metrics{
+		queues:               newQueueCollector(),
 		registry:             prometheus.NewRegistry(),
 		activeConsumerStates: make(map[consumerKey]string),
 		producedMessages: prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -177,6 +179,7 @@ func New() *Metrics {
 		}, []string{"service", "method"}),
 	}
 	m.registry.MustRegister(
+		m.queues,
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		m.producedMessages,

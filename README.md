@@ -193,3 +193,43 @@ the sink.
 
 Import [`deploy/grafana/redbus-overview.json`](./deploy/grafana/redbus-overview.json) into Grafana and select the
 Prometheus data source to get the starter dashboard.
+
+### Queue lag and waiting age
+
+The metrics background jobs collect queue snapshots every 30 seconds, independently of
+`/metrics` requests. Each refresh has a 20-second deadline. Scraping only reads the cached
+snapshot and computes ages from its stored timestamps, so age continues to increase when
+processing stops. After an unsuccessful observation, or after 120 seconds without a fresh
+one, queue values are omitted and snapshot success is zero; an unavailable source is never
+reported as an empty queue.
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `redbus_kafka_consumer_lag_messages` | `topic,group` | Sum of uncommitted Kafka positions over the group's partitions |
+| `redbus_kafka_consumer_head_age_seconds` | `topic,group` | Age of the oldest partition-head Kafka record timestamp; zero when all partitions are caught up |
+| `redbus_retry_oldest_age_seconds` | `topic,group` | Age since first failed delivery (`repeat.created_at`) of the oldest pending or deferred retry; excludes exhausted retries |
+| `redbus_queue_snapshot_success` | `source,topic,group` | 1 for a successful snapshot at most 120 seconds old; otherwise 0; source is `kafka` or `retry` |
+| `redbus_queue_snapshot_timestamp_seconds` | `source,topic,group` | Unix timestamp of the last successful snapshot, retained across failures |
+
+Kafka heads include every message class read by the group, including messages its handler
+will skip. They are not an exact oldest email per delivery class, provider-acceptance delay,
+or mailbox delivery time. They exclude producer outboxes and already committed retries.
+Kafka record timestamps measure time since Kafka publication, not original application enqueue.
+The retry age starts later, at the first unsuccessful delivery, and also includes intentional
+future deferrals. These two ages describe separate queues and must not be added together.
+
+Head reads use Kafka `Fetch` directly, without group membership or commits. Each nonempty
+partition requests at most 1 MiB with a 500 ms broker wait and a one-second call deadline;
+identical heads shared by groups are read once per refresh. Kafka may return its complete
+first record batch even when it exceeds the requested byte limit. Only up to 1024 record
+metadata entries are inspected (to skip an earlier compressed-batch prefix); business values
+are neither decoded nor logged. A missing head, invalid offsets (including expired retention),
+missing timestamps or an exhausted inspection bound produce unavailable data, not zero age.
+
+Only groups observed by this process are monitored; they remain monitored when their consumer
+disconnects until the bus restarts. Kafka group offsets are never reset or modified by metrics.
+The retry metrics replace the previous periodic global COUNT query with a single grouped
+COUNT/MIN query every 30 seconds, using scalar columns only. There is no additional per-group
+retry scan or schema migration. The grouping adds work to the existing scan, while the refresh
+period and timeout bound its frequency and runtime. Partial failures do not hide successful
+group snapshots. An installed Grafana dashboard must distinguish absent/stale data from zero.
