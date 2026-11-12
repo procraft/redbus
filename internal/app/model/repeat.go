@@ -58,20 +58,28 @@ func (r *Repeat) SetZeroAttempt(defaultStrategy *RepeatStrategy) {
 	r.Attempt = 0
 }
 
+func (r *Repeat) effectiveStrategy(defaultStrategy *RepeatStrategy) *RepeatStrategy {
+	if r.Strategy != nil {
+		return r.Strategy
+	}
+	return defaultStrategy
+}
+
+// IsLastAttempt reports whether an ordinary failure would exhaust this retry.
+func (r *Repeat) IsLastAttempt(defaultStrategy *RepeatStrategy) bool {
+	return r.effectiveStrategy(defaultStrategy).MaxAttempts <= r.Attempt
+}
+
 // ApplyNextAttempt records an ordinary failure: it spends an attempt and clears Deferred.
 func (r *Repeat) ApplyNextAttempt(defaultStrategy *RepeatStrategy) {
 	r.Deferred = false
-	var strategy = defaultStrategy
-	if r.Strategy != nil {
-		strategy = r.Strategy
-	}
-	if strategy.MaxAttempts <= r.Attempt {
+	if r.IsLastAttempt(defaultStrategy) {
 		now := time.Now()
 		r.FinishedAt = &now
 		return
 	}
 	r.Attempt++
-	r.StartedAt = strategy.GetNextStartedAt(r.Attempt)
+	r.StartedAt = r.effectiveStrategy(defaultStrategy).GetNextStartedAt(r.Attempt)
 }
 
 // ApplyFailure schedules another delivery. A deferred result (retryLater) keeps the attempt, cannot

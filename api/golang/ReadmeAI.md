@@ -65,6 +65,11 @@ result echoes `batchId` and declares `consumeTimeoutSec`; `RetryLaterError` maps
 The handler goroutine outlives a timeout and may outlive `ConsumeMessages`, so its result channel
 is buffered and never closed. A failed send after cancellation is shutdown, not an error.
 
+The handler receives `Message.LastAttempt` from the bus. `WithLastAttemptFailure` runs only after
+an ordinary handler error on that delivery and shares the processing deadline. The original error
+is sent even if the callback fails or exceeds the remaining deadline. A missing bus result can
+lead to redelivery, so callback side effects need deduplication.
+
 ## Inbox modes
 
 `consumer.processWithInbox` owns the modes (`inboxStore` seam for unit tests). Pre-check in both

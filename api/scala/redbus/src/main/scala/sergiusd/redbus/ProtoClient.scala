@@ -106,13 +106,34 @@ final class ProtoClient private[redbus] (
       log.info(s"redbus: consumer for topic $topic, group $group is disabled")
       Future.unit
   }
+
+  /**
+   * Invokes the callback for an ordinary processor failure on the bus's last attempt, before
+   * acknowledging the result. The original failure is returned even if the callback fails.
+   * Callbacks can run more than once if the bus never receives or commits the failure result.
+   */
+  def consumeProtoWithLastAttemptFailure[T <: GeneratedMessage](
+    topic: String,
+    group: String,
+    inbox: consumer.InboxMode,
+  )(processor: (T, consumer.Model.MessageMeta) => Future[Unit])(
+    onLastAttemptFailure: (T, consumer.Model.MessageMeta, Throwable) => Future[Unit]
+  )(implicit companion: GeneratedMessageCompanion[T]): Future[Unit] = {
+    val callback = consumer.Option.WithLastAttemptFailure { (data, meta, failure) =>
+      ProtoClient.decoding[T](topic, group, log) { (message, decodedMeta) =>
+        onLastAttemptFailure(message, decodedMeta, failure)
+      }(companion)(data, meta)
+    }
+    consumeProto(topic, group, inbox, callback)(processor)
+  }
 }
 
 object ProtoClient {
 
   /**
    * @param log the SDK's own diagnostics go to `log.debug`; failures that need attention (a failed
-   *            outbox flush pass, an undecodable payload) go to `log.error` with their cause
+   *            outbox flush pass, an undecodable payload, a failed last-attempt callback) go to
+   *            `log.error` with their cause
    */
   def apply(
     settings: RedbusSettings,

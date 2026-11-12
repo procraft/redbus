@@ -14,11 +14,15 @@ object Model {
    * @param claimDba set only in the `Option.WithTransactionalInbox` mode: the inbox claim for this
    *                 message ([[IncomeMessages.claim]]). The processor runs it as the first step of its
    *                 own transaction; on `false` it skips the business logic and completes successfully.
+   * @param lastAttempt an ordinary failure would exhaust the bus retry budget
+   * @param idempotencyKey the producer's key, or the bus message ID when the producer supplied none
    */
   case class MessageMeta(
     version: Option[MessageVersion] = None,
     timestamp: Option[MessageTimestamp] = None,
     claimDba: Option[InboxClaim] = None,
+    lastAttempt: Boolean = false,
+    idempotencyKey: Option[MessageIdempotencyKey] = None,
   )
 
   type InboxClaim = DBIOAction[Boolean, NoStream, Effect.Write]
@@ -38,6 +42,8 @@ object Model {
     logger: String => Unit = _ => (),
     checkEventProcessedDatabase: Option[Database] = None,
     transactionalInbox: Boolean = false,
+    onLastAttemptFailure: Option[(Array[Byte], MessageMeta, Throwable) => Future[Unit]] = None,
+    errorLogger: Option[(String, Throwable) => Unit] = None,
   )
 
   class RepeatStrategy(

@@ -139,6 +139,12 @@ A retry record is therefore in one of three states:
 | deferred | waiting after a `retryLater` result; an ordinary failure clears the mark | *Deferred*, never an error |
 | failed | attempts exhausted (`finished_at` set); waits for a manual restart | *Failed* |
 
+`ConsumeResponse.Message.last_attempt` identifies a retry delivery whose ordinary failure would
+exhaust the active strategy. The SDKs can invoke an optional failure callback before returning the
+original handler error. A deferral still preserves the attempt. The callback may run again if
+the stream closes or persisting the failure result fails. A callback still running at the processing
+deadline may finish after the bus records the failure.
+
 ## Prometheus metrics
 
 The Redbus process exposes Prometheus metrics at `http://localhost:50008/metrics`. Set

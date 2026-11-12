@@ -3,6 +3,8 @@ package consumer
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -55,17 +57,19 @@ func startFakeBus(t *testing.T, bus *fakeBus) int {
 func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 	bus := &fakeBus{
 		batch: &pb.ConsumeResponse{BatchId: "batch-1", MessageList: []*pb.ConsumeResponse_Message{
-			{Id: "m1", Data: []byte("ok"), IdempotencyKey: "ik1", Version: 3, Timestamp: "2026-01-02T03:04:05+03:00"},
-			{Id: "m2", Data: []byte("fail")},
-			{Id: "m3", Data: []byte("panic")},
-			{Id: "m4", Data: []byte("later")},
+			{Id: "m1", Data: []byte("ok"), LastAttempt: true, IdempotencyKey: "ik1", Version: 3, Timestamp: "2026-01-02T03:04:05+03:00"},
+			{Id: "m2", Data: []byte("fail"), LastAttempt: true},
+			{Id: "m3", Data: []byte("panic"), LastAttempt: true},
+			{Id: "m4", Data: []byte("later"), LastAttempt: true},
+			{Id: "m5", Data: []byte("fail")},
 		}},
 		connect: make(chan *pb.ConsumeRequest_Connect, 1),
 		results: make(chan *pb.ConsumeRequest, 1),
 	}
 	port := startFakeBus(t, bus)
 
-	seen := make(chan Message, 4)
+	seen := make(chan Message, 5)
+	reported := make(chan string, 5)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error)
 	go func() {
@@ -77,16 +81,20 @@ func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 			case "panic":
 				panic("boom")
 			case "later":
-				return NewRetryLaterError(errors.New("throttled"), 3*time.Second)
+				return fmt.Errorf("wrapped: %w", NewRetryLaterError(errors.New("throttled"), 3*time.Second))
 			}
 			return nil
-		}, WithBatchSize(4), WithConsumeTimeout(10*time.Second), WithRepeatStrategyEven(5, 30))
+		}, WithBatchSize(5), WithConsumeTimeout(10*time.Second), WithRepeatStrategyEven(5, 30),
+			WithLastAttemptFailure(func(_ context.Context, msg Message, err error) error {
+				reported <- msg.ID + ": " + err.Error()
+				return errors.New("callback failed")
+			}))
 	}()
 
 	connect := <-bus.connect
 	require.Equal(t, "topic", connect.Topic)
 	require.Equal(t, "group", connect.Group)
-	require.Equal(t, int32(4), connect.BatchSize)
+	require.Equal(t, int32(5), connect.BatchSize)
 	require.Equal(t, int32(10), connect.ConsumeTimeoutSec)
 	require.Equal(t, int32(5), connect.RepeatStrategy.MaxAttempts)
 
@@ -99,7 +107,7 @@ func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 	for _, r := range res.ResultList {
 		byID[r.Id] = r
 	}
-	require.Len(t, byID, 4)
+	require.Len(t, byID, 5)
 	require.True(t, byID["m1"].Ok)
 	require.False(t, byID["m2"].Ok)
 	require.Equal(t, "failed", byID["m2"].Message)
@@ -108,6 +116,9 @@ func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 	require.False(t, byID["m4"].Ok)
 	require.True(t, byID["m4"].RetryLater)
 	require.Equal(t, int32(3), byID["m4"].RetryAfterSec)
+	require.Equal(t, "failed", byID["m5"].Message)
+	require.Len(t, reported, 1)
+	require.Equal(t, "m2: failed", <-reported)
 
 	close(seen)
 	for msg := range seen {
@@ -115,9 +126,33 @@ func TestConsumeMessagesPassesMetadataAndReportsResults(t *testing.T) {
 			continue
 		}
 		require.Equal(t, "ik1", msg.IdempotencyKey)
+		require.True(t, msg.LastAttempt)
 		require.Equal(t, int64(3), msg.Version)
 		require.True(t, msg.Timestamp.Equal(time.Date(2026, 1, 2, 0, 4, 5, 0, time.UTC)))
 		require.Nil(t, msg.Claim)
+	}
+}
+
+func TestLastAttemptCallbackDeadlineKeepsHandlerError(t *testing.T) {
+	failure := errors.New("handler failed")
+	callbackDone := make(chan struct{})
+	s := session{
+		listener: Listener{
+			consumeTimeout: 100 * time.Millisecond,
+			onLastAttemptFailure: func(ctx context.Context, _ Message, _ error) error {
+				defer close(callbackDone)
+				<-ctx.Done()
+				return ctx.Err()
+			},
+		},
+		handler: func(context.Context, Message) error { return failure },
+		log:     slog.Default(),
+	}
+	require.ErrorIs(t, s.processMessage(context.Background(), &pb.ConsumeResponse_Message{LastAttempt: true}), failure)
+	select {
+	case <-callbackDone:
+	case <-time.After(time.Second):
+		t.Fatal("callback did not finish after deadline")
 	}
 }
 

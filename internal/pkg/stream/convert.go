@@ -11,8 +11,9 @@ func toPBMessageList(list model.MessageList) []*pb.ConsumeResponse_Message {
 	ret := make([]*pb.ConsumeResponse_Message, 0, len(list))
 	for _, v := range list {
 		item := pb.ConsumeResponse_Message{
-			Id:   v.Id,
-			Data: v.Value,
+			Id:          v.Id,
+			Data:        v.Value,
+			LastAttempt: v.LastAttempt,
 		}
 		if val, ok := v.Headers[model.Version]; ok {
 			valInt, _ := strconv.ParseInt(val, 10, 64)

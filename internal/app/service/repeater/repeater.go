@@ -167,7 +167,12 @@ func (r *Repeater) repeatProcessor(ctx context.Context, repeatList model.RepeatL
 		).ProcessMessageList(
 			logger.App,
 			bag.Consumer,
-			model.MessageList{{Id: repeat.MessageId, Value: repeat.Data, Headers: repeat.Headers}},
+			model.MessageList{{
+				Id:          repeat.MessageId,
+				Value:       repeat.Data,
+				Headers:     repeat.Headers,
+				LastAttempt: repeat.IsLastAttempt(r.defaultStrategy),
+			}},
 		)
 		if err != nil {
 			r.metrics.ObserveRetryAttempt(string(repeat.Topic), string(repeat.Group), "stream_error")

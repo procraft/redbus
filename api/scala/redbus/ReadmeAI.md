@@ -92,6 +92,14 @@ akka→pekko fallback, so:
   `PostgresProfile.backend.Database` for compatibility.
 - `ProtoClient.Transport` is the package-private seam that `ProtoClientSpec` replaces.
 
+`MessageMeta.lastAttempt` marks a retry whose ordinary failure exhausts the current strategy.
+`ProtoClient.consumeProtoWithLastAttemptFailure` or the byte-level `Option.WithLastAttemptFailure`
+invokes the callback before sending the original handler error, within the existing processing
+deadline. Callback failures and deadline expiration go to the configured error logger. A callback
+still running at the deadline can finish after the bus records the failure. A deferral never
+invokes the callback. Use
+`MessageMeta.idempotencyKey` to deduplicate callback effects on redelivery.
+
 ## Inbox dedup modes
 
 Both consumer modes use the client's `redbus_inbox` table (`api/inbox.sql`) with the key

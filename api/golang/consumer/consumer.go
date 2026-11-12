@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -250,6 +251,22 @@ func (s *session) processMessage(ctx context.Context, message *pb.ConsumeRespons
 	// однажды запишет результат. Закрытый или небуферизованный канал давал бы здесь панику
 	// "send on closed channel", а повторную — recover, пишущий в тот же канал.
 	processErrCh := make(chan error, 1)
+	var lastFailure chan error
+	handler := s.handler
+	if message.LastAttempt && s.listener.onLastAttemptFailure != nil {
+		lastFailure = make(chan error, 1)
+		handler = func(ctx context.Context, msg Message) error {
+			err := s.handler(ctx, msg)
+			var retryLater *RetryLaterError
+			if err != nil && !errors.As(err, &retryLater) && ctx.Err() == nil {
+				lastFailure <- err
+				if ctx.Err() == nil {
+					s.notifyLastAttemptFailure(ctx, msg, err)
+				}
+			}
+			return err
+		}
+	}
 
 	go func() {
 		defer func() {
@@ -258,7 +275,7 @@ func (s *session) processMessage(ctx context.Context, message *pb.ConsumeRespons
 			}
 		}()
 		processErrCh <- processWithInbox(
-			processCtx, s.store, s.listener.inboxMode, s.group, s.topic, fromPBMessage(message, s.log), s.handler, s.log,
+			processCtx, s.store, s.listener.inboxMode, s.group, s.topic, fromPBMessage(message, s.log), handler, s.log,
 		)
 	}()
 
@@ -266,10 +283,27 @@ func (s *session) processMessage(ctx context.Context, message *pb.ConsumeRespons
 	case err := <-processErrCh:
 		return err
 	case <-processCtx.Done():
+		select {
+		case err := <-lastFailure:
+			s.log.Warn("redbus: last-attempt failure callback exceeded processing deadline", "id", message.Id)
+			return err
+		default:
+		}
 		if ctx.Err() != nil {
 			return fmt.Errorf("Consumer stopped while processing %v", message.Id)
 		}
 		return fmt.Errorf("Execution timeout %v limit for %v", s.listener.consumeTimeout, message.Id)
+	}
+}
+
+func (s *session) notifyLastAttemptFailure(ctx context.Context, message Message, originalErr error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			s.log.Error("redbus: last-attempt failure callback panicked", "id", message.ID, "panic", recovered)
+		}
+	}()
+	if err := s.listener.onLastAttemptFailure(ctx, message, originalErr); err != nil {
+		s.log.Error("redbus: last-attempt failure callback failed", "id", message.ID, "error", err)
 	}
 }
 

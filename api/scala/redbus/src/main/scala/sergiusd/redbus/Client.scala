@@ -10,8 +10,8 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
  * @param produceTimeout      deadline of one direct `produce` call (default 30 s)
  * @param produceBatchTimeout deadline of one batch request of the outbox flusher (default 30 s)
- * @param errorLogger         receives every failed outbox flush pass with its cause; when absent
- *                            the report goes to `logger`, as in releases before 0.4.7
+ * @param errorLogger         receives failed outbox flushes and last-attempt callback errors
+ *                            with their cause; when absent the report goes to `logger`
  * @param maxMessageBytes     limit of one message payload for `produce` and `produceDba` (default
  *                            256 KiB, `Producer.defaultMaxMessageBytes`); a longer payload fails with
  *                            `producer.MessageTooLargeException`
@@ -89,7 +89,7 @@ case class Client(
   ): Future[Unit] = {
     new consumer.Consumer(
       grpc, s"$host:$port", topic, group, processor, addStopHook,
-      options :+ consumer.Option.withLogger(logger): _*,
+      options :+ consumer.Option.withLogger(logger, errorLogger): _*,
     ).consume()
   }
 

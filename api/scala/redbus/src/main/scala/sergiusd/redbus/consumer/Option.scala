@@ -2,6 +2,7 @@ package sergiusd.redbus.consumer
 
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.backend.Database
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 object Option {
@@ -77,7 +78,14 @@ object Option {
     }
   }
 
-  private[redbus] def withLogger(logger: String => Unit): Fn = {
-    consumer => consumer.copy(logger = logger)
-  }
+  private[redbus] def withLogger(logger: String => Unit, errorLogger: Option[(String, Throwable) => Unit]): Fn =
+    listener => listener.copy(logger = logger, errorLogger = errorLogger)
+
+  /**
+   * Observes an ordinary handler error on a delivery marked `lastAttempt`. The callback uses the
+   * existing processing deadline and its result does not replace the handler error.
+   */
+  def WithLastAttemptFailure(
+    callback: (Array[Byte], Model.MessageMeta, Throwable) => Future[Unit],
+  ): Fn = listener => listener.copy(onLastAttemptFailure = Some(callback))
 }

@@ -9,6 +9,24 @@ import (
 	"github.com/procraft/redbus/internal/pkg/runtime"
 )
 
+func TestRepeatLastAttemptUsesEffectiveStrategy(t *testing.T) {
+	defaultStrategy := NewRepeatStrategyEven(5, Duration{Duration: time.Minute})
+	repeat := Repeat{Attempt: 4}
+	require.False(t, repeat.IsLastAttempt(defaultStrategy))
+	repeat.ApplyNextAttempt(defaultStrategy)
+	require.True(t, repeat.IsLastAttempt(defaultStrategy))
+	repeat.ApplyFailure(defaultStrategy, true, time.Minute)
+	require.True(t, repeat.IsLastAttempt(defaultStrategy))
+	require.Nil(t, repeat.FinishedAt)
+
+	repeat.Strategy = NewRepeatStrategyEven(6, Duration{Duration: time.Minute})
+	require.False(t, repeat.IsLastAttempt(defaultStrategy))
+	repeat.ApplyNextAttempt(defaultStrategy)
+	require.True(t, repeat.IsLastAttempt(defaultStrategy))
+	repeat.ApplyNextAttempt(defaultStrategy)
+	require.NotNil(t, repeat.FinishedAt)
+}
+
 func TestRepeatApplyFailurePreservesAttemptAndUsesConsumerDelay(t *testing.T) {
 	runtime.SetStatic("2026-09-09T10:00:00Z")
 	t.Cleanup(runtime.ResetNowFn)

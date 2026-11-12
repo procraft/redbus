@@ -50,6 +50,7 @@ func fromPBMessage(m *pb.ConsumeResponse_Message, log *slog.Logger) Message {
 		Data:           m.Data,
 		IdempotencyKey: m.IdempotencyKey,
 		Version:        m.Version,
+		LastAttempt:    m.LastAttempt,
 	}
 	if m.Timestamp != "" {
 		ts, err := time.Parse(time.RFC3339, m.Timestamp)

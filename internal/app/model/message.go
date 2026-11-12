@@ -5,10 +5,11 @@ import (
 )
 
 type Message struct {
-	Id      string
-	Key     []byte
-	Value   []byte
-	Headers map[string]string
+	Id          string
+	Key         []byte
+	Value       []byte
+	Headers     map[string]string
+	LastAttempt bool
 }
 
 type MessageList []Message

@@ -187,7 +187,21 @@ class Consumer(
   }
 
   private def processMessage(message: ConsumeResponse.Message): Future[Either[Throwable, Unit]] = {
-    runWithTimeout(listener.consumeTimeout) {
+    val lastAttemptFailure = listener.onLastAttemptFailure.filter(_ => message.lastAttempt).map { notify =>
+      new LastAttemptFailure(notify, error => {
+        val detail = s"redbus.receive.last-attempt-callback: topic=$topic group=$group id=${message.id}"
+        listener.errorLogger match {
+          case Some(logger) => logger(detail, error)
+          case None => log(s"$detail: ${error.getMessage}")
+        }
+      })
+    }
+    val timeout = after(listener.consumeTimeout, actorSystem.scheduler) {
+      lastAttemptFailure.fold[Future[Either[Throwable, Unit]]](
+        Future.failed(new TimeoutException("Future timed out"))
+      )(_.onTimeout())
+    }
+    val processing = {
       val idempotencyKey = if (message.idempotencyKey.nonEmpty) message.idempotencyKey else message.id
       InboxProcessing.process(
         store = inboxStore,
@@ -199,11 +213,14 @@ class Consumer(
         meta = MessageMeta(
           version = if (message.version == 0) None else Some(message.version),
           timestamp = if (message.timestamp.isEmpty) None else Some(ZonedDateTime.parse(message.timestamp)),
+          lastAttempt = message.lastAttempt,
+          idempotencyKey = Some(idempotencyKey).filter(_.nonEmpty),
         ),
-        processor = processor,
+        processor = lastAttemptFailure.fold(processor)(_.wrap(processor)),
         log = log,
       )
     }
+    Future.firstCompletedOf(Seq(processing, timeout))
   }
 
   private def runWithPause(duration: FiniteDuration)(fn: => Unit): Unit = {
@@ -212,14 +229,6 @@ class Consumer(
       pr.complete(Try(()))
     }
     pr.future.map(_ => fn)
-  }
-
-  private def runWithTimeout[T](duration: FiniteDuration)(f: Future[T])
-    (implicit ec: ExecutionContext, actorSystem: ActorSystem): Future[T] = {
-    val timeoutFuture = after(duration, actorSystem.scheduler)(
-      Future.failed(new TimeoutException("Future timed out"))
-    )
-    Future.firstCompletedOf(Seq(f, timeoutFuture))
   }
 
 }

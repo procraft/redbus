@@ -1,11 +1,20 @@
 package consumer
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
 	"github.com/procraft/redbus/api/golang/inbox"
 )
+
+// WithLastAttemptFailure observes an ordinary handler error on a delivery marked LastAttempt.
+// The callback runs within the processing deadline; callback errors do not replace the handler error.
+func WithLastAttemptFailure(callback func(context.Context, Message, error) error) OptionFn {
+	return func(listener *Listener) {
+		listener.onLastAttemptFailure = callback
+	}
+}
 
 type ServiceOptionFn = func(c *Service)
 

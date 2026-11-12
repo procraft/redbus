@@ -183,6 +183,26 @@ class ProtoClientSpec extends AnyWordSpec with Matchers with org.scalatest.LoneE
     "apply the caller's options after the inbox" in {
       listenerFor(InboxMode.OnlyOnce, consumer.Option.WithBatchSize(5)).batchSize shouldBe 5
     }
+
+    "wire the decoded command, metadata and synchronous handler error to a typed callback" in {
+      val transport = new FakeTransport
+      val c = client(settings(producer = false, consumer = true), transport)
+      val failure = new IllegalStateException("handler failed")
+      @volatile var received: Option[(Payload, Model.MessageMeta, Throwable)] = None
+      await(c.consumeProtoWithLastAttemptFailure[Payload]("topic", "group", InboxMode.OnlyOnce)(
+        (_, _) => throw failure
+      ) { (payload, meta, error) =>
+        received = Some((payload, meta, error))
+        Future.unit
+      })
+
+      val (_, _, processor, options) = transport.consumed.loneElement
+      val callback = options.foldLeft(init)((listener, option) => option(listener)).onLastAttemptFailure.get
+      val meta = Model.MessageMeta(lastAttempt = true, idempotencyKey = Some("command"))
+      val error = await(processor(message.toByteArray, meta).failed)
+      await(callback(message.toByteArray, meta, error))
+      received shouldBe Some((message, meta, failure))
+    }
   }
 
   "ProtoClient.decoding" should {

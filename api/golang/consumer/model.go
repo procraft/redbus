@@ -17,11 +17,12 @@ type Service struct {
 }
 
 type Listener struct {
-	consumeTimeout time.Duration
-	repeatStrategy *RepeatStrategy
-	batchSize      int
-	inboxDB        inbox.DB
-	inboxMode      inbox.Mode
+	consumeTimeout       time.Duration
+	repeatStrategy       *RepeatStrategy
+	batchSize            int
+	inboxDB              inbox.DB
+	inboxMode            inbox.Mode
+	onLastAttemptFailure func(context.Context, Message, error) error
 }
 
 type RepeatStrategy struct {
@@ -53,6 +54,8 @@ type Message struct {
 	Version int64
 	// Timestamp is the producer's timestamp, zero when absent or unparsable.
 	Timestamp time.Time
+	// LastAttempt means an ordinary failure would exhaust the bus retry budget.
+	LastAttempt bool
 	// Claim is set only in the inbox.Transactional mode: run it as the first step of the handler's
 	// own transaction (see inbox.Guard); on false skip the business logic and return nil.
 	Claim inbox.ClaimFunc

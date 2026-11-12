@@ -104,6 +104,9 @@ message ConsumeResponse {
     string idempotencyKey = 3;
     string timestamp = 4;
     int64 version = 5;
+    // An ordinary failure of this delivery will exhaust the retry budget. Deferrals still
+    // preserve the attempt. This is set before processing, not an acknowledgement of failure.
+    bool last_attempt = 6;
   }
 
   Connect connect = 1;
