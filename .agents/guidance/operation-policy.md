@@ -49,27 +49,32 @@ authorization is not a reason to bypass a denied tool or use broader credentials
 - **Local database reading:** read whenever necessary without asking. Resolve the actual endpoint:
   a localhost tunnel to stage/prod is not a local database. No implicit writes, migrations, fixture
   changes, clones, new databases or permission grants.
-- **Production database:** agents do not execute production SQL. The one exception is a query plan:
-  one plain `EXPLAIN` (no `ANALYZE`) runs without asking through
-  `/<workspace>/lms-ai-multi-repo/.agents/tools/prod-access/explain.sh prod|stage /abs/path/query.sql`,
-  which plans without reading data. Otherwise put the statements in a file and
-  hand the user one ready command. Repository-managed manual migrations use the owning repository's
+- **Production database:** run a scoped read-only SQL batch through
+  `/<workspace>/lms-ai-multi-repo/.agents/tools/prod-access/pg-read.sh prod|stage /abs/path/query.sql`.
+  Use the guarded launcher first when the requested data check fits a SELECT-only batch. The launcher's
+  guard rejects transaction control and `SET`. The tool itself sets `ON_ERROR_STOP`, the read-only session
+  and `statement_timeout` (19 s; `--timeout=SEC` up to 55), so the file carries none of them.
+  One plain `EXPLAIN` uses
+  `/<workspace>/lms-ai-multi-repo/.agents/tools/prod-access/explain.sh prod|stage /abs/path/query.sql`.
+  Repository-managed manual migrations use the owning repository's
   documented migration runner; the following generic wrapper is for ad hoc writes. This routing
-  distinction does not authorize agents to execute production SQL. An ad hoc write goes through
-  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql-rw.sh prod|stage /abs/path/change.sql`: it picks
+  distinction does not authorize agents to execute production writes. An ad hoc write goes through
+  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/pg-write.sh prod|stage /abs/path/change.sql`: it picks
   `SOHOLMS_PROD_PG_RW_URL` (role `libicraft`, password typed by the user at psql's prompt) or the
   stage URL itself, never `-U libicraft` on the read string (a role inside the URL wins over `-U`).
   See `.agents/docs/postgres-prod-access.md`. Do not source `prod.env` or run `psql` with a
   `SOHOLMS_PROD_PG_*` string in the session shell: the safety gate denies it deterministically, and
-  a retry cannot change that. A question that needs production data goes to the explicit-only
-  `runtime-investigate-problem` (isolated read-only session). For a plain SELECT batch, write one SQL
-  file and hand the user exactly this command, with absolute paths, then read the `.out` file yourself:
-  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/sql.sh prod|stage /abs/path/query.sql`.
+  a retry cannot change that. The explicit-only `runtime-investigate-problem` workflow owns isolated
+  investigations that correlate production data and logs. If the guarded launcher is denied or the
+  required read cannot pass its guard, hand the user one command with absolute paths, then read the
+  `.out` file yourself:
+  `/<workspace>/lms-ai-multi-repo/dev-tools/tunnel/pg-read.sh prod|stage /abs/path/query.sql`.
   The script loads `prod.env`/`stage.env` and enforces read-only; never hand-assemble
   `psql "$SOHOLMS_…"`: without the env file it connects to an empty URL.
 - **User-run commands:** when the user must run a database command, use the owning repository's
   documented manual-migration runner when applicable; otherwise hand over exactly one line calling
-  `sql.sh` (read) or `sql-rw.sh` (ad hoc write) with absolute paths. Never hand-assemble `psql`, env-file
+  `dev-tools/tunnel/pg-read.sh` (read) or `pg-write.sh` (ad hoc write, same arguments) with absolute
+  paths. Never hand-assemble `psql`, env-file
   sourcing or variable names; never ask the user to paste a URL, password, token or other secret into
   chat; never ask the user to run a git command the agent can run itself.
 - **Separate sessions:** when the user lists two or more independent items to do "в отдельных
