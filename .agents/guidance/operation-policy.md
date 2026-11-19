@@ -149,6 +149,13 @@ turn, a hundred sessions longer than eight hours), so:
 
 ## Respect developer time
 
+For new service/operator HTTP endpoints, use GET so the operator can invoke them in a browser,
+as requested by the user. Keep read-only requests free of side effects; for an operation that
+changes state, account for browsers, prefetchers, caches and retries that may repeat a GET, and
+explain the safeguards and risks when seeking the operation's authorization. Never put
+credentials in the URL, browser history or logs, and preserve explicit authorization for production
+changes.
+
 Before asking the developer for information or a manual command, use the conversation, repository,
 available read-only tools, and already granted authority to resolve what can be resolved safely.
 Ask only for a material decision, missing fact, approval, or human-only action that actually blocks
