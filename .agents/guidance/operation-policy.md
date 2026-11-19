@@ -132,6 +132,21 @@ turn, a hundred sessions longer than eight hours), so:
   compilation. If the wait tool has a shorter cap, leave the same 600-second background task running
   and collect its completion through notifications or bounded waits. A wait timeout is not a build
   failure: never cancel or restart the compilation merely because a wait call timed out.
+- Bound every test, build, lint, or check command so a hang ends on its own:
+  - Put the bound inside the command (`timeout <sec> …`, sized at a few times the expected duration,
+    for example 600 for a focused Jest run). A client's timeout that moves the command to the
+    background does not bound it.
+  - Redirect its output to a file and read the file; never pipe it into `tail`, `head`, or `grep`.
+    A pipe holds back everything until the command exits, so a finished run that cannot exit looks
+    empty, and a loop or waiter keyed on that output never fires.
+  - Give any wait on its output a deadline.
+  - When a command runs well past its expected time, check `ps`. A process at 0% CPU for five
+    minutes that is not reporting a documented wait (such as the `back-sbt.sh` concurrency gate) is
+    hung: kill it, report the command and its last output, and rerun it bounded. Do not wait idle
+    for a notification from it.
+  - WHY: on 2026-11-19 an unbounded `jest … | tail -30` sat at 0% CPU for an hour. Jest had finished
+    and printed why it could not exit, but the pipe hid it. Repository specifics: the lms-front Jest
+    command is in that repository's `AGENTS.md`.
 - Ticket work in `lms-back`/`lms-front` happens only in a task workspace from
   `wt task SL-N <slug> --repo back|front|both` (branch `wt/sl-n-<slug>` from fresh `origin/master`),
   is delivered from that branch, and is retired with `wt done` (coordinator

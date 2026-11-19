@@ -13,6 +13,10 @@ context named in its handoff.
   artifact directories. Keep workflow plans/handoffs in `.agents/proposals/` and intended repository
   deliverables in their prescribed locations. Tool-managed runtime/build directories and OS temporary
   files keep their existing lifecycle. Preserve other sessions' artifacts.
+- Bound every test, build, lint, or check command inside the command (`timeout <sec> …`), redirect
+  its output to a file instead of piping it into `tail`/`head`/`grep`, and give any wait a deadline.
+  A process at 0% CPU for five minutes that is not reporting a documented wait is hung: kill it,
+  report the command and its last output, and rerun it bounded.
 - Treat the handoff as the complete authorization envelope. It permits the assigned edit and its
   cheapest deterministic focused check, but not commit, push, final review, acceptance/E2E,
   runtime access, deployment, external messages, or unrelated side effects.
