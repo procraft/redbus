@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -253,4 +254,33 @@ func TestRunSweepsAtStart(t *testing.T) {
 	cancel()
 	require.NoError(t, <-done)
 	require.Empty(t, store.rows)
+}
+
+func TestSubscribeRetriesTheInitialListen(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	f := newFlusher(&memStore{}, nil)
+	var channels []string
+	sweeps := 0
+	f.subscribe(ctx, func(channel string) error {
+		channels = append(channels, channel)
+		if len(channels) == 1 {
+			return errors.New("server rejected LISTEN")
+		}
+		return nil
+	}, func() { sweeps++ })
+
+	require.Equal(t, []string{Channel, Channel}, channels)
+	require.Equal(t, 1, sweeps)
+}
+
+func TestSubscribeStopsRetryingOnCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f := newFlusher(&memStore{}, nil)
+	f.subscribe(ctx, func(string) error {
+		require.NoError(t, ctx.Err())
+		cancel()
+		return errors.New("listen interrupted")
+	}, func() { t.Fatal("a failed subscription must not trigger a sweep") })
 }

@@ -2,13 +2,17 @@ package outbox_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -191,4 +195,90 @@ func TestRunReactsToNotification(t *testing.T) {
 	}
 	cancel()
 	require.NoError(t, <-done)
+}
+
+func TestRunResumesDeliveryAfterListenerReconnects(t *testing.T) {
+	db := pgtest.New(t)
+	dsn, err := url.Parse(db.DSN)
+	require.NoError(t, err)
+	q := dsn.Query()
+	q.Set("application_name", "redbus-outbox-reconnect-test")
+	dsn.RawQuery = q.Encode()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	admin, err := sql.Open("postgres", os.Getenv(pgtest.EnvURL))
+	require.NoError(t, err)
+	defer admin.Close()
+	control, err := db.Conn(ctx)
+	require.NoError(t, err)
+	defer control.Close()
+	var database string
+	require.NoError(t, control.QueryRowContext(ctx, `SELECT current_database()`).Scan(&database))
+	alterDatabase := "ALTER DATABASE " + pq.QuoteIdentifier(database)
+
+	published := make(chan string, 3)
+	f := outbox.NewFlusher(db.DB, func(_ context.Context, req *pb.ProduceBatchRequest) error {
+		for _, msg := range req.MessageList {
+			select {
+			case published <- string(msg.Message):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
+	}, outbox.WithListenDSN(dsn.String()), outbox.WithSweepInterval(time.Hour))
+	done := make(chan struct{})
+	var runErr error
+	go func() {
+		runErr = f.Run(ctx)
+		close(done)
+	}()
+	defer func() {
+		cancel()
+		<-done
+		require.NoError(t, runErr)
+	}()
+	expectPublished := func(payload string) {
+		t.Helper()
+		select {
+		case got := <-published:
+			require.Equal(t, payload, got)
+		case <-ctx.Done():
+			t.Fatalf("outbox did not publish %q", payload)
+		}
+	}
+	listenerPID := func() int {
+		var pid int
+		_ = control.QueryRowContext(ctx, `SELECT pid FROM pg_stat_activity
+			WHERE datname = current_database() AND usename = current_user
+			  AND application_name = $1 AND state = 'idle' AND query = 'LISTEN "redbus_outbox"'`,
+			q.Get("application_name")).Scan(&pid)
+		return pid
+	}
+	var originalPID int
+	require.Eventually(t, func() bool {
+		originalPID = listenerPID()
+		return originalPID != 0
+	}, 5*time.Second, 25*time.Millisecond)
+
+	// Keep the listener offline while writing the row. Existing DB connections remain usable.
+	_, err = admin.ExecContext(ctx, alterDatabase+" ALLOW_CONNECTIONS false")
+	require.NoError(t, err)
+	var terminated bool
+	require.NoError(t, control.QueryRowContext(ctx, `SELECT pg_terminate_backend($1)`, originalPID).Scan(&terminated))
+	require.True(t, terminated)
+	require.Eventually(t, func() bool { return listenerPID() == 0 }, 5*time.Second, 25*time.Millisecond)
+	require.NoError(t, outbox.Write(ctx, control, "topic", []byte("missed")))
+
+	_, err = admin.ExecContext(ctx, alterDatabase+" ALLOW_CONNECTIONS true")
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		pid := listenerPID()
+		return pid != 0 && pid != originalPID
+	}, 5*time.Second, 25*time.Millisecond)
+	expectPublished("missed")
+
+	require.NoError(t, outbox.Write(ctx, db, "topic", []byte("after")))
+	expectPublished("after")
 }

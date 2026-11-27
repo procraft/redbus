@@ -245,7 +245,9 @@ object Flusher {
       "redbusFlusherActor",
     )
 
-    PostgresListener.listen(db) { id => dispatcher ! ProcessMessage(id) }
+    PostgresListener.listen(db, onSubscribed = () => dispatcher ! ProcessMessage("listen")) { id =>
+      dispatcher ! ProcessMessage(id)
+    }
 
     as.scheduler.scheduleAtFixedRate(Duration.Zero, sweepInterval)(() => {
       dispatcher ! ProcessMessage("sweep")

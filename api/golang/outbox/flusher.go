@@ -140,18 +140,13 @@ func (f *Flusher) Run(ctx context.Context) error {
 
 	var notifications <-chan *pq.Notification
 	if f.listenDSN != "" {
-		l := pq.NewListener(f.listenDSN, time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
+		l := pq.NewListener(f.listenDSN, time.Second, time.Minute, func(_ pq.ListenerEventType, err error) {
 			if err != nil {
 				f.log.Warn("redbus outbox: listener connection", "error", err)
 			}
 		})
 		defer l.Close()
-		// Listen blocks while the database is unreachable; sweeps go on meanwhile.
-		go func() {
-			if err := l.Listen(Channel); err != nil && ctx.Err() == nil {
-				f.log.Error("redbus outbox: listen failed, only the periodic sweep delivers rows", "error", err)
-			}
-		}()
+		go f.subscribe(ctx, l.Listen, notify)
 		notifications = l.NotificationChannel()
 	}
 
@@ -194,9 +189,39 @@ func (f *Flusher) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			notify()
-		case <-notifications:
+		case _, ok := <-notifications:
+			if !ok {
+				notifications = nil
+				continue
+			}
 			// A nil notification follows a listener reconnect: notifications may have been lost.
 			notify()
+		}
+	}
+}
+
+// subscribe registers the channel while sweeps run. Once registered, lib/pq handles reconnects
+// and resubscribes on its own. A server error on the initial LISTEN leaves the channel unregistered.
+func (f *Flusher) subscribe(ctx context.Context, listen func(string) error, notify func()) {
+	warned := false
+	for ctx.Err() == nil {
+		err := listen(Channel)
+		if err == nil {
+			// Rows may have committed after the startup sweep and before LISTEN succeeded.
+			notify()
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if !warned {
+			f.log.Warn("redbus outbox: initial LISTEN failed, retrying subscription", "error", err)
+			warned = true
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
 		}
 	}
 }

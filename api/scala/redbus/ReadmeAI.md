@@ -201,9 +201,9 @@ pass (`inProgress` never reset, so sweeps only set `pending`).
 ## Outbox flusher invariants
 
 - Triggers: `pg_notify('redbus_outbox')` from the table trigger (polled every 100 ms by
-  `PostgresListener`) **and** a periodic sweep (`sweepInterval`, default
-  `Flusher.defaultSweepInterval` = 30 s, first sweep immediately at start). The sweep is what
-  delivers rows left over from a restart or a missed notification — do not remove it.
+  `PostgresListener`), a catch-up sweep after the first subscription and each successful
+  resubscription, and a periodic sweep (`sweepInterval`, default 30 s, first sweep at startup).
+  The periodic sweep covers missed notifications while the listener is unavailable.
 - One pass at a time. A trigger arriving during a pass sets `pending`, and another pass starts right
   after the current one finishes. Actor state is mutated only inside `receive`; the future completion
   reports back with `ProcessingFinished` via `self`.

@@ -80,9 +80,11 @@ transaction ends.
 
 ## Outbox flusher
 
-- Triggers: start sweep, periodic sweep, optional lib/pq `LISTEN redbus_outbox` (a nil notification
-  after a reconnect also triggers). A trigger channel with buffer one gives one pass at a time plus
-  one remembered pending pass.
+- Triggers: start sweep, periodic sweep, optional lib/pq `LISTEN redbus_outbox`. The initial
+  subscription retries server errors and triggers a catch-up sweep once active. lib/pq restores
+  established subscriptions after a disconnect and sends a nil notification, which also triggers
+  a catch-up sweep. A trigger channel with buffer one gives one pass at a time plus one remembered
+  pending pass.
 - Order is a per-topic guarantee only. Each step is one transaction: `SELECT … [WHERE topic NOT IN
   (failed…)] ORDER BY id LIMIT n FOR UPDATE`, group the rows by topic in the order of each topic's
   first row, publish every group with its own request, `DELETE … WHERE id IN (…)` of the published
